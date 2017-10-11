@@ -131,7 +131,6 @@ class HDF5Volume(Volume):
         	#print(filename)
         	#print (datasets)
         	print ('len is {}'.format(len(datasets)))
-        	count  =0
         	for dataset in datasets:
         		hdf5_file = dataset['hdf5_file']
         		filename = data_dir + '/'+ hdf5_file
@@ -145,15 +144,17 @@ class HDF5Volume(Volume):
         		mask_dataset = dataset.get('mask_dataset', None)
         		mask_bounds = dataset.get('mask_bounds', None)
         		resolution = dataset.get('resolution', None)
+        		gradX_dataset =dataset.get('gradX_dataset', None)
+        		gradY_dataset =dataset.get('gradY_dataset', None)
+        		gradZ_dataset =dataset.get('gradZ_dataset', None)
+        		distTF_dataset =dataset.get('gradTF_dataset', None)
+
         		volume = HDF5Volume(filename,
         			image_dataset,
         			label_dataset,
         			mask_dataset,
         			mask_bounds=mask_bounds)
         		volumes[dataset['name']] = volume
-        		count +=1
-        		if count > 0:
-        			break
                 # If the volume configuration specifies an explicit resolution,
                 # override any provided in the HDF5 itself.
                 # if resolution:
@@ -166,11 +167,17 @@ class HDF5Volume(Volume):
     def write_file(filename, resolution, **kwargs):
         h5file = h5py.File(filename, 'w')
         config = {'hdf5_file': filename}
-        channels = ['image', 'label', 'mask']
+        channels = ['image', 'label', 'mask','gradX','gradY','gradY','distTF']
         default_datasets = {
             'image': 'volumes/raw',
             'label': 'volumes/labels/neuron_ids',
             'mask': 'volumes/labels/mask',
+            'gradX': 'transformed_label/directionX',
+            'gradY': 'transformed_label/directionY',
+            'gradZ': 'transformed_label/directionZ',
+            'distTF': 'transformed_label/distabce',
+
+
         }
         for channel in channels:
             data = kwargs.get('{}_data'.format(channel), None)

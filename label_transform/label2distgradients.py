@@ -14,19 +14,7 @@ from volumes import HDF5Volume
 data_config = '../conf/cremi_datasets.toml'
 volumes = HDF5Volume.from_toml(data_config)
 v_names = volumes.keys()
-lb_array = volumes[v_names[0]].label_data
 
-lb_array = lb_array[0:10,:,:]
-lb_shape = lb_array.shape
-lb_array = np.array(lb_array).astype(np.float32)
-obj_ids  = np.unique(lb_array).tolist()
-# ----  number of directional maps =  gradient along each of its demention + 1 distance transform map ----
-dir_map  = np.zeros([lb_array.ndim+1] + list(lb_array.shape)).astype(np.float32)
-dirmap_shape = dir_map.shape
-dir_map.shape =1*dir_map.size
-lb_array.shape=1*lb_array.size
-shared_dirmap = mp.Array(ctypes.c_float, dir_map)
-share_lbs = mp.Array(ctypes.c_float, lb_array)
 
 
 
@@ -36,6 +24,8 @@ def update_callback(rs_return):
 		print("callback finished {} out of {}".format(n_id,len(obj_ids)))
 def gradient_worker_2D_on_xy(slices):
 		shared_lb = np.frombuffer(share_lbs.get_obj(),dtype=np.float32).reshape(lb_shape)
+		print (slices)
+		dirmap = np.frombuffer(shared_dirmap.get_obj(),dtype=np.float32).reshape(dirmap_shape)
 		for slice_id in slices:
 			#print('start slice {} in xy'.format(slice_id) )
 			assert slice_id >=0 and slice_id < lb_shape[0]
@@ -46,7 +36,7 @@ def gradient_worker_2D_on_xy(slices):
 			sum_dt = np.zeros(lb_xy_shape)
 			slice_lbs =shared_lb[slice_id,:,:]
 			s_ids =np.unique(slice_lbs).tolist()
-			print('there are {} objects in slice {}'.format(len(s_ids),slice_id))
+			#print('there are {} objects in slice {}'.format(len(s_ids),slice_id))
 			for obj_id in s_ids:
 				obj_arr = (slice_lbs == obj_id).astype(int)
 				dt	=  dis_transform(obj_arr)
@@ -59,16 +49,15 @@ def gradient_worker_2D_on_xy(slices):
 				sum_dt+=dt
 
 			with shared_dirmap.get_lock():
-				dirmap = np.frombuffer(shared_dirmap.get_obj(),dtype=np.float32).reshape(dirmap_shape)
 				dirmap[1,slice_id,:,:]+=sum_gx
 				dirmap[2,slice_id,:,:]+=sum_gy
 				# dimension 4 stores the distance transform
 				dirmap[3,slice_id,:,:]+=sum_dt
-				print('done updating dirmap')
-			return slices
+		return slices
 
 def gradient_worker_2D_on_z(slices):
 		shared_lb = np.frombuffer(share_lbs.get_obj(),dtype=np.float32).reshape(lb_shape)
+		dirmap = np.frombuffer(shared_dirmap.get_obj(),dtype=np.float32).reshape(dirmap_shape)
 		for slice_id in slices:
 			assert slice_id >=0 and slice_id < lb_shape[2]
 			# this shape supporse to be 125 by 1250
@@ -87,11 +76,10 @@ def gradient_worker_2D_on_z(slices):
 				sum_gz+=gz
 				sum_dt+=dt
 			with shared_dirmap.get_lock():
-				dirmap = np.frombuffer(shared_dirmap.get_obj(),dtype=np.float32).reshape(dirmap_shape)
 				dirmap[0,:,:,slice_id]+=sum_gz
 				# dimension 4 stores the distance transform
 				dirmap[3,slice_id,:,:]+=sum_dt
-			return slices
+		return slices
 def gradient_worker_3D(n_id):
 		print("start creating zeros array")
 		n_ids = n_id if isinstance(n_id,list) else [n_id]
@@ -168,6 +156,18 @@ def test():
 	plt.savefig('dir_map_y.png')
 	plt.imshow(dirmap[3,3,:,:])
 	plt.savefig('dist_map.png')
-
 if __name__ =='__main__':
-	test()
+	volume_names =  volumes.keys()
+	for v_name in volume_names:
+		lb_array = volumes[v_name].label_data
+		lb_shape = lb_array.shape
+		print (v_name)
+		lb_array = np.array(lb_array).astype(np.float32)
+		obj_ids  = np.unique(lb_array).tolist()
+		# ----  number of directional maps =  gradient along each of its demention + 1 distance transform map ----
+		dir_map  = np.zeros([lb_array.ndim+1] + list(lb_array.shape)).astype(np.float32)
+		dirmap_shape = dir_map.shape
+		dir_map.shape =1*dir_map.size
+		lb_array.shape=1*lb_array.size
+		shared_dirmap = mp.Array(ctypes.c_float, dir_map)
+		share_lbs = mp.Array(ctypes.c_float, lb_array)
