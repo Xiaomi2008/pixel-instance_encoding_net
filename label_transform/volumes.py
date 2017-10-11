@@ -164,10 +164,10 @@ class HDF5Volume(Volume):
         return volumes
 
     @staticmethod
-    def write_file(filename, resolution, **kwargs):
+    def write_file(filename, **kwargs):
         h5file = h5py.File(filename, 'w')
         config = {'hdf5_file': filename}
-        channels = ['image', 'label', 'mask','gradX','gradY','gradY','distTF']
+        channels = ['image', 'label', 'mask','gradX','gradY','gradZ','distTF']
         default_datasets = {
             'image': 'volumes/raw',
             'label': 'volumes/labels/neuron_ids',
@@ -184,7 +184,7 @@ class HDF5Volume(Volume):
             dataset_name = kwargs.get('{}_dataset'.format(channel), default_datasets[channel])
             if data is not None:
                 dataset = h5file.create_dataset(dataset_name, data=data, dtype=data.dtype)
-                dataset.attrs['resolution'] = resolution
+                #dataset.attrs['resolution'] = resolution
                 config['{}_dataset'.format(channel)] = dataset_name
 
         h5file.close()

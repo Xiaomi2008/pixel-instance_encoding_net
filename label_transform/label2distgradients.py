@@ -13,12 +13,6 @@ from volumes import HDF5Volume
 
 data_config = '../conf/cremi_datasets.toml'
 volumes = HDF5Volume.from_toml(data_config)
-v_names = volumes.keys()
-
-
-
-
-
 def update_callback(rs_return):
 		n_id = rs_return
 		print("callback finished {} out of {}".format(n_id,len(obj_ids)))
@@ -148,6 +142,7 @@ def start(mode='2D'):
 def test():
 	start(mode='2D')
 	dirmap = np.frombuffer(shared_dirmap.get_obj(),dtype=np.float32).reshape(dirmap_shape)
+def savefig(dirmap):
 	plt.imshow(dirmap[0,3,:,:])
 	plt.savefig('dir_map_z.png')
 	plt.imshow(dirmap[1,3,:,:])
@@ -159,7 +154,7 @@ def test():
 if __name__ =='__main__':
 	volume_names =  volumes.keys()
 	for v_name in volume_names:
-		lb_array = volumes[v_name].label_data
+		lb_array = volumes[v_name].label_data[0:10,:,:]
 		lb_shape = lb_array.shape
 		print (v_name)
 		lb_array = np.array(lb_array).astype(np.float32)
@@ -171,3 +166,17 @@ if __name__ =='__main__':
 		lb_array.shape=1*lb_array.size
 		shared_dirmap = mp.Array(ctypes.c_float, dir_map)
 		share_lbs = mp.Array(ctypes.c_float, lb_array)
+		start(mode='2D')
+		dirmap = np.frombuffer(shared_dirmap.get_obj(),dtype=np.float32).reshape(dirmap_shape)
+		savefig(dirmap)
+		file_name = '../data/' + v_name.strip().replace(' ','') + '_with_extra_labels.h5'
+		channels = ['image', 'label', 'mask','gradX','gradY','gradZ','distTF']
+		VM = volumes[v_name]
+		HDF5Volume.write_file(file_name, \
+			label_data = VM.label_data, \
+			image_data = VM.image_data, \
+			gradX_data = dirmap[1,:,:,:], \
+			gradY_data = dirmap[2,:,:,:], \
+			gradZ_data = dirmap[0,:,:,:], \
+			distTF_data = dirmap[3,:,:,:])
+
