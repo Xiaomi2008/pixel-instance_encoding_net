@@ -154,7 +154,7 @@ def savefig(dirmap):
 if __name__ =='__main__':
 	volume_names =  volumes.keys()
 	for v_name in volume_names:
-		lb_array = volumes[v_name].label_data[0:10,:,:]
+		lb_array = volumes[v_name].label_data
 		lb_shape = lb_array.shape
 		print (v_name)
 		lb_array = np.array(lb_array).astype(np.float32)

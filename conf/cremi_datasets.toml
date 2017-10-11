@@ -10,13 +10,9 @@ name = "Sample A"
 hdf5_file = "sample_A_20160501.hdf"
 image_dataset = "volumes/raw"
 label_dataset = "volumes/labels/neuron_ids"
-gradX_dataset ="transformed_label/directionX"
-gradY_dataset ="transformed_label/directionY"
-gradZ_dataset ="transformed_label/directionZ"
-distTF_dataset ="transformed_label/distance"
-
 download_url = "https://cremi.org/static/data/sample_A_20160501.hdf"
 download_md5 = "6fc1a45835b57e44afac3d6217c609d8"
+
 
 [[dataset]]
 name = "Sample B"
@@ -25,21 +21,16 @@ image_dataset = "volumes/raw"
 label_dataset = "volumes/labels/neuron_ids"
 download_url = "https://cremi.org/static/data/sample_B_20160501.hdf"
 download_md5 = "16397ec1f7e0ba324b506303b0dc5034"
-gradientX ="transformed_label/directionX"
-gradientY ="transformed_label/directionY"
-gradientZ ="transformed_label/directionZ"
-dist_transf ="transformed_label/distance"
+
 
 [[dataset]]
-name = "Sample C"
-hdf5_file = "sample_C_20160501.hdf"
-image_dataset = "volumes/raw"
+name = "Sampe C with extra transformed labels"
+hdf5_file = "SampleC_with_extra_labels.h5"
+mage_dataset = "volumes/raw"
 label_dataset = "volumes/labels/neuron_ids"
-download_url = "https://cremi.org/static/data/sample_C_20160501.hdf"
-download_md5 = "2b5ea85255330640d43b1784283b712d"
-gradientX ="transformed_label/directionX"
-gradientY ="transformed_label/directionY"
-gradientZ ="transformed_label/directionZ"
-dist_transf ="transformed_label/distance"
+gradX_dataset ="transformed_label/directionX"
+gradY_dataset ="transformed_label/directionY"
+gradZ_dataset ="transformed_label/directionZ"
+distTF_dataset ="transformed_label/distance"
 
 

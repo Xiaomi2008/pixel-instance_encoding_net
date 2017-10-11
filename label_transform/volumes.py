@@ -9,13 +9,18 @@ DimOrder = namedtuple('DimOrder', ('X', 'Y', 'Z'))
 class Volume(object):
     DIM = DimOrder(Z=0, Y=1, X=2)
 
-    def __init__(self, resolution, image_data=None, label_data=None, mask_data=None):
+    def __init__(self, resolution, image_data=None, label_data=None, mask_data=None, \
+    	         gradX_data=None, gradY_data=None, gradZ_data=None, distTF_data =None):
         self.resolution = resolution
         self.image_data = image_data
         self.label_data = label_data
         self.mask_data = mask_data
         self._mask_bounds = None
 
+        self.gradZ_data = gradZ_data
+        self.gradX_data = gradX_data
+        self.gradY_data = gradY_data
+        self.distTF_data = distTF_data
     def local_coord_to_world(self, a):
         return a
 
@@ -147,12 +152,16 @@ class HDF5Volume(Volume):
         		gradX_dataset =dataset.get('gradX_dataset', None)
         		gradY_dataset =dataset.get('gradY_dataset', None)
         		gradZ_dataset =dataset.get('gradZ_dataset', None)
-        		distTF_dataset =dataset.get('gradTF_dataset', None)
+        		distTF_dataset =dataset.get('distTF_dataset', None)
 
         		volume = HDF5Volume(filename,
         			image_dataset,
         			label_dataset,
         			mask_dataset,
+        			gradX_dataset,
+        			gradY_dataset,
+        			gradZ_dataset,
+        			distTF_dataset,
         			mask_bounds=mask_bounds)
         		volumes[dataset['name']] = volume
                 # If the volume configuration specifies an explicit resolution,
@@ -175,7 +184,7 @@ class HDF5Volume(Volume):
             'gradX': 'transformed_label/directionX',
             'gradY': 'transformed_label/directionY',
             'gradZ': 'transformed_label/directionZ',
-            'distTF': 'transformed_label/distabce',
+            'distTF': 'transformed_label/distance',
 
 
         }
@@ -191,7 +200,8 @@ class HDF5Volume(Volume):
 
         return config
 
-    def __init__(self, orig_file, image_dataset, label_dataset, mask_dataset, mask_bounds=None):
+    def __init__(self, orig_file, image_dataset, label_dataset, mask_dataset, mask_bounds=None,
+    	               gradX_dataset,gradY_dataset,gradZ_dataset,distTF_dataset):
         logging.debug('Loading HDF5 file "{}"'.format(orig_file))
         self.file = h5py.File(orig_file, 'r')
         self.resolution = None
