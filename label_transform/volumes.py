@@ -5,12 +5,31 @@ from collections import namedtuple
 import os
 import pdb
 import logging
+import six
 DimOrder = namedtuple('DimOrder', ('X', 'Y', 'Z'))
+class SubvolumeGenerator(six.Iterator):
+    def __init__(self,volume,bounds_generator):
+        self.volume =volume
+        self.bounds_generator =bounds_generator
+    @property
+    def shape(self):
+        return self.bounds_generator.shape
+    def __iter__(self):
+        return self
+    def __next__(self):
+        return self.volume.get_subvolume(six.next(self.bounds_generator))
+
+
 class Volume(object):
     DIM = DimOrder(Z=0, Y=1, X=2)
 
-    def __init__(self, resolution, image_data=None, label_data=None, mask_data=None, \
-    	         gradX_data=None, gradY_data=None, gradZ_data=None, distTF_data =None):
+    def __init__(self, resolution, image_data=None, label_data=None, mask_data=None,
+    	         gradX_data=None, gradY_data=None, gradZ_data=None, distTF_data =None,
+                 affinX1_data =None, affinX3_data  =None, affinX5_data = None,
+                 affinX7_data =None, affinX13_data =None, affinX20_data =None,
+                 affinY1_data =None, affinY3_data  =None, affinY5_data = None,
+                 affinY7_data =None, affinY13_data =None, affinY20_data =None,
+                 affinZ1_data =None, affinZ3_data  =None):
         self.resolution = resolution
         self.image_data = image_data
         self.label_data = label_data
@@ -21,6 +40,25 @@ class Volume(object):
         self.gradX_data = gradX_data
         self.gradY_data = gradY_data
         self.distTF_data = distTF_data
+
+
+
+        self.affinX1_data =affinX1_data
+        self.affinX3_data =affinX3_data 
+        self.affinX5_data =affinX5_data
+        self.affinX7_data =affineX7_data
+        self.affinX13_data =affinX13_data
+        self.affinX20_data =affinX20_data
+        
+        self.affinY1_data  =affinY1_data
+        self.affinY3_data  =affinY3_data 
+        self.affinY5_data  =affinY5_data
+        self.affinY7_data  =affinY7_data 
+        self.affinY13_data =affinY13_data
+        self.affinY20_data =affinY20_data
+        
+        self.affinZ1_data =affinZ1_data
+        self.affinZ3_data =affinZ3_data
     def local_coord_to_world(self, a):
         return a
 
@@ -90,7 +128,6 @@ class Volume(object):
         if self.label_data is not None:
             label_start = bounds.start + bounds.label_margin
             label_stop = bounds.stop - bounds.label_margin
-
             label_subvol = self.label_data[
                     label_start[0]:label_stop[0],
                     label_start[1]:label_stop[1],

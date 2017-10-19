@@ -22,7 +22,6 @@ axis_dict ={'x':1,'y':2,'z':0}
 y_distance= x_distance =[1,3,5,7,13,20,40]
 z_distance = [1,3]
 all_distance ={'x':x_distance,'y':y_distance,'z':z_distance}
-all_distance ={'y':y_distance,'z':z_distance}
 def update_callback(rs_return):
 		n_id = rs_return
 		print("callback finished {} out of {}".format(len(n_id),len(obj_ids)))
