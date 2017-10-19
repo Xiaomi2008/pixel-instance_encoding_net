@@ -6,7 +6,38 @@ import os
 import pdb
 import logging
 import six
+import random
 DimOrder = namedtuple('DimOrder', ('X', 'Y', 'Z'))
+class bounds_generator(six_Iterator):
+	def __init__(self,volume_shape,subvolume_shape,seed = 1):
+		if len(volume_shape) != len(subvolume_shape):
+		   raise ValueError('subvolume  dimension ({}) is not equal to '
+                             'volume domension ({}). '
+                             'This is currently unsupported.'.format(len(volume_shape), len(subvolume_shape)))
+		for v_d,subv_d in zip(volume_shape,subvolume_shape):
+			if v_d  <= subv_d:
+			   raise ValueError('subvolume shape ({}) must smaller than '
+                             'volum shape ({}).'.format(subvolume.shape,volume_shape))
+	    self.volume_shape =volume_shape
+		self.subvolume_shape =subvolume_shape:
+		self.seed = seed
+		random.seed(self.seed)
+	@property
+	def shape(self):
+		return self.subvolume_shape
+	def __iter__(self):
+		return self
+	def __next__(self):
+		bounds = []
+		for v_dim,sub_dim in zip(self.volume_shape,self.subvolume_shape): 
+			start= random.randrange(0,v_dim-sub_dim)
+			end  = start + sub_dim
+			bounds.append((start,end))
+		return bounds
+
+
+
+
 class SubvolumeGenerator(six.Iterator):
     def __init__(self,volume,bounds_generator):
         self.volume =volume
@@ -23,42 +54,44 @@ class SubvolumeGenerator(six.Iterator):
 class Volume(object):
     DIM = DimOrder(Z=0, Y=1, X=2)
 
-    def __init__(self, resolution, image_data=None, label_data=None, mask_data=None,
-    	         gradX_data=None, gradY_data=None, gradZ_data=None, distTF_data =None,
-                 affinX1_data =None, affinX3_data  =None, affinX5_data = None,
-                 affinX7_data =None, affinX13_data =None, affinX20_data =None,
-                 affinY1_data =None, affinY3_data  =None, affinY5_data = None,
-                 affinY7_data =None, affinY13_data =None, affinY20_data =None,
-                 affinZ1_data =None, affinZ3_data  =None):
-        self.resolution = resolution
-        self.image_data = image_data
-        self.label_data = label_data
-        self.mask_data = mask_data
-        self._mask_bounds = None
+    # def __init__(self, resolution, image_data=None, label_data=None, mask_data=None,
+    # 	         gradX_data=None, gradY_data=None, gradZ_data=None, distTF_data =None,
+    #              affinX1_data =None, affinX3_data  =None, affinX5_data = None,
+    #              affinX7_data =None, affinX13_data =None, affinX20_data =None,
+    #              affinY1_data =None, affinY3_data  =None, affinY5_data = None,
+    #              affinY7_data =None, affinY13_data =None, affinY20_data =None,
+    #              affinZ1_data =None, affinZ3_data  =None):
+    #     self.resolution = resolution
+    #     self.image_data = image_data
+    #     self.label_data = label_data
+    #     self.mask_data = mask_data
+    #     self._mask_bounds = None
 
-        self.gradZ_data = gradZ_data
-        self.gradX_data = gradX_data
-        self.gradY_data = gradY_data
-        self.distTF_data = distTF_data
+    #     self.gradZ_data = gradZ_data
+    #     self.gradX_data = gradX_data
+    #     self.gradY_data = gradY_data
+    #     self.distTF_data = distTF_data
 
 
 
-        self.affinX1_data =affinX1_data
-        self.affinX3_data =affinX3_data 
-        self.affinX5_data =affinX5_data
-        self.affinX7_data =affineX7_data
-        self.affinX13_data =affinX13_data
-        self.affinX20_data =affinX20_data
+    #     self.affinX1_data =affinX1_data
+    #     self.affinX3_data =affinX3_data 
+    #     self.affinX5_data =affinX5_data
+    #     self.affinX7_data =affineX7_data
+    #     self.affinX13_data =affinX13_data
+    #     self.affinX20_data =affinX20_data
         
-        self.affinY1_data  =affinY1_data
-        self.affinY3_data  =affinY3_data 
-        self.affinY5_data  =affinY5_data
-        self.affinY7_data  =affinY7_data 
-        self.affinY13_data =affinY13_data
-        self.affinY20_data =affinY20_data
+    #     self.affinY1_data  =affinY1_data
+    #     self.affinY3_data  =affinY3_data 
+    #     self.affinY5_data  =affinY5_data
+    #     self.affinY7_data  =affinY7_data 
+    #     self.affinY13_data =affinY13_data
+    #     self.affinY20_data =affinY20_data
         
-        self.affinZ1_data =affinZ1_data
-        self.affinZ3_data =affinZ3_data
+    #     self.affinZ1_data =affinZ1_data
+    #     self.affinZ3_data =affinZ3_data
+    def __init__(self, resolution, data_dict):
+        self.data_dict = data_dict
     def local_coord_to_world(self, a):
         return a
 
@@ -112,37 +145,20 @@ class Volume(object):
         if bounds.start is None or bounds.stop is None:
             raise ValueError('This volume does not support sparse subvolume access.')
 
-        image_subvol = self.image_data[
-                bounds.start[0]:bounds.stop[0],
-                bounds.start[1]:bounds.stop[1],
-                bounds.start[2]:bounds.stop[2]]
 
-        image_subvol = self.world_mat_to_local(image_subvol)
+        def bounds2slice(bounds):
+        	n_dim = len(bounds)
+        	slices = [slice(None)]*n_dim
+        	for i in range(n_dim):
+        		slices[i] = slice(bounds[i][0],bounds[i][1])
+        	return slices
+        b_slices = bounds2slice(bounds)
+        image_subvol = self.image_data[b_slices]
         if np.issubdtype(image_subvol.dtype, np.integer):
             image_subvol = image_subvol.astype(np.float32) / 256.0
 
-        seed = bounds.seed
-        if seed is None:
-            seed = np.array(image_subvol.shape, dtype=np.int64) // 2
-
         if self.label_data is not None:
-            label_start = bounds.start + bounds.label_margin
-            label_stop = bounds.stop - bounds.label_margin
-            label_subvol = self.label_data[
-                    label_start[0]:label_stop[0],
-                    label_start[1]:label_stop[1],
-                    label_start[2]:label_stop[2]]
-
-            label_subvol = self.world_mat_to_local(label_subvol)
-
-            label_id = bounds.label_id
-            if label_id is None:
-                label_id = label_subvol[tuple(seed - bounds.label_margin)]
-            label_mask = label_subvol == label_id
-        else:
-            label_mask = None
-            label_id = None
-
+        	label_subvol = self.label_data[b_slices]
         return Subvolume(image_subvol, label_mask, seed, label_id)
 
 class HDF5Volume(Volume):
@@ -168,9 +184,6 @@ class HDF5Volume(Volume):
         		os.mkdir(data_dir)
         with open(filename, 'rb') as fin:
         	datasets = toml.load(fin).get('dataset', [])
-        	#pdb.set_trace()
-        	#print(filename)
-        	#print (datasets)
         	print ('len is {}'.format(len(datasets)))
         	for dataset in datasets:
         		hdf5_file = dataset['hdf5_file']
@@ -180,26 +193,34 @@ class HDF5Volume(Volume):
         								md5_hash=dataset.get('download_md5', None), 
         								cache_subdir='', 
         								cache_dir=data_dir)
-        		image_dataset = dataset.get('image_dataset', None)
-        		label_dataset = dataset.get('label_dataset', None)
-        		mask_dataset = dataset.get('mask_dataset', None)
-        		mask_bounds = dataset.get('mask_bounds', None)
-        		resolution = dataset.get('resolution', None)
-        		gradX_dataset =dataset.get('gradX_dataset', None)
-        		gradY_dataset =dataset.get('gradY_dataset', None)
-        		gradZ_dataset =dataset.get('gradZ_dataset', None)
-        		distTF_dataset =dataset.get('distTF_dataset', None)
+        		# image_dataset = dataset.get('image_dataset', None)
+        		# label_dataset = dataset.get('label_dataset', None)
+        		# mask_dataset = dataset.get('mask_dataset', None)
+        		# mask_bounds = dataset.get('mask_bounds', None)
+        		# resolution = dataset.get('resolution', None)
+        		# gradX_dataset =dataset.get('gradX_dataset', None)
+        		# gradY_dataset =dataset.get('gradY_dataset', None)
+        		# gradZ_dataset =dataset.get('gradZ_dataset', None)
+        		# distTF_dataset =dataset.get('distTF_dataset', None)
 
+        		#all_data = dataset.get('data',None)
+        		data_dict ={data['name']:data['path'] for data in dataset.get('data',None)}
+        		# for data in in all_data:
+        		#     data_dict[data['name']]=data['path']
         		volume = HDF5Volume(filename,
-        			image_dataset,
-        			label_dataset,
-        			mask_dataset,
-        			gradX_dataset,
-        			gradY_dataset,
-        			gradZ_dataset,
-        			distTF_dataset,
+        			data_dict,
         			mask_bounds=mask_bounds)
-        		volumes[dataset['name']] = volume
+
+        		# volume = HDF5Volume(filename,
+        		# 	image_dataset,
+        		# 	label_dataset,
+        		# 	mask_dataset,
+        		# 	gradX_dataset,
+        		# 	gradY_dataset,
+        		# 	gradZ_dataset,
+        		# 	distTF_dataset,
+        		# 	mask_bounds=mask_bounds)
+        		# volumes[dataset['name']] = volume
                 # If the volume configuration specifies an explicit resolution,
                 # override any provided in the HDF5 itself.
                 # if resolution:
