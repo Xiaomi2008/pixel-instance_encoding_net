@@ -123,7 +123,6 @@ class HDF5Volume(Volume):
     @staticmethod
     def from_toml(filename):
         from keras.utils.data_utils import get_file
-
         volumes = {}
         with open(filename, 'rb') as fin:
         	ld = toml.load(fin).get('local_data',None)
@@ -185,8 +184,20 @@ class HDF5Volume(Volume):
             'gradY': 'transformed_label/directionY',
             'gradZ': 'transformed_label/directionZ',
             'distTF': 'transformed_label/distance',
-
-
+            'affinX1': 'affinity_map/x1',
+            'affinX3': 'affinity_map/x3',
+            'affinX5': 'affinity_map/x5',
+            'affinX7': 'affinity_map/x7',
+            'affinX13': 'affinity_map/x13',
+            'affinX20': 'affinity_map/x20',
+            'affinY1': 'affinity_map/y1',
+            'affinY3': 'affinity_map/y3',
+            'affinY5': 'affinity_map/y5',
+            'affinY7': 'affinity_map/y7',
+            'affinY13': 'affinity_map/y13',
+            'affinY20': 'affinity_map/y20',
+            'affinZ1': 'affinity_map/z1',
+            'affinZ3': 'affinity_map/z3',
         }
         for channel in channels:
             data = kwargs.get('{}_data'.format(channel), None)
@@ -200,8 +211,8 @@ class HDF5Volume(Volume):
 
         return config
 
-    def __init__(self, orig_file, image_dataset, label_dataset, mask_dataset, mask_bounds=None,
-    	               gradX_dataset,gradY_dataset,gradZ_dataset,distTF_dataset):
+    def __init__(self, orig_file, image_dataset, label_dataset, mask_dataset, 
+    	               gradX_dataset,gradY_dataset,gradZ_dataset,distTF_dataset,mask_bounds=None):
         logging.debug('Loading HDF5 file "{}"'.format(orig_file))
         self.file = h5py.File(orig_file, 'r')
         self.resolution = None
@@ -237,6 +248,12 @@ class HDF5Volume(Volume):
 
         if self.resolution is None:
             self.resolution = np.ones(3)
+
+        self.gradX_data = None if gradX_dataset is None else self.file[gradX_dataset]
+        self.gradY_data = None if gradY_dataset is None else self.file[gradY_dataset]
+        self.gradZ_data = None if gradZ_dataset is None else self.file[gradZ_dataset]
+        self.distTF_data = None if distTF_dataset is None else self.file[distTF_dataset]
+
 
     def to_memory_volume(self):
         data = ['image_data', 'label_data', 'mask_data']
