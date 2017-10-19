@@ -18,7 +18,6 @@ dirmap_shape 	= None
 obj_ids         = None
 data_config = '../conf/cremi_datasets.toml'
 volumes = HDF5Volume.from_toml(data_config)
-
 axis_dict ={'x':1,'y':2,'z':0}
 y_distance= x_distance =[1,3,5,7,13,20,40]
 z_distance = [1,3]
