@@ -281,7 +281,8 @@ if __name__ =='__main__':
 	# test_z_dirmap(label_data)
 	volume_names =  volumes.keys()
 	for v_name in volume_names:
-		lb_data = volumes[v_name].label_data
+		#lb_data = volumes[v_name].label_data
+		lb_data = volumes[v_name].data_dict['label_dataset']
 		dirmap = compute_transform(lb_data)
 		savefig(v_name,dirmap)
 		affinityMap_dict= compute_affinity_map(np.array(lb_data))
