@@ -19,13 +19,13 @@ class bounds_generator(six.Iterator):
 		return self.subvolume_shape
     def __iter__(self):
         return self
-	def __next__(self):
-		bounds = []
-		for v_dim,sub_dim in zip(self.volume_shape,self.subvolume_shape): 
-			start= random.randrange(0,v_dim-sub_dim)
-			end  = start + sub_dim
-			bounds.append((start,end))
-		return bounds
+    def __next__(self):
+        bounds = []
+        for v_dim,sub_dim in zip(self.volume_shape,self.subvolume_shape): 
+            start= random.randrange(0,v_dim-sub_dim)
+            end  = start + sub_dim
+            bounds.append((start,end))
+        return bounds
 
 
 class SubvolumeGenerator(six.Iterator):
@@ -97,8 +97,8 @@ class Volume(object):
         return SubvolumeGenerator(self, bounds_generator)
 
     def get_subvolume(self, bounds):
-        if bounds.start is None or bounds.stop is None:
-            raise ValueError('This volume does not support sparse subvolume access.')
+        # if bounds.start is None or bounds.stop is None:
+        #     raise ValueError('This volume does not support sparse subvolume access.')
 
         def bounds2slice(bounds):
         	n_dim = len(bounds)
@@ -106,19 +106,10 @@ class Volume(object):
         	for i in range(n_dim):
         		slices[i] = slice(bounds[i][0],bounds[i][1])
         	return slices
-
         b_slices = bounds2slice(bounds)
-
-
-        subvolumes = { name:data[b_slices] for name, data in self.data_dict().iteritems()}
+        subvolumes = { name:data[b_slices] 
+                       for name, data in self.data_dict.iteritems()}
         return subvolumes
-        # image_subvol = self.image_data[b_slices]
-        # if np.issubdtype(image_subvol.dtype, np.integer):
-        #     image_subvol = image_subvol.astype(np.float32) / 256.0
-
-        # if self.label_data is not None:
-        # 	label_subvol = self.label_data[b_slices]
-        #return Subvolume(image_subvol, label_mask, seed, label_id)
 
 class HDF5Volume(Volume):
     """A volume backed by data views to HDF5 file arrays.
@@ -152,40 +143,12 @@ class HDF5Volume(Volume):
         								md5_hash=dataset.get('download_md5', None), 
         								cache_subdir='', 
         								cache_dir=data_dir)
-        		# image_dataset = dataset.get('image_dataset', None)
-        		# label_dataset = dataset.get('label_dataset', None)
-        		# mask_dataset = dataset.get('mask_dataset', None)
-        		# mask_bounds = dataset.get('mask_bounds', None)
-        		# resolution = dataset.get('resolution', None)
-        		# gradX_dataset =dataset.get('gradX_dataset', None)
-        		# gradY_dataset =dataset.get('gradY_dataset', None)
-        		# gradZ_dataset =dataset.get('gradZ_dataset', None)
-        		# distTF_dataset =dataset.get('distTF_dataset', None)
-
-        		#all_data = dataset.get('data',None)
         		dataset_dict ={data['name']:data['path'] for data in dataset.get('data',None)}
         		# for data in in all_data:
         		#     data_dict[data['name']]=data['path']
                 mask_bounds ='dummy'
                 volume = HDF5Volume(filename,dataset_dict,mask_bounds=mask_bounds)
                 volumes[dataset['name']] = volume
-
-        		# volume = HDF5Volume(filename,
-        		# 	image_dataset,
-        		# 	label_dataset,
-        		# 	mask_dataset,
-        		# 	gradX_dataset,
-        		# 	gradY_dataset,
-        		# 	gradZ_dataset,
-        		# 	distTF_dataset,
-        		# 	mask_bounds=mask_bounds)
-        		# volumes[dataset['name']] = volume
-                # If the volume configuration specifies an explicit resolution,
-                # override any provided in the HDF5 itself.
-                # if resolution:
-                #     #logging.info('Overriding resolution for volume "%s"', dataset['name'])
-                #     volume.resolution = np.array(resolution)
-                #     volumes[dataset['name']] = volume
 
         return volumes
 
@@ -236,97 +199,9 @@ class HDF5Volume(Volume):
         self.file = h5py.File(orig_file, 'r')
         self.resolution = None
         self._mask_bounds = tuple(map(np.asarray, mask_bounds)) if mask_bounds is not None else None
-        self.data_dict ={name:self.file[data] for name, data in dataset_dict.iteritems()}
+        self.data_dict ={name:np.array(self.file[data]) for name, data in dataset_dict.iteritems()}
         print(self.data_dict[self.data_dict.keys()[0]].shape)
-        # if image_dataset is None and label_dataset is None:
-        #     raise ValueError('HDF5 volume must have either an image or label dataset: {}'.format(orig_file))
 
-        # if image_dataset is not None:
-        #     self.image_data = self.file[image_dataset]
-        #     if 'resolution' in self.file[image_dataset].attrs:
-        #         self.resolution = np.array(self.file[image_dataset].attrs['resolution'])
-
-        # if label_dataset is not None:
-        #     self.label_data = self.file[label_dataset]
-        #     if 'resolution' in self.file[label_dataset].attrs:
-        #         resolution = np.array(self.file[label_dataset].attrs['resolution'])
-        #         if self.resolution is not None and not np.array_equal(self.resolution, resolution):
-        #             logging.warning('HDF5 image and label dataset resolutions differ in %s: %s, %s',
-        #                             orig_file, self.resolution, resolution)
-        #         else:
-        #             self.resolution = resolution
-        # else:
-        #     self.label_data = None
-
-        # if mask_dataset is not None:
-        #     self.mask_data = self.file[mask_dataset]
-        # else:
-        #     self.mask_data = None
-
-        # if image_dataset is None:
-        #     self.image_data = np.full_like(self.label_data, np.NaN, dtype=np.float32)
-
-        # if self.resolution is None:
-        #     self.resolution = np.ones(3)
-
-        # self.gradX_data = None if gradX_dataset is None else self.file[gradX_dataset]
-        # self.gradY_data = None if gradY_dataset is None else self.file[gradY_dataset]
-        # self.gradZ_data = None if gradZ_dataset is None else self.file[gradZ_dataset]
-        # self.distTF_data = None if distTF_dataset is None else self.file[distTF_dataset]
-
-
-
-
-    # def __init__(self, orig_file, image_dataset, label_dataset, mask_dataset, 
-    # 	               gradX_dataset,gradY_dataset,gradZ_dataset,distTF_dataset,mask_bounds=None):
-    #     logging.debug('Loading HDF5 file "{}"'.format(orig_file))
-    #     self.file = h5py.File(orig_file, 'r')
-    #     self.resolution = None
-    #     self._mask_bounds = tuple(map(np.asarray, mask_bounds)) if mask_bounds is not None else None
-
-    #     if image_dataset is None and label_dataset is None:
-    #         raise ValueError('HDF5 volume must have either an image or label dataset: {}'.format(orig_file))
-
-    #     if image_dataset is not None:
-    #         self.image_data = self.file[image_dataset]
-    #         if 'resolution' in self.file[image_dataset].attrs:
-    #             self.resolution = np.array(self.file[image_dataset].attrs['resolution'])
-
-    #     if label_dataset is not None:
-    #         self.label_data = self.file[label_dataset]
-    #         if 'resolution' in self.file[label_dataset].attrs:
-    #             resolution = np.array(self.file[label_dataset].attrs['resolution'])
-    #             if self.resolution is not None and not np.array_equal(self.resolution, resolution):
-    #                 logging.warning('HDF5 image and label dataset resolutions differ in %s: %s, %s',
-    #                                 orig_file, self.resolution, resolution)
-    #             else:
-    #                 self.resolution = resolution
-    #     else:
-    #         self.label_data = None
-
-    #     if mask_dataset is not None:
-    #         self.mask_data = self.file[mask_dataset]
-    #     else:
-    #         self.mask_data = None
-
-    #     if image_dataset is None:
-    #         self.image_data = np.full_like(self.label_data, np.NaN, dtype=np.float32)
-
-    #     if self.resolution is None:
-    #         self.resolution = np.ones(3)
-
-    #     self.gradX_data = None if gradX_dataset is None else self.file[gradX_dataset]
-    #     self.gradY_data = None if gradY_dataset is None else self.file[gradY_dataset]
-    #     self.gradZ_data = None if gradZ_dataset is None else self.file[gradZ_dataset]
-    #     self.distTF_data = None if distTF_dataset is None else self.file[distTF_dataset]
-
-
-    def to_memory_volume(self):
-        data = ['image_data', 'label_data', 'mask_data']
-        data = {
-                k: self.world_mat_to_local(getattr(self, k)[:])
-                for k in data if getattr(self, k) is not None}
-        return NdarrayVolume(self.world_coord_to_local(self.resolution), **data)
 def run_test():
     print('read')
     file_name='../conf/cremi_datasets.toml'
@@ -334,7 +209,10 @@ def run_test():
     V1=VS[VS.keys()[0]]
     bounds_gen=bounds_generator(V1.shape,[10,320,320])
     sub_vol_gen =SubvolumeGenerator(V1,bounds_gen)
-    C = six.next(sub_vol_gen);
+    for i in xrange(200):
+        C = six.next(sub_vol_gen);
+        for name,data in C.iteritems():
+            print('{} shape = {}'.format(name,data.shape))
 
 
 

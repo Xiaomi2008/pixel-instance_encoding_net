@@ -275,10 +275,8 @@ def test_z_dirmap(label_data):
 		gradient_worker_2D_on_z(slices_y_ids)
 	dirmap = np.frombuffer(shared_dirmap.get_obj(),dtype=np.float32).reshape(dirmap_shape)
 	savefig('test_z',dirmap)
+
 if __name__ =='__main__':
-	# v_names =  volumes.keys()
-	# label_data = np.array(volumes[v_names[0]].label_data)
-	# test_z_dirmap(label_data)
 	volume_names =  volumes.keys()
 	for v_name in volume_names:
 		#lb_data = volumes[v_name].label_data
@@ -288,6 +286,7 @@ if __name__ =='__main__':
 		affinityMap_dict= compute_affinity_map(np.array(lb_data))
 		VM = volumes[v_name]
 		file_name = '../data/' + v_name.strip().replace(' ','') + '_with_extra_labels.h5'
+
 		HDF5Volume.write_file(file_name, \
 			label_data  = VM.label_data, \
 			image_data  = VM.image_data, \
