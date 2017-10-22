@@ -15,9 +15,10 @@ from label_transform.volumes import SubvolumeGenerator
 from torch_networks.unet_test import UNet as nUnet
 
 model = Unet()
-if 
 #model = nUnet()
 model.double()
+if torch.cuda.is_available():
+    model.cuda()
 optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.5)
 data_config = 'conf/cremi_datasets_with_tflabels.toml'
 volumes = HDF5Volume.from_toml(data_config)
