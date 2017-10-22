@@ -37,7 +37,7 @@ def train():
             C = six.next(sub_vol_gen);
             #print C.keys()
             n_i = C['label_dataset'].astype(np.int32)
-            n_l = C['image_dataset'].astype(np.int32)
+            n_l = C['affinityX3_dataset'].astype(np.int32)
             #print(n_i.shape)
             I[b,:,:,:]=n_i
             T[b,:,:,:]=n_i
@@ -53,6 +53,6 @@ def train():
         #loss = functional.nll_loss(output, target)
         loss.backward()
         optimizer.step()
-        print loss
+        print loss.data[0]
 if __name__ =='__main__':
     train()
