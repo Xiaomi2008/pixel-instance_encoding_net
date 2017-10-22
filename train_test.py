@@ -41,8 +41,8 @@ def train():
             #print(n_i.shape)
             I[b,:,:,:]=n_i
             T[b,:,:,:]=n_i
-        labels = torch.from_numpy(I)
-        images = torch.from_numpy(T)
+        images = torch.from_numpy(I)
+        labels = torch.from_numpy(T)
         data, target = Variable(images).double(), Variable(labels).double()
         if torch.cuda.is_available():
             data=data.cuda()
