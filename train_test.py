@@ -35,7 +35,7 @@ def train():
         T = np.zeros([16,1,im_size,im_size])
         for b in range(16):
             C = six.next(sub_vol_gen);
-            #print C.keys()
+            print C.keys()
             n_i = C['label_dataset'].astype(np.int32)
             n_l = C['affinityX3_dataset'].astype(np.int32)
             #print(n_i.shape)
