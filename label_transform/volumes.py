@@ -129,6 +129,7 @@ class HDF5Volume(Volume):
         volumes = {}
         with open(filename, 'rb') as fin:
         	ld = toml.load(fin).get('local_data',None)
+                print(filename)
         	data_dir =ld['data_dir']
         	if not os.path.exists(data_dir):
         		os.mkdir(data_dir)
@@ -137,8 +138,8 @@ class HDF5Volume(Volume):
         	print ('len is {}'.format(len(datasets)))
         	for dataset in datasets:
         		hdf5_file = dataset['hdf5_file']
-        		filename = data_dir + '/'+ hdf5_file
-        		if not os.path.exists(filename):
+        		local_file = data_dir + '/'+ hdf5_file
+        		if not os.path.exists(local_file):
         			hdf5_file = get_file(hdf5_file, dataset['download_url'], 
         								md5_hash=dataset.get('download_md5', None), 
         								cache_subdir='', 
@@ -147,7 +148,7 @@ class HDF5Volume(Volume):
         		# for data in in all_data:
         		#     data_dict[data['name']]=data['path']
                 mask_bounds ='dummy'
-                volume = HDF5Volume(filename,dataset_dict,mask_bounds=mask_bounds)
+                volume = HDF5Volume(local_file,dataset_dict,mask_bounds=mask_bounds)
                 volumes[dataset['name']] = volume
 
         return volumes
@@ -199,8 +200,13 @@ class HDF5Volume(Volume):
         self.file = h5py.File(orig_file, 'r')
         self.resolution = None
         self._mask_bounds = tuple(map(np.asarray, mask_bounds)) if mask_bounds is not None else None
+        #print(self.file['transformed_label'].keys())
+        #print dataset_dict
+        for name, data in dataset_dict.iteritems():
+            d = np.array(self.file[data])
+
         self.data_dict ={name:np.array(self.file[data]) for name, data in dataset_dict.iteritems()}
-        print(self.data_dict[self.data_dict.keys()[0]].shape)
+        #print(self.data_dict[self.data_dict.keys()[0]].shape)
 
 def run_test():
     print('read')

@@ -5,7 +5,6 @@ import h5py as h5
 import matplotlib.pyplot as plt
 import pdb
 import multiprocessing as mp
-#from multiprocessing import Array
 import ctypes
 from volumes import HDF5Volume
 

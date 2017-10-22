@@ -1,29 +1,41 @@
+[local_data]
+data_dir = "data"
 [[dataset]]
 name = "Sampe A with extra transformed labels"
 hdf5_file = "SampleA_with_extra_labels.h5"
-mage_dataset = "volumes/raw"
-label_dataset = "volumes/labels/neuron_ids"
-gradX_dataset ="transformed_label/directionX"
-gradY_dataset ="transformed_label/directionY"
-gradZ_dataset ="transformed_label/directionZ"
-distTF_dataset ="transformed_label/distance"
+[[dataset.data]]
+  name="image_dataset"
+  path="volumes/raw"
+  [[dataset.data]]
+  name="label_dataset"
+  path="volumes/labels/neuron_ids"
+  [[dataset.data]]
+  name='gradX_dataset'
+  path="transformed_label/directionX"
 
-[[dataset]]
-name = "Sampe B with extra transformed labels"
-hdf5_file = "SampleB_with_extra_labels.h5"
-mage_dataset = "volumes/raw"
-label_dataset = "volumes/labels/neuron_ids"
-gradX_dataset ="transformed_label/directionX"
-gradY_dataset ="transformed_label/directionY"
-gradZ_dataset ="transformed_label/directionZ"
-distTF_dataset ="transformed_label/distance"
+# image_dataset = "volumes/raw"
+# label_dataset = "volumes/labels/neuron_ids"
+# gradX_dataset ="transformed_label/directionX"
+# gradY_dataset ="transformed_label/directionY"
+# gradZ_dataset ="transformed_label/directionZ"
+# distTF_dataset ="transformed_label/distance"
 
-[[dataset]]
-name = "Sampe C with extra transformed labels"
-hdf5_file = "SampleC_with_extra_labels.h5"
-image_dataset = "volumes/raw"
-label_dataset = "volumes/labels/neuron_ids"
-gradientX ="transformed_label/directionX"
-gradientY ="transformed_label/directionY"
-gradientZ ="transformed_label/directionZ"
-dist_transf ="transformed_label/distance"
+# [[dataset]]
+# name = "Sampe B with extra transformed labels"
+# hdf5_file = "SampleB_with_extra_labels.h5"
+# image_dataset = "volumes/raw"
+# label_dataset = "volumes/labels/neuron_ids"
+# gradX_dataset ="transformed_label/directionX"
+# gradY_dataset ="transformed_label/directionY"
+# gradZ_dataset ="transformed_label/directionZ"
+# distTF_dataset ="transformed_label/distance"
+
+# [[dataset]]
+# name = "Sampe C with extra transformed labels"
+# hdf5_file = "SampleC_with_extra_labels.h5"
+# image_dataset = "volumes/raw"
+# label_dataset = "volumes/labels/neuron_ids"
+# gradientX ="transformed_label/directionX"
+# gradientY ="transformed_label/directionY"
+# gradientZ ="transformed_label/directionZ"
+# dist_transf ="transformed_label/distance"
