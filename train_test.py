@@ -15,6 +15,7 @@ from label_transform.volumes import SubvolumeGenerator
 from torch_networks.unet_test import UNet as nUnet
 
 model = Unet()
+if 
 #model = nUnet()
 model.double()
 optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.5)
@@ -42,6 +43,9 @@ def train():
         labels = torch.from_numpy(I)
         images = torch.from_numpy(T)
         data, target = Variable(images).double(), Variable(labels).double()
+        if torch.cuda.is_available():
+            data=data.cuda()
+            target = target.cuda()
         optimizer.zero_grad()
         output = model(data)
         loss = dice_loss(functional.sigmoid(output), target)
