@@ -3,30 +3,33 @@ data_dir = "data"
 [[dataset]]
 name = "Sampe A with extra transformed labels"
 hdf5_file = "SampleA_with_extra_labels.h5"
-[[dataset.data]]
+  [[dataset.data]]
   name="image_dataset"
   path="volumes/raw"
+  
   [[dataset.data]]
   name="label_dataset"
   path="volumes/labels/neuron_ids"
+  
   [[dataset.data]]
   name='gradX_dataset'
   path="transformed_label/directionX"
+  
   [[dataset.data]]
   name='gradY_dataset'
   path="transformed_label/directionY"
+  
   [[dataset.data]]
   name='gradZ_dataset'
   path="transformed_label/directionZ"
-
+  
   [[dataset.data]]
   name='distTF_dataset'
   path="transformed_label/distance"
-
-
+  
   [[dataset.data]]
   name='affinX3'
-  [ath="affinity_map/x3"]
+  path="affinity_map/x3"
 
 # image_dataset = "volumes/raw"
 # label_dataset = "volumes/labels/neuron_ids"
