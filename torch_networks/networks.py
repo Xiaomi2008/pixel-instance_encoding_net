@@ -157,6 +157,30 @@ def dice_loss(input, target):
               (iflat.sum() + tflat.sum() + smooth)))
 
 
+def angularErrorTotal(pred, gt, weight, outputChannels=2):
+        pred = pred.view(-1, outputChannels)
+        gt   = gt.view(-1, outputChannels).float()
+        weight = weight.view(-1, 1).float()
+
+        #pred = pred / 
+
+        # pred = tf.nn.l2_normalize(pred, 1) * 0.999999
+        # gt = tf.nn.l2_normalize(gt, 1) * 0.999999
+
+        errorAngles =torch.acos(pred*gt)
+
+
+
+        errorAngles = tf.acos(tf.reduce_sum(pred * gt, reduction_indices=[1], keep_dims=True))
+
+        lossAngleTotal = tf.reduce_sum((tf.abs(errorAngles*errorAngles))*weight)
+
+        return lossAngleTotal
+
+
+
+
+
 # Recommend
 class CrossEntropyLoss2d(nn.Module):
     def __init__(self, weight=None, size_average=True):
