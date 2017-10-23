@@ -125,7 +125,8 @@ class HDF5Volume(Volume):
     """
     @staticmethod
     def from_toml(filename):
-        from keras.utils.data_utils import get_file
+        #from keras.utils.data_utils import get_file
+        from utils.getdata import get_file
         volumes = {}
         with open(filename, 'rb') as fin:
         	ld = toml.load(fin).get('local_data',None)
@@ -140,10 +141,14 @@ class HDF5Volume(Volume):
         		hdf5_file = dataset['hdf5_file']
         		local_file = data_dir + '/'+ hdf5_file
         		if not os.path.exists(local_file):
-        			hdf5_file = get_file(hdf5_file, dataset['download_url'], 
-        								md5_hash=dataset.get('download_md5', None), 
-        								cache_subdir='', 
-        								cache_dir=data_dir)
+                    get_file(file_url=dataset['download_url'],
+                             file_path=local_file,
+                             md5_hash=dataset.get('download_md5', None))
+        			# hdf5_file = get_file(hdf5_file, dataset['download_url'], 
+        			# 					md5_hash=dataset.get('download_md5', None), 
+        			# 					cache_subdir='', 
+        			# 					cache_dir=data_dir)
+
         		dataset_dict ={data['name']:data['path'] for data in dataset.get('data',None)}
         		# for data in in all_data:
         		#     data_dict[data['name']]=data['path']
@@ -157,7 +162,7 @@ class HDF5Volume(Volume):
     def write_file(filename, **kwargs):
         h5file = h5py.File(filename, 'w')
         config = {'hdf5_file': filename}
-        channels = ['image', 'label', 'mask','gradX','gradY','gradZ','distTF'
+        channels = ['image', 'label', 'mask','gradX','gradY','gradZ','distTF',
                     'affinX1','affinX3','affinX5','affinX7','affinX13','affinX20',
                     'affinY1','affinY3','affinY5','affinY7','affinX13','affinX20',
                     'affinZ1','affinZ3']

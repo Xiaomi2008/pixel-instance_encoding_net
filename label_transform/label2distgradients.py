@@ -280,15 +280,15 @@ if __name__ =='__main__':
 	for v_name in volume_names:
 		#lb_data = volumes[v_name].label_data
 		lb_data = volumes[v_name].data_dict['label_dataset']
+		im_data =volumes[v_name].data_dict['image_dataset']
 		dirmap = compute_transform(lb_data)
 		savefig(v_name,dirmap)
 		affinityMap_dict= compute_affinity_map(np.array(lb_data))
-		VM = volumes[v_name]
 		file_name = '../data/' + v_name.strip().replace(' ','') + '_with_extra_labels.h5'
 
 		HDF5Volume.write_file(file_name, \
-			label_data  = VM.label_data, \
-			image_data  = VM.image_data, \
+			label_data  = lb_data, \
+			image_data  = im_data, \
 			gradX_data  = dirmap[1,:,:,:], \
 			gradY_data  = dirmap[2,:,:,:], \
 			gradZ_data  = dirmap[0,:,:,:], \

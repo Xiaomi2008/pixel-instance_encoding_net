@@ -120,7 +120,6 @@ class Unet(nn.Module):
 		d_2 = self.down_block_2(d_1)
 		d_3 = self.down_block_3(d_2)
 		d_4 = self.down_block_4(d_3)
-
 		c_1 = torch.cat((self.upsample(d_4), d_3), 1)
 		u_1 = self.up_block_1(c_1)
 
@@ -134,9 +133,6 @@ class Unet(nn.Module):
 		u_4 = self.up_block_4(c_4)
 
 		out = self.finnal_conv2d(u_4)
-
-
-
 		return out
 
 if __name__ == '__main__':
