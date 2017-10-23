@@ -167,7 +167,7 @@ class HDF5Volume(Volume):
         config = {'hdf5_file': filename}
         channels = ['image', 'label','gradX','gradY','gradZ','distTF', 'objWeight',
                     'affinX1','affinX3','affinX5','affinX7','affinX13','affinX20',
-                    'affinY1','affinY3','affinY5','affinY7','affinY13','affinX20',
+                    'affinY1','affinY3','affinY5','affinY7','affinY13','affinY20',
                     'affinZ1','affinZ3']
         default_datasets = {
             'image': 'volumes/raw',

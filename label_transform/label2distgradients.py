@@ -242,6 +242,9 @@ def savefig(data_name,dirmap):
 	plt.savefig(data_name+ ' dir_map_y.png')
 	plt.imshow(dirmap[3,3,:,:])
 	plt.savefig(data_name+' dist_map.png')
+	plt.imshow(dirmap[4,3,:,:])
+	plt,savefig(data_name +'obj_weight_map.png')
+
 
 def compute_transform(label_data):
 	global shared_dirmap
@@ -287,7 +290,6 @@ def test_z_dirmap(label_data):
 	for i in range(num_process):
 		slices_y_ids = [sid for sid in range(steps_y*i,steps_y*(i+1))] if i < num_process-1 \
 						else  [sid for sid in range(steps_y*i,num_slices_y_axis)]
-		#gradient_worker_2D_on_z(slices_y_ids)
 	dirmap = np.frombuffer(shared_dirmap.get_obj(),dtype=np.float32).reshape(dirmap_shape)
 	#savefig('test_z',dirmap)
 

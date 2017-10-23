@@ -111,12 +111,12 @@ class Unet(nn.Module):
 
         last_up_ch = b4_up_ch // ch_change_rate
         self.finnal_conv2d = nn.Conv2d(last_up_ch, out_ch, kernel_size=1, padding=0)
-        self.upsample = nn.UpsamplingBilinear2d(scale_factor=2)
+        self.upsample = nn.Upsample(scale_factor=2,mode='billinear')
         self.finnal_conv2d = nn.Conv2d(48, 1, kernel_size=3, padding=1)
 
     def forward(self,x):
         #x=self.finnal_conv2d(x)
-        x1=self.conv_2d_1(x)
+        x1  = self.conv_2d_1(x)
         d_1 = self.down_block_1(x1)
         d_2 = self.down_block_2(d_1)
         d_3 = self.down_block_3(d_2)
