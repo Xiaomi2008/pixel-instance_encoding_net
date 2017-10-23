@@ -36,8 +36,11 @@ def gradient_worker_2D_on_xy(slices):
 			sum_gy = np.zeros(lb_xy_shape)
 			sum_gz = np.zeros(lb_xy_shape)
 			sum_dt = np.zeros(lb_xy_shape)
+			sum_obj_wt =np.zeros(lb_xy_shape)
 			slice_lbs =shared_lb_arr[slice_id,:,:]
 			s_ids =np.unique(slice_lbs).tolist()
+			image_size = np.prod(lb_xy_shape)
+
 			#print('there are {} objects in slice {}'.format(len(s_ids),slice_id))
 			for obj_id in s_ids:
 				obj_arr = (slice_lbs == obj_id).astype(int)
@@ -49,12 +52,14 @@ def gradient_worker_2D_on_xy(slices):
 				sum_gx+=gx
 				sum_gy+=gy
 				sum_dt+=dt
+				sum_obj_wt+=(float(imagesize)/100.0)/float(np.sum(obj_arr))
 
 			with shared_dirmap.get_lock():
 				dirmap[1,slice_id,:,:]+=sum_gx
 				dirmap[2,slice_id,:,:]+=sum_gy
 				# dimension 4 stores the distance transform
 				dirmap[3,slice_id,:,:]+=sum_dt
+				dirmap[4,slice_id,:,:]+=sum_obj_wt
 		return slices
 
 def gradient_worker_2D_on_z(slices):
@@ -67,6 +72,8 @@ def gradient_worker_2D_on_z(slices):
 			sum_gx = np.zeros(lb_xy_shape)
 			sum_gz = np.zeros(lb_xy_shape)
 			sum_dt = np.zeros(lb_xy_shape)
+			sum_obj_wt =np.zeros(lb_xy_shape)
+			image_size = np.prod(lb_xy_shape)
 			slice_lbs =shared_lb_arr[:,:,slice_id]
 			s_ids =np.unique(slice_lbs).tolist()
 			for obj_id in s_ids:
@@ -77,11 +84,13 @@ def gradient_worker_2D_on_z(slices):
 				gz-=np.min(gz)+0.01
 				sum_gz+=gz
 				sum_dt+=dt
+				sum_obj_wt+=(float(imagesize)/100.0)/float(np.sum(obj_arr))
 			# pdb.set_trace()
 			with shared_dirmap.get_lock():
 				dirmap[0,:,:,slice_id]+=sum_gz
 				# dimension 4 stores the distance transform
 				dirmap[3,:,:,slice_id]+=sum_dt
+				dirmap[4,:,:,slice_id]+=sum_obj_wt
 
 		for slice_id in slices:
 			assert slice_id >=0 and slice_id < lb_shape[1]
@@ -90,6 +99,8 @@ def gradient_worker_2D_on_z(slices):
 			sum_gx = np.zeros(lb_xy_shape)
 			sum_gz = np.zeros(lb_xy_shape)
 			sum_dt = np.zeros(lb_xy_shape)
+			sum_obj_wt =np.zeros(lb_xy_shape)
+			image_size = np.prod(lb_xy_shape)
 			slice_lbs =shared_lb_arr[:,slice_id,:]
 			s_ids =np.unique(slice_lbs).tolist()
 			for obj_id in s_ids:
@@ -100,11 +111,13 @@ def gradient_worker_2D_on_z(slices):
 				gz-=np.min(gz)+0.01
 				sum_gz+=gz
 				sum_dt+=dt
+				sum_obj_wt+=(float(imagesize)/100.0)/float(np.sum(obj_arr))
 			# pdb.set_trace()
 			with shared_dirmap.get_lock():
 				dirmap[0,:,slice_id,:]+=sum_gz
 				# dimension 4 stores the distance transform
 				dirmap[3,:,slice_id,:]+=sum_dt
+				dirmap[4,:,:,slice_id]+=sum_obj_wt
 
 		return slices
 
@@ -239,14 +252,17 @@ def compute_transform(label_data):
 	lb_shape = label_data.shape
 	lb_array = np.array(label_data).astype(np.float32)
 	obj_ids  = np.unique(lb_array).tolist()
-	# ----  number of directional maps =  gradient along each of its demention + 1 distance transform map ----
-	dir_map  = np.zeros([lb_array.ndim+1] + list(lb_array.shape)).astype(np.float32)
+	# ----  number of directional maps =  
+	#       gradient along each of its demention 
+	#      + 1 (distance transform map) 
+	#.     + 1 (object size weight map).      ----
+	dir_map  = np.zeros([lb_array.ndim+2] + list(lb_array.shape)).astype(np.float32)
 	dirmap_shape = dir_map.shape
 	dir_map.shape =1*dir_map.size
 	lb_array.shape=1*lb_array.size
 	shared_dirmap = mp.Array(ctypes.c_float, dir_map)
 	shared_lbs = mp.Array(ctypes.c_float, lb_array)
-	start_gen_DistGradient(mode='2D')
+	#start_gen_DistGradient(mode='2D')
 	dirmap = np.frombuffer(shared_dirmap.get_obj(),dtype=np.float32).reshape(dirmap_shape)
 	return dirmap
 def test_z_dirmap(label_data):
@@ -258,7 +274,7 @@ def test_z_dirmap(label_data):
 	lb_shape = label_data.shape
 	lb_array = np.array(label_data).astype(np.float32)
 	obj_ids  = np.unique(lb_array).tolist()
-	dir_map  = np.zeros([lb_array.ndim+1] + list(lb_array.shape)).astype(np.float32)
+	dir_map  = np.zeros([lb_array.ndim+2] + list(lb_array.shape)).astype(np.float32)
 	dirmap_shape = dir_map.shape
 	dir_map.shape =1*dir_map.size
 	lb_array.shape=1*lb_array.size
@@ -271,9 +287,9 @@ def test_z_dirmap(label_data):
 	for i in range(num_process):
 		slices_y_ids = [sid for sid in range(steps_y*i,steps_y*(i+1))] if i < num_process-1 \
 						else  [sid for sid in range(steps_y*i,num_slices_y_axis)]
-		gradient_worker_2D_on_z(slices_y_ids)
+		#gradient_worker_2D_on_z(slices_y_ids)
 	dirmap = np.frombuffer(shared_dirmap.get_obj(),dtype=np.float32).reshape(dirmap_shape)
-	savefig('test_z',dirmap)
+	#savefig('test_z',dirmap)
 
 if __name__ =='__main__':
 	volume_names =  volumes.keys()
@@ -282,7 +298,7 @@ if __name__ =='__main__':
 		lb_data = volumes[v_name].data_dict['label_dataset']
 		im_data =volumes[v_name].data_dict['image_dataset']
 		dirmap = compute_transform(lb_data)
-		savefig(v_name,dirmap)
+		#savefig(v_name,dirmap)
 		affinityMap_dict= compute_affinity_map(np.array(lb_data))
 		file_name = '../data/' + v_name.strip().replace(' ','') + '_with_extra_labels.h5'
 
@@ -293,6 +309,7 @@ if __name__ =='__main__':
 			gradY_data  = dirmap[2,:,:,:], \
 			gradZ_data  = dirmap[0,:,:,:], \
 			distTF_data = dirmap[3,:,:,:], \
+			objWeight_data =dirmap[4,:,:,:], \
 			affinX1_data  = affinityMap_dict['x1'], \
 			affinX3_data  = affinityMap_dict['x3'], \
 			affinX5_data  = affinityMap_dict['x5'], \

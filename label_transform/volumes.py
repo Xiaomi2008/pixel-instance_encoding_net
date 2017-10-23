@@ -7,6 +7,8 @@ import pdb
 import logging
 import six
 import random
+import os, sys
+sys.path.append('../')
 DimOrder = namedtuple('DimOrder', ('X', 'Y', 'Z'))
 class bounds_generator(six.Iterator):
     def __init__(self, volume_shape, subvolume_shape, seed = 1):
@@ -16,7 +18,7 @@ class bounds_generator(six.Iterator):
         random.seed(self.seed)
     @property
     def shape(self):
-		return self.subvolume_shape
+        return self.subvolume_shape
     def __iter__(self):
         return self
     def __next__(self):
@@ -101,11 +103,11 @@ class Volume(object):
         #     raise ValueError('This volume does not support sparse subvolume access.')
 
         def bounds2slice(bounds):
-        	n_dim = len(bounds)
-        	slices = [slice(None)]*n_dim
-        	for i in range(n_dim):
-        		slices[i] = slice(bounds[i][0],bounds[i][1])
-        	return slices
+            n_dim = len(bounds)
+            slices = [slice(None)]*n_dim
+            for i in range(n_dim):
+                slices[i] = slice(bounds[i][0],bounds[i][1])
+            return slices
         b_slices = bounds2slice(bounds)
         subvolumes = { name:data[b_slices] 
                        for name, data in self.data_dict.iteritems()}
@@ -129,29 +131,29 @@ class HDF5Volume(Volume):
         from utils.getdata import get_file
         volumes = {}
         with open(filename, 'rb') as fin:
-        	ld = toml.load(fin).get('local_data',None)
-                print(filename)
-        	data_dir =ld['data_dir']
-        	if not os.path.exists(data_dir):
-        		os.mkdir(data_dir)
+            ld = toml.load(fin).get('local_data',None)
+            print(filename)
+            data_dir =ld['data_dir']
+            if not os.path.exists(data_dir):
+                os.mkdir(data_dir)
         with open(filename, 'rb') as fin:
-        	datasets = toml.load(fin).get('dataset', [])
-        	print ('len is {}'.format(len(datasets)))
-        	for dataset in datasets:
-        		hdf5_file = dataset['hdf5_file']
-        		local_file = data_dir + '/'+ hdf5_file
-        		if not os.path.exists(local_file):
+            datasets = toml.load(fin).get('dataset', [])
+            print ('len is {}'.format(len(datasets)))
+            for dataset in datasets:
+                hdf5_file = dataset['hdf5_file']
+                local_file = data_dir + '/'+ hdf5_file
+                if not os.path.exists(local_file):
                     get_file(file_url=dataset['download_url'],
-                             file_path=local_file,
-                             md5_hash=dataset.get('download_md5', None))
-        			# hdf5_file = get_file(hdf5_file, dataset['download_url'], 
-        			# 					md5_hash=dataset.get('download_md5', None), 
-        			# 					cache_subdir='', 
-        			# 					cache_dir=data_dir)
+                        file_path=local_file,
+                        md5_hash=dataset.get('download_md5', None))
+                    # hdf5_file = get_file(hdf5_file, dataset['download_url'], 
+                    #                   md5_hash=dataset.get('download_md5', None), 
+                    #                   cache_subdir='', 
+                    #                   cache_dir=data_dir)
 
-        		dataset_dict ={data['name']:data['path'] for data in dataset.get('data',None)}
-        		# for data in in all_data:
-        		#     data_dict[data['name']]=data['path']
+                dataset_dict ={data['name']:data['path'] for data in dataset.get('data',None)}
+                # for data in in all_data:
+                #     data_dict[data['name']]=data['path']
                 mask_bounds ='dummy'
                 volume = HDF5Volume(local_file,dataset_dict,mask_bounds=mask_bounds)
                 volumes[dataset['name']] = volume
@@ -160,20 +162,21 @@ class HDF5Volume(Volume):
 
     @staticmethod
     def write_file(filename, **kwargs):
+        print filename
         h5file = h5py.File(filename, 'w')
         config = {'hdf5_file': filename}
-        channels = ['image', 'label', 'mask','gradX','gradY','gradZ','distTF',
+        channels = ['image', 'label', 'mask','gradX','gradY','gradZ','distTF', 'objWeight',
                     'affinX1','affinX3','affinX5','affinX7','affinX13','affinX20',
-                    'affinY1','affinY3','affinY5','affinY7','affinX13','affinX20',
+                    'affinY1','affinY3','affinY5','affinY7','affinY13','affinX20',
                     'affinZ1','affinZ3']
         default_datasets = {
             'image': 'volumes/raw',
             'label': 'volumes/labels/neuron_ids',
-            'mask': 'volumes/labels/mask',
             'gradX': 'transformed_label/directionX',
             'gradY': 'transformed_label/directionY',
             'gradZ': 'transformed_label/directionZ',
             'distTF': 'transformed_label/distance',
+            'objWeight': 'transformed_label/objWeight',
             'affinX1': 'affinity_map/x1',
             'affinX3': 'affinity_map/x3',
             'affinX5': 'affinity_map/x5',
@@ -193,6 +196,7 @@ class HDF5Volume(Volume):
             data = kwargs.get('{}_data'.format(channel), None)
             dataset_name = kwargs.get('{}_dataset'.format(channel), default_datasets[channel])
             if data is not None:
+                print ('save {} to HDF5 '.format(dataset_name))
                 dataset = h5file.create_dataset(dataset_name, data=data, dtype=data.dtype)
                 #dataset.attrs['resolution'] = resolution
                 config['{}_dataset'.format(channel)] = dataset_name
@@ -228,4 +232,4 @@ def run_test():
 
 
 if __name__ == "__main__":
-	run_test()
+    run_test()

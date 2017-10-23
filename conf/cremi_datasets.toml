@@ -3,7 +3,7 @@
 #
 # https://cremi.org/
 [local_data]
-data_dir = "data"
+data_dir = "../data"
 
 [[dataset]]
 name = "Sample A"
@@ -37,7 +37,7 @@ download_md5 = "16397ec1f7e0ba324b506303b0dc5034"
 
 [[dataset]]
 name = "Sampe C with extra transformed labels"
-hdf5_file = "SampleC_with_extra_labels.h5"
+hdf5_file = "sample_C_20160501.hdf"
 # image_dataset = "volumes/raw"
 # label_dataset = "volumes/labels/neuron_ids"
 download_url = "https://cremi.org/static/data/sample_C_20160501.hdf"
