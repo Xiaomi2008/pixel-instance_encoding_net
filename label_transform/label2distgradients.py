@@ -243,7 +243,7 @@ def savefig(data_name,dirmap):
 	plt.imshow(dirmap[3,3,:,:])
 	plt.savefig(data_name+' dist_map.png')
 	plt.imshow(dirmap[4,3,:,:])
-	plt,savefig(data_name +'obj_weight_map.png')
+	plt.savefig(data_name +'obj_weight_map.png')
 
 
 def compute_transform(label_data):
