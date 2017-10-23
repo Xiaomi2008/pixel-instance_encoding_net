@@ -52,9 +52,9 @@ def gradient_worker_2D_on_xy(slices):
 				sum_gx+=gx
 				sum_gy+=gy
 				sum_dt+=dt
-				obj_idx = obj_id==1
+				obj_idx = obj_arr==1
 				sum_obj_wt[obj_idx]=(float(image_size)/100.0)/float(np.sum(obj_arr))
-				pdb.set_trace()
+				#pdb.set_trace()
 
 			with shared_dirmap.get_lock():
 				dirmap[1,slice_id,:,:]+=sum_gx
@@ -86,7 +86,8 @@ def gradient_worker_2D_on_z(slices):
 				gz-=np.min(gz)+0.01
 				sum_gz+=gz
 				sum_dt+=dt
-				sum_obj_wt+=(float(image_size)/100.0)/float(np.sum(obj_arr))
+				obj_idx = obj_arr==1
+				sum_obj_wt[obj_idx]+=(float(image_size)/100.0)/float(np.sum(obj_arr))
 			# pdb.set_trace()
 			with shared_dirmap.get_lock():
 				dirmap[0,:,:,slice_id]+=sum_gz
@@ -113,7 +114,7 @@ def gradient_worker_2D_on_z(slices):
 				gz-=np.min(gz)+0.01
 				sum_gz+=gz
 				sum_dt+=dt
-				obj_idx = obj_id==1
+				obj_idx = obj_arr==1
 				sum_obj_wt[obj_idx]=(float(image_size)/100.0)/float(np.sum(obj_arr))
 			# pdb.set_trace()
 			with shared_dirmap.get_lock():
@@ -304,32 +305,32 @@ if __name__ =='__main__':
 	for v_name in volume_names:
 		lb_data = volumes[v_name].data_dict['label_dataset']
 		im_data =volumes[v_name].data_dict['image_dataset']
-		test_z_dirmap(lb_data)
-		# dirmap = compute_transform(lb_data)
-		# savefig(v_name,dirmap)
-		# affinityMap_dict= compute_affinity_map(np.array(lb_data))
-		# file_name = '../data/' + v_name.strip().replace(' ','') + '_with_extra_labels.h5'
-		# print( 'save to {} '.format(file_name))
+		#test_z_dirmap(lb_data)
+		dirmap = compute_transform(lb_data)
+		savefig(v_name,dirmap)
+		affinityMap_dict= compute_affinity_map(np.array(lb_data))
+		file_name = '../data/' + v_name.strip().replace(' ','') + '_with_extra_labels.h5'
+		print( 'save to {} '.format(file_name))
 
-		# HDF5Volume.write_file(file_name, \
-		# 	label_data  = lb_data, \
-		# 	image_data  = im_data, \
-		# 	gradX_data  = dirmap[1,:,:,:], \
-		# 	gradY_data  = dirmap[2,:,:,:], \
-		# 	gradZ_data  = dirmap[0,:,:,:], \
-		# 	distTF_data = dirmap[3,:,:,:], \
-		# 	objWeight_data =dirmap[4,:,:,:], \
-		# 	affinX1_data  = affinityMap_dict['x1'], \
-		# 	affinX3_data  = affinityMap_dict['x3'], \
-		# 	affinX5_data  = affinityMap_dict['x5'], \
-		# 	affinX7_data  = affinityMap_dict['x7'], \
-		# 	affinX13_data = affinityMap_dict['x13'], \
-		# 	affinX20_data = affinityMap_dict['x20'], \
-		# 	affinY1_data  = affinityMap_dict['y1'], \
-		# 	affinY3_data  = affinityMap_dict['y3'], \
-		# 	affinY5_data  = affinityMap_dict['y5'], \
-		# 	affinY7_data  = affinityMap_dict['y7'], \
-		# 	affinY13_data = affinityMap_dict['y13'], \
-		# 	affinY20_data = affinityMap_dict['y20'], \
-		# 	affinZ1_data  = affinityMap_dict['z1'], \
-		# 	affinZ3_data  = affinityMap_dict['z3'])
+		HDF5Volume.write_file(file_name, \
+			label_data  = lb_data, \
+			image_data  = im_data, \
+			gradX_data  = dirmap[1,:,:,:], \
+			gradY_data  = dirmap[2,:,:,:], \
+			gradZ_data  = dirmap[0,:,:,:], \
+			distTF_data = dirmap[3,:,:,:], \
+			objWeight_data =dirmap[4,:,:,:], \
+			affinX1_data  = affinityMap_dict['x1'], \
+			affinX3_data  = affinityMap_dict['x3'], \
+			affinX5_data  = affinityMap_dict['x5'], \
+			affinX7_data  = affinityMap_dict['x7'], \
+			affinX13_data = affinityMap_dict['x13'], \
+			affinX20_data = affinityMap_dict['x20'], \
+			affinY1_data  = affinityMap_dict['y1'], \
+			affinY3_data  = affinityMap_dict['y3'], \
+			affinY5_data  = affinityMap_dict['y5'], \
+			affinY7_data  = affinityMap_dict['y7'], \
+			affinY13_data = affinityMap_dict['y13'], \
+			affinY20_data = affinityMap_dict['y20'], \
+			affinZ1_data  = affinityMap_dict['z1'], \
+			affinZ3_data  = affinityMap_dict['z3'])
