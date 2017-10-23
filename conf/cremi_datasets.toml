@@ -36,7 +36,7 @@ download_md5 = "16397ec1f7e0ba324b506303b0dc5034"
 
 
 [[dataset]]
-name = "Sampe C with extra transformed labels"
+name = "Sampe C"
 hdf5_file = "sample_C_20160501.hdf"
 # image_dataset = "volumes/raw"
 # label_dataset = "volumes/labels/neuron_ids"

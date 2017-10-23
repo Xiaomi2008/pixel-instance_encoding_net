@@ -262,7 +262,7 @@ def compute_transform(label_data):
 	lb_array.shape=1*lb_array.size
 	shared_dirmap = mp.Array(ctypes.c_float, dir_map)
 	shared_lbs = mp.Array(ctypes.c_float, lb_array)
-	#start_gen_DistGradient(mode='2D')
+	start_gen_DistGradient(mode='2D')
 	dirmap = np.frombuffer(shared_dirmap.get_obj(),dtype=np.float32).reshape(dirmap_shape)
 	return dirmap
 def test_z_dirmap(label_data):
@@ -293,14 +293,15 @@ def test_z_dirmap(label_data):
 
 if __name__ =='__main__':
 	volume_names =  volumes.keys()
+	#print volume_names
 	for v_name in volume_names:
-		#lb_data = volumes[v_name].label_data
 		lb_data = volumes[v_name].data_dict['label_dataset']
 		im_data =volumes[v_name].data_dict['image_dataset']
 		dirmap = compute_transform(lb_data)
-		#savefig(v_name,dirmap)
+		savefig(v_name,dirmap)
 		affinityMap_dict= compute_affinity_map(np.array(lb_data))
 		file_name = '../data/' + v_name.strip().replace(' ','') + '_with_extra_labels.h5'
+		print( 'save to {} '.format(file_name))
 
 		HDF5Volume.write_file(file_name, \
 			label_data  = lb_data, \
@@ -324,47 +325,3 @@ if __name__ =='__main__':
 			affinY20_data = affinityMap_dict['y20'], \
 			affinZ1_data  = affinityMap_dict['z1'], \
 			affinZ3_data  = affinityMap_dict['z3'])
-
-
-
-		# lb_array = volumes[v_name].label_data
-		# lb_shape = lb_array.shape
-		# print (v_name)
-		# lb_array = np.array(lb_array).astype(np.float32)
-		# obj_ids  = np.unique(lb_array).tolist()
-		# 	# ----  number of directional maps =  gradient along each of its demention + 1 distance transform map ----
-		# dir_map  = np.zeros([lb_array.ndim+1] + list(lb_array.shape)).astype(np.float32)
-		# dirmap_shape = dir_map.shape
-		# dir_map.shape =1*dir_map.size
-		# lb_array.shape=1*lb_array.size
-		# shared_dirmap = mp.Array(ctypes.c_float, dir_map)
-		# share_lbs = mp.Array(ctypes.c_float, lb_array)
-		# start(mode='2D')
-		# dirmap = np.frombuffer(shared_dirmap.get_obj(),dtype=np.float32).reshape(dirmap_shape)
-		# savefig(v_name,dirmap)	
-		# affinityMap_dict= compute_affinity_map(lb_array)
-		# file_name = '../data/' + v_name.strip().replace(' ','') + '_with_extra_labels.h5'
-		# #channels = ['image', 'label', 'mask','gradX','gradY','gradZ','distTF']
-		# VM = volumes[v_name]
-		# HDF5Volume.write_file(file_name, \
-		# 	label_data = VM.label_data, \
-		# 	image_data = VM.image_data, \
-		# 	gradX_data = dirmap[1,:,:,:], \
-		# 	gradY_data = dirmap[2,:,:,:], \
-		# 	gradZ_data = dirmap[0,:,:,:], \
-		# 	distTF_data = dirmap[3,:,:,:], \
-		# 	affinX1_data = affinityMap_dict['x1'], \
-		# 	affinX3_data = affinityMap_dict['x3'], \
-		# 	affinX5_data = affinityMap_dict['x5'], \
-		# 	affinX7_data = affinityMap_dict['x7'], \
-		# 	affinX13_data = affinityMap_dict['x13'], \
-		# 	affinX20_data = affinityMap_dict['x20'], \
-		# 	affinY1_data = affinityMap_dict['y1'], \
-		# 	affinY3_data = affinityMap_dict['y3'], \
-		# 	affinY5_data = affinityMap_dict['y5'], \
-		# 	affinY7_data = affinityMap_dict['y7'], \
-		# 	affinY13_data = affinityMap_dict['y13'], \
-		# 	affinY20_data = affinityMap_dict['y20'], \
-		# 	affinZ1_data = affinityMap_dict['z1'], \
-		# 	affinZ3_data = affinityMap_dict['z3'])
-

@@ -120,7 +120,7 @@ class HDF5Volume(Volume):
     ----------
     orig_file : str
         Filename of the HDF5 file to load.
-    image_dataaset : str
+    image_dataset : str
         Full dataset path including groups to the raw image data array.
     label_dataset : str
         Full dataset path including groups to the object label data array.
