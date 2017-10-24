@@ -33,7 +33,7 @@ def train():
     #use_gpu=torch.cuda.is_available()
    
     model.train()
-    im_size =224
+    im_size =112
     bounds_gen=bounds_generator(V_1.shape,[1,im_size,im_size])
     sub_vol_gen =SubvolumeGenerator(V_1,bounds_gen)
     for i in xrange(1000):
@@ -42,15 +42,9 @@ def train():
         T = np.zeros([16,2,im_size,im_size])
         for b in range(16):
             C = six.next(sub_vol_gen);
-            #print C.keys()
-            n_i = C['label_dataset'].astype(np.int32)
-            affin_x3 = C['gradX_dataset'].astype(np.double)
-            affin_y3 = C['gradY_dataset'].astype(np.double)
-            #n_l = C['affinityX3'].astype(np.int32)
-            #print(n_i.shape)
-            I[b,:,:,:]=n_i
-            T[b,0,:,:]=affin_x3
-            T[b,1,:,:]=affin_y3
+            I[b,:,:,:]= C['label_dataset'].astype(np.int32)
+            T[b,0,:,:]= C['gradX_dataset'].astype(np.double)
+            T[b,1,:,:]= C['gradY_dataset'].astype(np.double)
         images = torch.from_numpy(I)
         labels = torch.from_numpy(T)
         data, target = Variable(images).float(), Variable(labels).float()
