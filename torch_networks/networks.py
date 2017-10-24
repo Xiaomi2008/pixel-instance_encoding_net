@@ -155,6 +155,8 @@ def dice_loss(input, target):
 def l2_norm(x):
     return x/torch.sqrt(torch.max(x**2,0)[0])
 def angularLoss(pred, gt, weight=0, outputChannels=2):
+    pred        = pred.transpose(1,2).transpose(2,3)
+    gt          = gt.transpose(1,2).transpose(2,3)
     pred        = pred.view(-1, outputChannels)
     gt          = gt.view(-1, outputChannels)
     #weight      = weight.view(-1, 1).float()

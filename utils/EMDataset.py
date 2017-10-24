@@ -31,15 +31,15 @@ class CRIME_Dataset(Dataset):
       x_start = remain // self.y_size
       y_start = remain % self.y_size
 
-      z_end   = z_start + self.z_size
-      x_end   = x_start + self.x_size
-      y_end   = y_start + self.y_size
+      z_end   = z_start + self.z_out_size
+      x_end   = x_start + self.x_out_size
+      y_end   = y_start + self.y_out_size
 
       data    = self.im_data[z_start:z_end,x_start:x_end,y_start:y_end]
-      target  = self.lb_data[z_start:z_end,x_start:x_end,y_start:y_end]
+      target  = self.gt_data[z_start:z_end,x_start:x_end,y_start:y_end]
 
 
-      pdb.set_trace()
+      #pdb.set_trace()
 
       return torch.from_numpy(data), torch.from_numpy(target)
 
@@ -55,15 +55,17 @@ class CRIME_Dataset(Dataset):
       return self.len
 
     def load_hdf(self):
-      # data_config = '../conf/cremi_datasets_with_tflabels.toml'
-      data_config = '../conf/cremi_datasets.toml'
+      data_config = 'conf/cremi_datasets_with_tflabels.toml'
+      #data_config = '../conf/cremi_datasets.toml'
       volumes = HDF5Volume.from_toml(data_config)
-      data_name ={'Set_A':'Sample A','Set_B':'Sample B','Set_C':'Sample C'}
-      # data_name = {'Set_A':'Sampe A with extra transformed labels'}
+      #data_name ={'Set_A':'Sample A','Set_B':'Sample B','Set_C':'Sample C'}
+      data_name = {'Set_A':'Sampe A with extra transformed labels'}
       self.V = volumes[data_name[self.dataset]]
-      # gradX = np.array(self.V['gradX_dataset']).astype(np.int32)
-      # gradY = np.array(self.V['gradY_dataset']).astype(np.int32)
-      # self.gradient_data = np.concatenate(gradX,gradY,axis=-1)
+      gradX = np.array(self.V['gradX_dataset']).astype(np.double)
+      gradY = np.array(self.V['gradY_dataset']).astype(np.double)
+      gradX = np.expand_dims(gradX, -1)
+      gradY = np.expand_dims(gradY, -1)
+      self.gd_data = np.concatenate(gradX,gradY,axis=-1)
       self.lb_data = np.array(self.V.data_dict['label_dataset']).astype(np.int32)
       self.im_data = np.array(self.V.data_dict['image_dataset']).astype(np.int32)
 
@@ -75,8 +77,8 @@ if __name__ == '__main__':
                           shuffle=True,
                           num_workers=2)
   for epoch in range(1):
-    d,l = dataset.__getitem__(1000)
-    # for i, data in enumerate(train_loader, 0):
-    #     # get the inputs
-    #     inputs, labels = data
-    #     print ('Input iter = {} shape inputs = {}'.format(i,inputs.shape))
+    #d,l = dataset.__getitem__(1000)
+    for i, data in enumerate(train_loader, 0):
+         # get the inputs
+         inputs, labels = data
+         print ('Input iter = {} shape inputs = {}'.format(i,inputs.shape))
