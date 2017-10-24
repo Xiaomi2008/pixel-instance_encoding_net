@@ -49,7 +49,7 @@ def train():
                           batch_size=16,
                           shuffle=True,
                           num_workers=2)
-  for epoch in range(1):
+    for epoch in range(1):
     #d,l = dataset.__getitem__(1000)
     for i, batch in enumerate(train_loader, 0):
          # get the inputs
