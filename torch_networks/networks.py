@@ -157,35 +157,17 @@ def l2_norm(x):
 def angularLoss(pred, gt, weight=0, outputChannels=2):
     pred        = pred.view(-1, outputChannels)
     gt          = gt.view(-1, outputChannels)
-   # weight      = weight.view(-1, 1).float()
+    #weight      = weight.view(-1, 1).float()
     pred        = l2_norm(pred)*0.999999
     gt          = l2_norm(gt)*0.999999
 
-    #err_angle   = 1-torch.cos(torch.sum(pred*gt,1)/(torch.sqrt((pred**2))+torch.sqrt((gt**2))))
-    #err_angle   = 1-torch.cos(torch.sum(pred*gt,1)/(torch.sqrt((pred**2))+torch.sqrt((gt**2))))
 
-#    prod_xy   =  pred*gt
-    #print("----- pred -------")
-
-
-   
+    #x_r=torch.sum(pred*gt,1)/(torch.sqrt(torch.sum(pred**2,1))+torch.sum(gt**2,1))
+    #loss = torch.sum(torch_acos(x_r))
     p_xy  =pred[:,0]/torch.sqrt(torch.sum((pred*pred),1))   
-    #print(p_xy)
-
     gt_xy =gt[:,0]/torch.sqrt(torch.sum((gt*gt),1))
-
-    #print("----- p_xy -------")
-
-    #print(gt_xy) 
-
     err_angle= torch.acos(p_xy) - torch.acos(gt_xy)
-
-    # x_y_r=prod_xy[-1,1]/ torch.sqrt((prod_xy[-1,0]*prod_xy[-1,0] + prod_xy[-1,1]*prod_xy[-1,1]))
-    # err_angle   = torch.acos(x_y_r)
     loss = torch.sum(err_angle*err_angle)
-    # err_angle   = 1.0-pred*gt/pred.norm()*gt.norm()
-    # err_angle   = torch.acros(err_angle)
-    # loss = torch.sum(err_angle*err_angle)
     return loss
 
 def test_angularLoss():
