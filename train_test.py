@@ -28,6 +28,7 @@ volumes = HDF5Volume.from_toml(data_config)
 V_1 = volumes[volumes.keys()[0]]
 def savefiguers(iter,output):
     rootdir ='./'
+    data = output.data.cpu()
     plt.imshow(output.data.numpy()[0])
     plt.savefigure('iter_image{}.png'.format(iter))
 
