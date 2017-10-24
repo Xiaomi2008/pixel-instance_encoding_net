@@ -32,7 +32,7 @@ def train():
     im_size =112
     bounds_gen=bounds_generator(V_1.shape,[1,im_size,im_size])
     sub_vol_gen =SubvolumeGenerator(V_1,bounds_gen)
-    for i in xrange(800):
+    for i in xrange(5000):
         #print ('i == {}'.format(i))
         I = np.zeros([16,1,im_size,im_size])
         T = np.zeros([16,2,im_size,im_size])
@@ -55,15 +55,11 @@ def train():
             target = target.cuda().double()
         optimizer.zero_grad()
         output = model(data)
-        #print(data)
-        #print(target.type())
         loss = angularLoss(output, target)
-        #print  loass.
-        #loss = angularLoss(functional.sigmoid(output), target)
-        #loss = functional.nll_loss(output, target)
         loss.backward()
         optimizer.step()
-        print loss.data[0]
+        print('iter {}, loss = {:.6f}'.format(i,loss.data[0]))
+        #print loss.data[0]
 def test():
     use_gpu=torch.cuda.is_available()
     model.test()
