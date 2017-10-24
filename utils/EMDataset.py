@@ -65,7 +65,7 @@ class CRIME_Dataset(Dataset):
       gradY = np.array(self.V.data_dict['gradY_dataset']).astype(np.double)
       gradX = np.expand_dims(gradX, 1)
       gradY = np.expand_dims(gradY, 1)
-      self.gd_data = np.concatenate(gradX,gradY,axis=1)
+      self.gd_data = np.concatenate((gradX,gradY),axis=1)
       self.lb_data = np.array(self.V.data_dict['label_dataset']).astype(np.int32)
       self.im_data = np.array(self.V.data_dict['image_dataset']).astype(np.int32)
 
