@@ -33,10 +33,10 @@ def train():
     #use_gpu=torch.cuda.is_available()
    
     model.train()
-    im_size =112
+    im_size =224
     bounds_gen=bounds_generator(V_1.shape,[1,im_size,im_size])
     sub_vol_gen =SubvolumeGenerator(V_1,bounds_gen)
-    for i in xrange(5000):
+    for i in xrange(1000):
         #print ('i == {}'.format(i))
         I = np.zeros([16,1,im_size,im_size])
         T = np.zeros([16,2,im_size,im_size])
