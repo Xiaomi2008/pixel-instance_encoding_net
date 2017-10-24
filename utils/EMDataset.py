@@ -55,8 +55,8 @@ class CRIME_Dataset(Dataset):
       # gradX = np.array(self.V['gradX_dataset']).astype(np.int32)
       # gradY = np.array(self.V['gradY_dataset']).astype(np.int32)
       # self.gradient_data = np.concatenate(gradX,gradY,axis=-1)
-      self.lb_data = np.array(self.V.data_dict['label_dataset']).astype(np.int32)
-      self.im_data = np.array(self.V.data_dict['image_dataset']).astype(np.int32)
+      self.lb_data = torch.from_numpy(np.array(self.V.data_dict['label_dataset']).astype(np.int32))
+      self.im_data = torch.from_numpy(np.array(self.V.data_dict['image_dataset']).astype(np.int32))
 
 
 if __name__ == '__main__':
