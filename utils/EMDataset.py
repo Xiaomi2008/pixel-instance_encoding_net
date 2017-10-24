@@ -1,5 +1,6 @@
 import os, sys
 sys.path.append('../')
+import torch
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from label_transform.volumes import Volume
@@ -33,9 +34,13 @@ class CRIME_Dataset(Dataset):
       x_end   = x_start + self.x_size
       y_end   = y_start + self.y_size
 
+      data    = self.im_data[z_start:z_end,x_start:x_end,y_start:y_end]
+      target  = self.lb_data[z_start:z_end,x_start:x_end,y_start:y_end]
 
-      return self.im_data[z_start:z_end,x_start:x_end,y_start:y_end], \
-             self.lb_data[z_start:z_end,x_start:x_end,y_start:y_end]
+      return torch.form_numpy(data), torch.form_numpy(target)
+
+      #return self.im_data[z_start:z_end,x_start:x_end,y_start:y_end], \
+      #       self.lb_data[z_start:z_end,x_start:x_end,y_start:y_end]
       # return self.im_data[z_start:z_end,x_start:x_end,y_start:y_end], \
       #        self.gradient_data[z_start:z_end,x_start:x_end,y_start:y_end]
 
@@ -55,8 +60,8 @@ class CRIME_Dataset(Dataset):
       # gradX = np.array(self.V['gradX_dataset']).astype(np.int32)
       # gradY = np.array(self.V['gradY_dataset']).astype(np.int32)
       # self.gradient_data = np.concatenate(gradX,gradY,axis=-1)
-      self.lb_data = torch.from_numpy(np.array(self.V.data_dict['label_dataset']).astype(np.int32))
-      self.im_data = torch.from_numpy(np.array(self.V.data_dict['image_dataset']).astype(np.int32))
+      self.lb_data = np.array(self.V.data_dict['label_dataset']).astype(np.int32)
+      self.im_data = np.array(self.V.data_dict['image_dataset']).astype(np.int32)
 
 
 if __name__ == '__main__':

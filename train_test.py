@@ -73,7 +73,7 @@ def train():
 
 def test(iters = 0):
     use_gpu=torch.cuda.is_available()
-    model.eval()
+    model.cpu().eval()
     im_size =1024
     bounds_gen=bounds_generator(V_1.shape,[1,im_size,im_size])
     sub_vol_gen =SubvolumeGenerator(V_1,bounds_gen)
@@ -91,11 +91,13 @@ def test(iters = 0):
         images = torch.from_numpy(I)
         labels = torch.from_numpy(T)
         data, target = Variable(images).double(), Variable(labels).double()
-        if use_gpu:
-            data=data.cuda().double()
-            target = target.cuda().double()
+        # if use_gpu:
+        #     data=data.cuda().double()
+        #     target = target.cuda().double()
         output = model(data)
         savefiguers(iters,output)
+        if use_gpu:
+            model.gpu()
         model.train()
 
 if __name__ =='__main__':
