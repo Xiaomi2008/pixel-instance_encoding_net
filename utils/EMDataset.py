@@ -17,11 +17,16 @@ class CRIME_Dataset(Dataset):
       self.y_out_size   = out_size
       self.z_out_size   = 1
       self.load_hdf()
+
+      dim_shape         = self.im_data.shape
+      self.y_size       = dim_shape[2] -self.x_out_size + 1
+      self.x_size       = dim_shape[1] -self.y_out_size + 1 
+      self.z_size       = dim_shape[0] -self.z_out_size + 1
         
     def __getitem__(self, index):
-      z_start = index / (self.x_size * self.y_size)
+      z_start = index // (self.x_size * self.y_size)
       remain  = index % (self.x_size * self.y_size)
-      x_start = remain / self.y_size
+      x_start = remain // self.y_size
       y_start = remain % self.y_size
 
       z_end   = z_start + self.z_size
@@ -37,11 +42,7 @@ class CRIME_Dataset(Dataset):
 
 
     def __len__(self):
-      dim_shape = self.im_data.shape
-      self.y_size  = dim_shape[2] -self.out_size + 1
-      self.x_size  = dim_shape[1] -self.out_size + 1 
-      self.z_size  = dim_shape[0]
-      self.len = x_size * y_size * z_size 
+      self.len = self.x_size * self.y_size * self.z_size 
       return self.len
 
     def load_hdf(self):
