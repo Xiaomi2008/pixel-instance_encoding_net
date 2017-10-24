@@ -61,8 +61,8 @@ class CRIME_Dataset(Dataset):
       #data_name ={'Set_A':'Sample A','Set_B':'Sample B','Set_C':'Sample C'}
       data_name = {'Set_A':'Sampe A with extra transformed labels'}
       self.V = volumes[data_name[self.dataset]]
-      gradX = np.array(self.V['gradX_dataset']).astype(np.double)
-      gradY = np.array(self.V['gradY_dataset']).astype(np.double)
+      gradX = np.array(self.V.data_dict['gradX_dataset']).astype(np.double)
+      gradY = np.array(self.V.data_dict['gradY_dataset']).astype(np.double)
       gradX = np.expand_dims(gradX, 1)
       gradY = np.expand_dims(gradY, 1)
       self.gd_data = np.concatenate(gradX,gradY,axis=1)
