@@ -25,9 +25,9 @@ if use_gpu:
     model.cuda().double()
 #optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.5)
 optimizer = optim.Adagrad(model.parameters(), lr=0.01, lr_decay=0, weight_decay=0)
-data_config = 'conf/cremi_datasets_with_tflabels.toml'
-volumes = HDF5Volume.from_toml(data_config)
-V_1 = volumes[volumes.keys()[0]]
+# data_config = 'conf/cremi_datasets_with_tflabels.toml'
+# volumes = HDF5Volume.from_toml(data_config)
+# V_1 = volumes[volumes.keys()[0]]
 
 def savefiguers(iters,output):
     rootdir ='./'
@@ -95,36 +95,36 @@ def train():
         #print loss.data[0]
 
 
-def test(iters = 0):
-    use_gpu=torch.cuda.is_available()
-    model.cpu().eval()
-    im_size =1024
-    bounds_gen=bounds_generator(V_1.shape,[1,im_size,im_size])
-    sub_vol_gen =SubvolumeGenerator(V_1,bounds_gen)
-    for i in xrange(10):
-        I = np.zeros([1,1,im_size,im_size])
-        T = np.zeros([1,2,im_size,im_size])
-        for b in range(1):
-            C = six.next(sub_vol_gen);
-            n_i = C['image_dataset'].astype(np.int32)
-            affin_x3 = C['gradX_dataset'].astype(np.float)
-            affin_y3 = C['gradY_dataset'].astype(np.float)
-            I[b,:,:,:]=n_i
-            T[b,0,:,:]=affin_x3
-            T[b,1,:,:]=affin_y3
-        images = torch.from_numpy(I)
-        labels = torch.from_numpy(T)
-        data, target = Variable(images).double(), Variable(labels).double()
-        # if use_gpu:
-        #     data=data.cuda().double()
-        #     target = target.cuda().double()
-        output = model(data)
-        savefiguers(iters,output)
-        if use_gpu:
-            model.cuda()
-            model.double()
-        model.train()
+# def test(iters = 0):
+#     use_gpu=torch.cuda.is_available()
+#     model.cpu().eval()
+#     im_size =1024
+#     bounds_gen=bounds_generator(V_1.shape,[1,im_size,im_size])
+#     sub_vol_gen =SubvolumeGenerator(V_1,bounds_gen)
+#     for i in xrange(10):
+#         I = np.zeros([1,1,im_size,im_size])
+#         T = np.zeros([1,2,im_size,im_size])
+#         for b in range(1):
+#             C = six.next(sub_vol_gen);
+#             n_i = C['image_dataset'].astype(np.int32)
+#             affin_x3 = C['gradX_dataset'].astype(np.float)
+#             affin_y3 = C['gradY_dataset'].astype(np.float)
+#             I[b,:,:,:]=n_i
+#             T[b,0,:,:]=affin_x3
+#             T[b,1,:,:]=affin_y3
+#         images = torch.from_numpy(I)
+#         labels = torch.from_numpy(T)
+#         data, target = Variable(images).double(), Variable(labels).double()
+#         # if use_gpu:
+#         #     data=data.cuda().double()
+#         #     target = target.cuda().double()
+#         output = model(data)
+#         savefiguers(iters,output)
+#         if use_gpu:
+#             model.cuda()
+#             model.double()
+#         model.train()
 
 if __name__ =='__main__':
     train()
-    test()
+    # test()
