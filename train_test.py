@@ -50,19 +50,17 @@ def train():
                           shuffle=True,
                           num_workers=2)
     for epoch in range(1):
-    #d,l = dataset.__getitem__(1000)
-    for i, batch in enumerate(train_loader, 0):
-         # get the inputs
-         data, target = batch
-        if use_gpu:
-            data=data.cuda().double()
-            target = target.cuda().double()
-        optimizer.zero_grad()
-        output = model(data)
-        loss = angularLoss(output, target)
-        loss.backward()
-        optimizer.step()
-        print('iter {}, loss = {:.5f}'.format(i,loss.data[0]))
+        for i, batch in enumerate(train_loader, 0):
+            data, target = batch
+            if use_gpu:
+                data=data.cuda().double()
+                target = target.cuda().double()
+            optimizer.zero_grad()
+            output = model(data)
+            loss = angularLoss(output, target)
+            loss.backward()
+            optimizer.step()
+            print('iter {}, loss = {:.5f}'.format(i,loss.data[0]))
 
         # print ('Input iter = {} shape inputs = {}'.format(i,inputs.shape))
 
