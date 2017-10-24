@@ -30,6 +30,7 @@ V_1 = volumes[volumes.keys()[0]]
 def savefiguers(iters,output):
     rootdir ='./'
     data = output.data.cpu().numpy()
+    print ('output shape = {}'.format(data.shape))
     plt.imshow(data[0,:,:,0])
     plt.savefig('iter_predX_{}.png'.format(iters))
     plt.imshow(data[0,:,:,1])
@@ -43,14 +44,14 @@ def train():
     im_size =224
     bounds_gen=bounds_generator(V_1.shape,[1,im_size,im_size])
     sub_vol_gen =SubvolumeGenerator(V_1,bounds_gen)
-    for i in xrange(1000):
+    for i in xrange(500):
         #print ('i == {}'.format(i))
 
         I = np.zeros([16,1,im_size,im_size])
         T = np.zeros([16,2,im_size,im_size])
         for b in range(16):
             C = six.next(sub_vol_gen);
-            I[b,:,:,:]= C['label_dataset'].astype(np.int32)
+            I[b,:,:,:]= C['image_dataset'].astype(np.int32)
             T[b,0,:,:]= C['gradX_dataset'].astype(np.double)
             T[b,1,:,:]= C['gradY_dataset'].astype(np.double)
         images = torch.from_numpy(I)
@@ -66,8 +67,8 @@ def train():
         optimizer.step()
         print('iter {}, loss = {:.5f}'.format(i,loss.data[0]))
 
-        if i % 100 ==0:
-            test(iters=i)
+        #if i % 100 ==0:
+        #    test(iters=i)
         #print loss.data[0]
 
 
@@ -82,7 +83,7 @@ def test(iters = 0):
         T = np.zeros([1,2,im_size,im_size])
         for b in range(1):
             C = six.next(sub_vol_gen);
-            n_i = C['label_dataset'].astype(np.int32)
+            n_i = C['image_dataset'].astype(np.int32)
             affin_x3 = C['gradX_dataset'].astype(np.float)
             affin_y3 = C['gradY_dataset'].astype(np.float)
             I[b,:,:,:]=n_i
@@ -97,7 +98,8 @@ def test(iters = 0):
         output = model(data)
         savefiguers(iters,output)
         if use_gpu:
-            model.gpu()
+            model.cuda()
+            model.double()
         model.train()
 
 if __name__ =='__main__':

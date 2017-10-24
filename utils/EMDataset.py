@@ -1,5 +1,6 @@
 import os, sys
 sys.path.append('../')
+import pdb
 import torch
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
@@ -37,7 +38,10 @@ class CRIME_Dataset(Dataset):
       data    = self.im_data[z_start:z_end,x_start:x_end,y_start:y_end]
       target  = self.lb_data[z_start:z_end,x_start:x_end,y_start:y_end]
 
-      return torch.form_numpy(data), torch.form_numpy(target)
+
+      pdb.set_trace()
+
+      return torch.from_numpy(data), torch.from_numpy(target)
 
       #return self.im_data[z_start:z_end,x_start:x_end,y_start:y_end], \
       #       self.lb_data[z_start:z_end,x_start:x_end,y_start:y_end]
@@ -71,7 +75,8 @@ if __name__ == '__main__':
                           shuffle=True,
                           num_workers=2)
   for epoch in range(1):
-    for i, data in enumerate(train_loader, 0):
-        # get the inputs
-        inputs, labels = data
-        print ('Input iter = {} shape inputs = {}'.format(i,inputs.shape))
+    d,l = dataset.__getitem__(1000)
+    # for i, data in enumerate(train_loader, 0):
+    #     # get the inputs
+    #     inputs, labels = data
+    #     print ('Input iter = {} shape inputs = {}'.format(i,inputs.shape))
