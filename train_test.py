@@ -26,13 +26,13 @@ optimizer = optim.Adagrad(model.parameters(), lr=0.01, lr_decay=0, weight_decay=
 data_config = 'conf/cremi_datasets_with_tflabels.toml'
 volumes = HDF5Volume.from_toml(data_config)
 V_1 = volumes[volumes.keys()[0]]
-def savefiguers(iter,output):
+def savefiguers(iters,output):
     rootdir ='./'
     data = output.data.cpu().numpy()
     plt.imshow(data[0,:,:,0])
-    plt.savefigure('iter_predX_{}.png'.format(iter))
+    plt.savefigure('iter_predX_{}.png'.format(iters))
     plt.imshow(data[0,:,:,1])
-    plt.savefigure('iter_predY_{}.png'.format(iter))
+    plt.savefigure('iter_predY_{}.png'.format(iters))
 
 
 def train():
