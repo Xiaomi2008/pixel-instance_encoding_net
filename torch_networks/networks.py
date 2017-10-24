@@ -11,8 +11,11 @@ from torch.utils.data import DataLoader
 
 import torchvision.models as models
 
+
+
 import sys
 import math
+import pdb
 class Downblock(nn.Module):
     def __init__(self,in_ch,num_conv,ch_growth_rate,kernel_size = 3):
         super(Downblock, self).__init__()
@@ -111,8 +114,8 @@ class Unet(nn.Module):
 
         last_up_ch = b4_up_ch // ch_change_rate
         self.finnal_conv2d = nn.Conv2d(last_up_ch, out_ch, kernel_size=1, padding=0)
-        self.upsample = nn.Upsample(scale_factor=2,mode='billinear')
-        self.finnal_conv2d = nn.Conv2d(48, 1, kernel_size=3, padding=1)
+        self.upsample = nn.Upsample(scale_factor=2,mode='bilinear')
+        self.finnal_conv2d = nn.Conv2d(48, 2, kernel_size=3, padding=1)
 
     def forward(self,x):
         #x=self.finnal_conv2d(x)
@@ -136,14 +139,7 @@ class Unet(nn.Module):
         out = self.finnal_conv2d(u_4)
         return out
 
-if __name__ == '__main__':
-    net = Unet()
-    print(net)
 
-    test_x = Variable(torch.FloatTensor(1, 1, 1024, 1024))
-    out_x = net(test_x)
-
-    print(out_x.size())
 
 
 def dice_loss(input, target):
@@ -156,26 +152,56 @@ def dice_loss(input, target):
     return 1.0 - (((2. * intersection + smooth) /
               (iflat.sum() + tflat.sum() + smooth)))
 
+def l2_norm(x):
+    return x/torch.sqrt(torch.max(x**2,0)[0])
+def angularLoss(pred, gt, weight=0, outputChannels=2):
+    pred        = pred.view(-1, outputChannels)
+    gt          = gt.view(-1, outputChannels)
+   # weight      = weight.view(-1, 1).float()
+    pred        = l2_norm(pred)*0.999999
+    gt          = l2_norm(gt)*0.999999
 
-def angularErrorTotal(pred, gt, weight, outputChannels=2):
-        pred = pred.view(-1, outputChannels)
-        gt   = gt.view(-1, outputChannels).float()
-        weight = weight.view(-1, 1).float()
+    #err_angle   = 1-torch.cos(torch.sum(pred*gt,1)/(torch.sqrt((pred**2))+torch.sqrt((gt**2))))
+    #err_angle   = 1-torch.cos(torch.sum(pred*gt,1)/(torch.sqrt((pred**2))+torch.sqrt((gt**2))))
 
-        #pred = pred / 
-
-        # pred = tf.nn.l2_normalize(pred, 1) * 0.999999
-        # gt = tf.nn.l2_normalize(gt, 1) * 0.999999
-
-        errorAngles =torch.acos(pred*gt)
+#    prod_xy   =  pred*gt
+    #print("----- pred -------")
 
 
+   
+    p_xy  =pred[:,0]/torch.sqrt(torch.sum((pred*pred),1))   
+    #print(p_xy)
 
-        errorAngles = tf.acos(tf.reduce_sum(pred * gt, reduction_indices=[1], keep_dims=True))
+    gt_xy =gt[:,0]/torch.sqrt(torch.sum((gt*gt),1))
 
-        lossAngleTotal = tf.reduce_sum((tf.abs(errorAngles*errorAngles))*weight)
+    #print("----- p_xy -------")
 
-        return lossAngleTotal
+    #print(gt_xy) 
+
+    err_angle= torch.acos(p_xy) - torch.acos(gt_xy)
+
+    # x_y_r=prod_xy[-1,1]/ torch.sqrt((prod_xy[-1,0]*prod_xy[-1,0] + prod_xy[-1,1]*prod_xy[-1,1]))
+    # err_angle   = torch.acos(x_y_r)
+    loss = torch.sum(err_angle*err_angle)
+    # err_angle   = 1.0-pred*gt/pred.norm()*gt.norm()
+    # err_angle   = torch.acros(err_angle)
+    # loss = torch.sum(err_angle*err_angle)
+    return loss
+
+def test_angularLoss():
+    A = torch.randn(10,10,2).cuda
+    B = A
+    W = torch.randn(10,10,1)
+    W = torch.abs(l2_norm(W))
+    print(angularLoss(A,B,W))
+
+
+
+    # errorAngles =torch.acos(pred*gt)
+    # errorAngles = tf.acos(tf.reduce_sum(pred * gt, reduction_indices=[1], keep_dims=True))
+
+    # lossAngleTotal = tf.reduce_sum((tf.abs(errorAngles*errorAngles))*weight)
+    # return lossAngleTotal
 
 
 
@@ -206,3 +232,14 @@ def CrossEntropy2d(input, target, weight=None, size_average=False):
         loss /= target_mask.sum().data[0]
 
     return loss
+
+
+if __name__ == '__main__':
+    test_angularLoss()
+    # net = Unet()
+    # print(net)
+
+    # test_x = Variable(torch.FloatTensor(1, 1, 1024, 1024))
+    # out_x = net(test_x)
+
+    # print(out_x.size())
