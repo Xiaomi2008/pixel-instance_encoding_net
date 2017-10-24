@@ -15,12 +15,12 @@ from label_transform.volumes import SubvolumeGenerator
 from torch_networks.unet_test import UNet as nUnet
 from matplotlib import pyplot as plt
 
-model = Unet().float()
+model = Unet().double()
 #model = nUnet()
 #model.float()
 use_gpu=True
 if use_gpu:
-    model.cuda()
+    model.cuda().double()
 optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.5)
 data_config = 'conf/cremi_datasets_with_tflabels.toml'
 volumes = HDF5Volume.from_toml(data_config)
@@ -29,6 +29,8 @@ def savefiguers(iter,output):
     rootdir ='./'
     plt.imshow(output.numpy()[0])
     plt.savefigure('iter_image{}.png'.format(iter))
+
+
 def train():
     #use_gpu=torch.cuda.is_available()
    
@@ -47,10 +49,10 @@ def train():
             T[b,1,:,:]= C['gradY_dataset'].astype(np.double)
         images = torch.from_numpy(I)
         labels = torch.from_numpy(T)
-        data, target = Variable(images).float(), Variable(labels).float()
+        data, target = Variable(images).double(), Variable(labels).double()
         if use_gpu:
-            data=data.cuda().float()
-            target = target.cuda().float()
+            data=data.cuda().double()
+            target = target.cuda().double()
         optimizer.zero_grad()
         output = model(data)
         loss = angularLoss(output, target)
@@ -58,6 +60,8 @@ def train():
         optimizer.step()
         print('iter {}, loss = {:.5f}'.format(i,loss.data[0]))
         #print loss.data[0]
+
+
 def test():
     use_gpu=torch.cuda.is_available()
     model.test()
@@ -77,10 +81,10 @@ def test():
             T[b,1,:,:]=affin_y3
         images = torch.from_numpy(I)
         labels = torch.from_numpy(T)
-        data, target = Variable(images).float(), Variable(labels).float()
+        data, target = Variable(images).double(), Variable(labels).double()
         if use_gpu:
-            data=data.cuda().float()
-            target = target.cuda().float()
+            data=data.cuda().double()
+            target = target.cuda().double()
         output = model(data)
         savefiguers(output)
 
