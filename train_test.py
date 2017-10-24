@@ -14,6 +14,8 @@ from label_transform.volumes import bounds_generator
 from label_transform.volumes import SubvolumeGenerator
 from torch_networks.unet_test import UNet as nUnet
 from matplotlib import pyplot as plt
+from utils.EMDataset import CRIME_Dataset
+from torch.utils.data import DataLoader
 
 model = Unet().double()
 #model = nUnet()
@@ -42,21 +44,16 @@ def train():
    
     model.train()
     im_size =224
-    bounds_gen=bounds_generator(V_1.shape,[1,im_size,im_size])
-    sub_vol_gen =SubvolumeGenerator(V_1,bounds_gen)
-    for i in xrange(500):
-        #print ('i == {}'.format(i))
-
-        I = np.zeros([16,1,im_size,im_size])
-        T = np.zeros([16,2,im_size,im_size])
-        for b in range(16):
-            C = six.next(sub_vol_gen);
-            I[b,:,:,:]= C['image_dataset'].astype(np.int32)
-            T[b,0,:,:]= C['gradX_dataset'].astype(np.double)
-            T[b,1,:,:]= C['gradY_dataset'].astype(np.double)
-        images = torch.from_numpy(I)
-        labels = torch.from_numpy(T)
-        data, target = Variable(images).double(), Variable(labels).double()
+    dataset = CRIME_Dataset(out_size = im_size)
+    train_loader = DataLoader(dataset=dataset,
+                          batch_size=16,
+                          shuffle=True,
+                          num_workers=2)
+  for epoch in range(1):
+    #d,l = dataset.__getitem__(1000)
+    for i, batch in enumerate(train_loader, 0):
+         # get the inputs
+         data, target = batch
         if use_gpu:
             data=data.cuda().double()
             target = target.cuda().double()
@@ -66,6 +63,34 @@ def train():
         loss.backward()
         optimizer.step()
         print('iter {}, loss = {:.5f}'.format(i,loss.data[0]))
+
+        # print ('Input iter = {} shape inputs = {}'.format(i,inputs.shape))
+
+
+    # bounds_gen=bounds_generator(V_1.shape,[1,im_size,im_size])
+    # sub_vol_gen =SubvolumeGenerator(V_1,bounds_gen)
+    # for i in xrange(500):
+    #     #print ('i == {}'.format(i))
+
+    #     I = np.zeros([16,1,im_size,im_size])
+    #     T = np.zeros([16,2,im_size,im_size])
+    #     for b in range(16):
+    #         C = six.next(sub_vol_gen);
+    #         I[b,:,:,:]= C['image_dataset'].astype(np.int32)
+    #         T[b,0,:,:]= C['gradX_dataset'].astype(np.double)
+    #         T[b,1,:,:]= C['gradY_dataset'].astype(np.double)
+    #     images = torch.from_numpy(I)
+    #     labels = torch.from_numpy(T)
+    #     data, target = Variable(images).double(), Variable(labels).double()
+    #     if use_gpu:
+    #         data=data.cuda().double()
+    #         target = target.cuda().double()
+    #     optimizer.zero_grad()
+    #     output = model(data)
+    #     loss = angularLoss(output, target)
+    #     loss.backward()
+    #     optimizer.step()
+    #     print('iter {}, loss = {:.5f}'.format(i,loss.data[0]))
 
         #if i % 100 ==0:
         #    test(iters=i)
