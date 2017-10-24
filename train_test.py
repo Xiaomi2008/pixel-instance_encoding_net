@@ -21,7 +21,8 @@ model = Unet().double()
 use_gpu=True
 if use_gpu:
     model.cuda().double()
-optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.5)
+#optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.5)
+optimizer = optim.Adagrad(model.parameters(), lr=0.01, lr_decay=0, weight_decay=0)
 data_config = 'conf/cremi_datasets_with_tflabels.toml'
 volumes = HDF5Volume.from_toml(data_config)
 V_1 = volumes[volumes.keys()[0]]
@@ -35,7 +36,7 @@ def train():
     #use_gpu=torch.cuda.is_available()
    
     model.train()
-    im_size =112
+    im_size =224
     bounds_gen=bounds_generator(V_1.shape,[1,im_size,im_size])
     sub_vol_gen =SubvolumeGenerator(V_1,bounds_gen)
     for i in xrange(1000):
@@ -64,7 +65,7 @@ def train():
 
 def test():
     use_gpu=torch.cuda.is_available()
-    model.test()
+    model.eval()
     im_size =1024
     bounds_gen=bounds_generator(V_1.shape,[1,im_size,im_size])
     sub_vol_gen =SubvolumeGenerator(V_1,bounds_gen)
