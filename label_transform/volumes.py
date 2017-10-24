@@ -142,6 +142,7 @@ class HDF5Volume(Volume):
             for dataset in datasets:
                 hdf5_file = dataset['hdf5_file']
                 local_file = data_dir + '/'+ hdf5_file
+                print (local_file)
                 if not os.path.exists(local_file):
                     get_file(file_url=dataset['download_url'],
                         file_path=local_file,
