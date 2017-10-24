@@ -18,7 +18,7 @@ from matplotlib import pyplot as plt
 model = Unet().double()
 #model = nUnet()
 #model.float()
-use_gpu=True
+use_gpu=torch.cuda.is_available()
 if use_gpu:
     model.cuda().double()
 #optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.5)
@@ -41,6 +41,7 @@ def train():
     sub_vol_gen =SubvolumeGenerator(V_1,bounds_gen)
     for i in xrange(1000):
         #print ('i == {}'.format(i))
+
         I = np.zeros([16,1,im_size,im_size])
         T = np.zeros([16,2,im_size,im_size])
         for b in range(16):
@@ -60,10 +61,13 @@ def train():
         loss.backward()
         optimizer.step()
         print('iter {}, loss = {:.5f}'.format(i,loss.data[0]))
+
+        if i % 100 ==0:
+            test(iters=i)
         #print loss.data[0]
 
 
-def test():
+def test(iters = 0):
     use_gpu=torch.cuda.is_available()
     model.eval()
     im_size =1024
@@ -87,7 +91,8 @@ def test():
             data=data.cuda().double()
             target = target.cuda().double()
         output = model(data)
-        savefiguers(output)
+        savefiguers(iters,output)
+        model.train()
 
 if __name__ =='__main__':
     train()
