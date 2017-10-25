@@ -23,9 +23,12 @@ import pdb
 model_saved_dir = 'models'
 model_save_steps = 500
 model = Unet().double()
+
 #model = nUnet()
 #model.float()
 use_gpu=torch.cuda.is_available()
+if use_gpu:
+        model.cuda().double()
 #use_gpu=False
 use_parallel = True
 #optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.5)
@@ -52,8 +55,6 @@ def train(model_file =  None):
     #use_gpu=torch.cuda.is_available()
     if not os.path.exists(model_saved_dir):
         os.mkdir(model_saved_dir)
-    if use_gpu:
-        model.cuda().double()
     if model_file:
         model.load_state_dict(torch.load(model_file))
     if use_parallel:
