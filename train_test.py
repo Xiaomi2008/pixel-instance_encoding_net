@@ -128,7 +128,7 @@ def test():
     im_size =1024
     bounds_gen=bounds_generator(V_1.shape,[1,im_size,im_size])
     sub_vol_gen =SubvolumeGenerator(V_1,bounds_gen)
-    for i in xrange(10):
+    for i in xrange(25):
         I = np.zeros([1,1,im_size,im_size])
         C = six.next(sub_vol_gen);
         I[0,0,:,:] = C['image_dataset'].astype(np.int32)

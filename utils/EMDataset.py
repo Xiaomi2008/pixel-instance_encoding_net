@@ -26,9 +26,8 @@ class CRIME_Dataset(Dataset):
       self.z_size       = dim_shape[0] -self.z_out_size + 1
         
     def __getitem__(self, index):
-      slice_size = self.x_size * self.y_size
-      z_start = index // slice_size
-      remain  = index %  slice_size
+      z_start = index // (self.x_size * self.y_size)
+      remain  = index % (self.x_size * self.y_size)
       x_start = remain // self.y_size
       y_start = remain % self.y_size
 
@@ -36,13 +35,17 @@ class CRIME_Dataset(Dataset):
       x_end   = x_start + self.x_out_size
       y_end   = y_start + self.y_out_size
 
-      data    = self.im_data[z_start:z_end,x_start:x_end,y_start:y_end]
-      # target is 4D array [N,C,H,W]
-      target  = self.gd_data[z_start:z_end,:,x_start:x_end,y_start:y_end]
+      data    = np.array(self.im_data[z_start:z_end,x_start:x_end,y_start:y_end])
 
 
-      # print("data shape  = {}".format(data.shape))
-      # print("target shape  = {}".format(target.shape))
+      target_ch1  =np.array(self.gradX[z_start:z_end,x_start:x_end,y_start:y_end])
+      target_ch2  =np.array(self.gradY[z_start:z_end,x_start:x_end,y_start:y_end])
+
+      target_ch1  = np.expand_dims(target_ch1,1)
+      target_ch2  = np.expand_dims(target_ch2,1)
+
+      target      = np.concatenate((target_ch1,target_ch2),1)
+      #target  = self.gt_data[z_start:z_end,x_start:x_end,y_start:y_end]
 
 
       #pdb.set_trace()
@@ -67,14 +70,20 @@ class CRIME_Dataset(Dataset):
       #data_name ={'Set_A':'Sample A','Set_B':'Sample B','Set_C':'Sample C'}
       data_name = {'Set_A':'Sampe A with extra transformed labels'}
       self.V = volumes[data_name[self.dataset]]
-      gradX = np.array(self.V.data_dict['gradX_dataset']).astype(np.double)
-      gradY = np.array(self.V.data_dict['gradY_dataset']).astype(np.double)
-      gradX = np.expand_dims(gradX, 1)
-      gradY = np.expand_dims(gradY, 1)
-      self.gd_data = np.concatenate((gradX,gradY),axis=1)
-      #pdb.set_trace()
-      self.lb_data = np.array(self.V.data_dict['label_dataset']).astype(np.int32)
-      self.im_data = np.array(self.V.data_dict['image_dataset']).astype(np.int32)
+      # gradX = np.array(self.V.data_dict['gradX_dataset']).astype(np.double)
+      # gradY = np.array(self.V.data_dict['gradY_dataset']).astype(np.double)
+      self.gradX = self.V.data_dict['gradX_dataset']
+      self.gradY = self.V.data_dict['gradY_dataset']
+
+      self.lb_data = self.V.data_dict['label_dataset']
+      self.im_data = self.V.data_dict['image_dataset']
+      
+
+      # gradX = np.expand_dims(gradX, 1)
+      # gradY = np.expand_dims(gradY, 1)
+      # self.gd_data = np.concatenate((gradX,gradY),axis=1)
+      # self.lb_data = np.array(self.V.data_dict['label_dataset']).astype(np.int32)
+      # self.im_data = np.array(self.V.data_dict['image_dataset']).astype(np.int32)
 
 
 if __name__ == '__main__':
