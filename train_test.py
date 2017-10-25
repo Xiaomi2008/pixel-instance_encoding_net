@@ -114,7 +114,7 @@ def validate():
     model.eval()
 
 def test():
-    data_config = 'conf/cremi_datasets_with_tflabels.toml'
+    data_config = 'conf/cremi_datasets.toml'
     volumes = HDF5Volume.from_toml(data_config)
     V_1 = volumes[volumes.keys()[0]]
     model_file = model_saved_dir +'/' +'Unet_instance_grad_iter_{}.model'.format(4000)
@@ -125,7 +125,6 @@ def test():
     sub_vol_gen =SubvolumeGenerator(V_1,bounds_gen)
     for i in xrange(10):
         I = np.zeros([1,1,im_size,im_size])
-        T = np.zeros([1,2,im_size,im_size])
         C = six.next(sub_vol_gen);
         I[0,0,:,:] = C['image_dataset'].astype(np.int32)
         images = torch.from_numpy(I)
