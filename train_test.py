@@ -27,7 +27,7 @@ model = Unet().double()
 #model.float()
 use_gpu=torch.cuda.is_available()
 #use_gpu=False
-use_parallel = False
+use_parallel = True
 if use_gpu:
     model.cuda().double()
     if use_parallel:

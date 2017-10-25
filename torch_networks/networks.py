@@ -10,9 +10,6 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 
 import torchvision.models as models
-
-
-
 import sys
 import math
 import pdb
