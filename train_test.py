@@ -56,7 +56,7 @@ def train(model_file =  None):
     im_size =224
     dataset = CRIME_Dataset(out_size  = im_size)
     train_loader = DataLoader(dataset =dataset,
-                              batch_size=16,
+                              batch_size=32,
                               shuffle  =True,
                               num_workers=2)
     for epoch in range(1):

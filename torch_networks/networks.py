@@ -150,10 +150,11 @@ def dice_loss(input, target):
               (iflat.sum() + tflat.sum() + smooth)))
 
 def l2_norm(x):
+    #return x/torch.sqrt(torch.max(x**2,0)[0])
     return x/torch.sqrt(torch.max(x**2,0)[0])
 def angularLoss(pred, gt, weight=0, outputChannels=2):
 
-    #pred = 
+    pred =  
 
     pred        = pred.transpose(1,2).transpose(2,3).contiguous()
     gt          = gt.transpose(1,2).transpose(2,3).contiguous()
