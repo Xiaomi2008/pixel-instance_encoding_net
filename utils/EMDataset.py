@@ -43,12 +43,11 @@ class CRIME_Dataset(Dataset):
 
       target_ch1  = np.expand_dims(target_ch1,1)
       target_ch2  = np.expand_dims(target_ch2,1)
-
       target      = np.concatenate((target_ch1,target_ch2),1)
+      
+
       #target  = self.gt_data[z_start:z_end,x_start:x_end,y_start:y_end]
 
-
-      #pdb.set_trace()
 
       return torch.from_numpy(data), torch.from_numpy(target)
 
