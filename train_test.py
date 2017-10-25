@@ -42,6 +42,7 @@ optimizer = optim.Adagrad(model.parameters(), lr=0.01, lr_decay=0, weight_decay=
 def savefiguers(iters,output):
     rootdir ='./'
     data = output.data.cpu().numpy()
+    pdb.set_trace()
     print ('output shape = {}'.format(data.shape))
     plt.imshow(data[0,:,:,0])
     plt.savefig('iter_predX_{}.png'.format(iters))
