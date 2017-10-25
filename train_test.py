@@ -27,13 +27,7 @@ model = Unet().double()
 #model.float()
 use_gpu=torch.cuda.is_available()
 #use_gpu=False
-use_parallel = False
-if use_gpu:
-    model.cuda().double()
-    if use_parallel:
-        #gpus = [0,1,2,3]
-        gpus =[0,1]
-        model = torch.nn.DataParallel(model, device_ids=gpus)
+use_parallel = True
 #optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.5)
 optimizer = optim.Adagrad(model.parameters(), lr=0.01, lr_decay=0, weight_decay=0)
 # data_config = 'conf/cremi_datasets_with_tflabels.toml'
@@ -58,8 +52,14 @@ def train(model_file =  None):
     #use_gpu=torch.cuda.is_available()
     if not os.path.exists(model_saved_dir):
         os.mkdir(model_saved_dir)
+    if use_gpu:
+        model.cuda().double()
     if model_file:
         model.load_state_dict(torch.load(model_file))
+    if use_parallel:
+        #gpus = [0,1,2,3]
+        gpus =[0,1]
+        model = torch.nn.DataParallel(model, device_ids=gpus)
     model.train()
     im_size =224
     dataset = CRIME_Dataset(out_size  = im_size)
