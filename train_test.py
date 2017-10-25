@@ -45,9 +45,14 @@ def savefiguers(iters,output):
     data = output.data.cpu().numpy()
     pdb.set_trace()
     print ('output shape = {}'.format(data.shape))
-    plt.imshow(data[0,:,:,0])
+    I = data[0,0,:,:]
+    I = I[0]
+    plt.imshow(I)
     plt.savefig('iter_predX_{}.png'.format(iters))
-    plt.imshow(data[0,:,:,1])
+
+    I = data[0,1,:,:]
+    I = I[0]
+    plt.imshow(I)
     plt.savefig('iter_predY_{}.png'.format(iters))
 
 
