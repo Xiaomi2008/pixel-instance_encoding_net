@@ -122,7 +122,7 @@ def test():
     data_config = 'conf/cremi_datasets.toml'
     volumes = HDF5Volume.from_toml(data_config)
     V_1 = volumes[volumes.keys()[0]]
-    model_file = model_saved_dir +'/' +'Unet_instance_grad_iter_{}.model'.format(5000)
+    model_file = model_saved_dir +'/' +'Unet_instance_grad_iter_{}.model'.format(6500)
     model.eval()
     im_size =1024
     bounds_gen=bounds_generator(V_1.shape,[1,im_size,im_size])
