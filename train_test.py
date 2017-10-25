@@ -54,7 +54,7 @@ def savefiguers(iters,output):
     plt.savefig('iter_predY_{}.png'.format(iters))
 
 
-def train(model_file =  None)
+def train(model_file =  None):
     #use_gpu=torch.cuda.is_available()
     if not os.path.exists(model_saved_dir):
         os.mkdir(model_saved_dir)
