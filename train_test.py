@@ -145,7 +145,7 @@ if __name__ =='__main__':
     #use_gpu=False
     use_parallel = True
     #optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.5)
-    model_file = model_saved_dir +'/' +'Unet_instance_grad_iter_{}.model'.format(8000)
+    model_file = model_saved_dir +'/' +'Unet_instance_grad_iter_{}.model'.format(18000)
     print('resume training from {}'.format(model_file))
-    train(model_file)
-    #test()
+    #train(model_file)
+    test()
