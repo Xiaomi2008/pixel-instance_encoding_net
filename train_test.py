@@ -41,6 +41,8 @@ optimizer = optim.Adagrad(model.parameters(), lr=0.01, lr_decay=0, weight_decay=
 # V_1 = volumes[volumes.keys()[0]]
 
 def savefiguers(iters,output):
+    my_dpi = 96
+    plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
     rootdir ='./'
     data = output.data.cpu().numpy()
     print ('output shape = {}'.format(data.shape))
