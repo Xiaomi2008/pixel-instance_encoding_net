@@ -139,7 +139,8 @@ if __name__ =='__main__':
     model_saved_dir = 'models'
     model_save_steps = 500
     netmodel = Unet().double()
-    use_gpu=torch.cuda.is_available()
+    #use_gpu=torch.cuda.is_available()
+    use_gpu=False
     if use_gpu:
         netmodel.cuda().double()
     #use_gpu=False
