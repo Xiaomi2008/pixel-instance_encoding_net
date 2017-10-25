@@ -54,10 +54,13 @@ def savefiguers(iters,output):
     plt.savefig('iter_predY_{}.png'.format(iters))
 
 
-def train():
+def train(model_file =  None)
     #use_gpu=torch.cuda.is_available()
     if not os.path.exists(model_saved_dir):
         os.mkdir(model_saved_dir)
+    if model_file:
+        model.load_state_dict(torch.load(model_file))
+
     model.train()
     im_size =224
     dataset = CRIME_Dataset(out_size  = im_size)
@@ -139,5 +142,6 @@ def test():
         output = model(data)
         savefiguers(i,output)
 if __name__ =='__main__':
-    #train()
-    test()
+    model_file = model_saved_dir +'/' +'Unet_instance_grad_iter_{}.model'.format(8000)
+    train(model_file)
+    #test()
