@@ -122,7 +122,7 @@ def test():
     data_config = 'conf/cremi_datasets.toml'
     volumes = HDF5Volume.from_toml(data_config)
     V_1 = volumes[volumes.keys()[0]]
-    model_file = model_saved_dir +'/' +'Unet_instance_grad_iter_{}.model'.format(5000)
+    model_file = model_saved_dir +'/' +'Unet_instance_grad_iter_{}.model'.format(8000)
     model.load_state_dict(torch.load(model_file))
     model.eval()
     im_size =1024
