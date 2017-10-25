@@ -130,7 +130,7 @@ def test():
         data = Variable(images).double()
         if use_gpu:
             data=data.cuda().double()
-        output = model(data)
+        output = netmodel(data)
         savefiguers(i,output)
 
 
