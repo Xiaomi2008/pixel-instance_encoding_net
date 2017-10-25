@@ -122,12 +122,13 @@ def test():
     data_config = 'conf/cremi_datasets.toml'
     volumes = HDF5Volume.from_toml(data_config)
     V_1 = volumes[volumes.keys()[0]]
-    model_file = model_saved_dir +'/' +'Unet_instance_grad_iter_{}.model'.format(6500)
+    model_file = model_saved_dir +'/' +'Unet_instance_grad_iter_{}.model'.format(5000)
+    model.load_state_dict(torch.load(model_file))
     model.eval()
     im_size =1024
     bounds_gen=bounds_generator(V_1.shape,[1,im_size,im_size])
     sub_vol_gen =SubvolumeGenerator(V_1,bounds_gen)
-    for i in xrange(25):
+    for i in xrange(10):
         I = np.zeros([1,1,im_size,im_size])
         C = six.next(sub_vol_gen);
         I[0,0,:,:] = C['image_dataset'].astype(np.int32)
