@@ -20,19 +20,7 @@ from torch.utils.data import DataLoader
 import pdb
 
 
-model_saved_dir = 'models'
-model_save_steps = 500
-model = Unet().double()
 
-#model = nUnet()
-#model.float()
-use_gpu=torch.cuda.is_available()
-if use_gpu:
-        model.cuda().double()
-#use_gpu=False
-use_parallel = True
-#optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.5)
-optimizer = optim.Adagrad(model.parameters(), lr=0.01, lr_decay=0, weight_decay=0)
 # data_config = 'conf/cremi_datasets_with_tflabels.toml'
 # volumes = HDF5Volume.from_toml(data_config)
 # V_1 = volumes[volumes.keys()[0]]
@@ -141,7 +129,20 @@ def test():
             data=data.cuda().double()
         output = model(data)
         savefiguers(i,output)
+
+
+
 if __name__ =='__main__':
+    model_saved_dir = 'models'
+    model_save_steps = 500
+    model = Unet().double()
+    use_gpu=torch.cuda.is_available()
+    if use_gpu:
+        model.cuda().double()
+    #use_gpu=False
+    use_parallel = True
+    #optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.5)
+    optimizer = optim.Adagrad(model.parameters(), lr=0.01, lr_decay=0, weight_decay=0)
     model_file = model_saved_dir +'/' +'Unet_instance_grad_iter_{}.model'.format(8000)
     print('resume training from {}'.format(model_file))
     train(model_file)
