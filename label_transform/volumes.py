@@ -198,7 +198,7 @@ class HDF5Volume(Volume):
             dataset_name = kwargs.get('{}_dataset'.format(channel), default_datasets[channel])
             if data is not None:
                 print ('save {} to HDF5 '.format(dataset_name))
-                dataset = h5file.create_dataset(dataset_name, data=data, dtype=data.dtype)
+                dataset = h5file.create_dataset(dataset_name, data=data, dtype='f')
                 #dataset.attrs['resolution'] = resolution
                 config['{}_dataset'.format(channel)] = dataset_name
 

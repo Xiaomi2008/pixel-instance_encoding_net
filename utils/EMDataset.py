@@ -26,8 +26,9 @@ class CRIME_Dataset(Dataset):
       self.z_size       = dim_shape[0] -self.z_out_size + 1
         
     def __getitem__(self, index):
-      z_start = index // (self.x_size * self.y_size)
-      remain  = index % (self.x_size * self.y_size)
+      slice_size = self.x_size * self.y_size
+      z_start = index // slice_size
+      remain  = index %  slice_size
       x_start = remain // self.y_size
       y_start = remain % self.y_size
 
@@ -36,7 +37,12 @@ class CRIME_Dataset(Dataset):
       y_end   = y_start + self.y_out_size
 
       data    = self.im_data[z_start:z_end,x_start:x_end,y_start:y_end]
-      target  = self.gt_data[z_start:z_end,x_start:x_end,y_start:y_end]
+      # target is 4D array [N,C,H,W]
+      target  = self.gd_data[z_start:z_end,:,x_start:x_end,y_start:y_end]
+
+
+      # print("data shape  = {}".format(data.shape))
+      # print("target shape  = {}".format(target.shape))
 
 
       #pdb.set_trace()
@@ -66,6 +72,7 @@ class CRIME_Dataset(Dataset):
       gradX = np.expand_dims(gradX, 1)
       gradY = np.expand_dims(gradY, 1)
       self.gd_data = np.concatenate((gradX,gradY),axis=1)
+      #pdb.set_trace()
       self.lb_data = np.array(self.V.data_dict['label_dataset']).astype(np.int32)
       self.im_data = np.array(self.V.data_dict['image_dataset']).astype(np.int32)
 

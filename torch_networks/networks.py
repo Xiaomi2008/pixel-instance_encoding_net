@@ -162,10 +162,6 @@ def angularLoss(pred, gt, weight=0, outputChannels=2):
     #weight      = weight.view(-1, 1).float()
     pred        = l2_norm(pred)*0.999999
     gt          = l2_norm(gt)*0.999999
-
-
-    #x_r=torch.sum(pred*gt,1)/(torch.sqrt(torch.sum(pred**2,1))+torch.sum(gt**2,1))
-    #loss = torch.sum(torch_acos(x_r))
     p_xy  =pred[:,0]/torch.sqrt(torch.sum((pred*pred),1))   
     gt_xy =gt[:,0]/torch.sqrt(torch.sum((gt*gt),1))
     err_angle= torch.acos(p_xy) - torch.acos(gt_xy)
