@@ -27,7 +27,7 @@ model = Unet().double()
 #model.float()
 use_gpu=torch.cuda.is_available()
 #use_gpu=False
-use_parallel = True
+use_parallel = False
 if use_gpu:
     model.cuda().double()
     if use_parallel:
@@ -60,7 +60,6 @@ def train(model_file =  None):
         os.mkdir(model_saved_dir)
     if model_file:
         model.load_state_dict(torch.load(model_file))
-
     model.train()
     im_size =224
     dataset = CRIME_Dataset(out_size  = im_size)
@@ -143,5 +142,6 @@ def test():
         savefiguers(i,output)
 if __name__ =='__main__':
     model_file = model_saved_dir +'/' +'Unet_instance_grad_iter_{}.model'.format(8000)
+    print('resume training from {}'.format(model_file))
     train(model_file)
     #test()
