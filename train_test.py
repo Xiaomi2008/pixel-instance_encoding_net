@@ -44,12 +44,15 @@ def train(model_file =  None):
     if not os.path.exists(model_saved_dir):
         os.mkdir(model_saved_dir)
     if model_file:
-        model.load_state_dict(torch.load(model_file))
+        netmodel.load_state_dict(torch.load(model_file))
     if use_parallel:
         #gpus = [0,1,2,3]
         gpus =[0,1]
-        model = torch.nn.DataParallel(model, device_ids=gpus)
+        model = torch.nn.DataParallel(netmodel, device_ids=gpus)
+    else:
+        model = netmodel
     model.train()
+    optimizer = optim.Adagrad(model.parameters(), lr=0.01, lr_decay=0, weight_decay=0)
     im_size =224
     dataset = CRIME_Dataset(out_size  = im_size)
     train_loader = DataLoader(dataset =dataset,
@@ -114,8 +117,8 @@ def test():
     volumes = HDF5Volume.from_toml(data_config)
     V_1 = volumes[volumes.keys()[0]]
     model_file = model_saved_dir +'/' +'Unet_instance_grad_iter_{}.model'.format(8000)
-    model.load_state_dict(torch.load(model_file))
-    model.eval()
+    netmodel.load_state_dict(torch.load(model_file))
+    netmodel.eval()
     im_size =1024
     bounds_gen=bounds_generator(V_1.shape,[1,im_size,im_size])
     sub_vol_gen =SubvolumeGenerator(V_1,bounds_gen)
@@ -135,14 +138,13 @@ def test():
 if __name__ =='__main__':
     model_saved_dir = 'models'
     model_save_steps = 500
-    model = Unet().double()
+    netmodel = Unet().double()
     use_gpu=torch.cuda.is_available()
     if use_gpu:
-        model.cuda().double()
+        netmodel.cuda().double()
     #use_gpu=False
     use_parallel = True
     #optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.5)
-    optimizer = optim.Adagrad(model.parameters(), lr=0.01, lr_decay=0, weight_decay=0)
     model_file = model_saved_dir +'/' +'Unet_instance_grad_iter_{}.model'.format(8000)
     print('resume training from {}'.format(model_file))
     train(model_file)
