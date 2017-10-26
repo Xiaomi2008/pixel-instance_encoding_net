@@ -150,21 +150,24 @@ def dice_loss(input, target):
               (iflat.sum() + tflat.sum() + smooth)))
 
 def l2_norm(x):
-    #return x/torch.sqrt(torch.max(x**2,0)[0])
-    return x/torch.sqrt(torch.max(x**2,1)[0])
+    epsilon=torch.DoubleTensor([1e-12])
+    sq_x   = torch.max(x**2,epsilon)
+    sum_x  = torch.sum(sq_x,1)
+    sqrt_x = torch.sqrt(sum_x)
+    return x/sqrt_x
 def angularLoss(pred, gt, weight=0, outputChannels=2):
-    pred        = l2_norm(pred)*0.999999
-    gt          = l2_norm(gt)*0.999999
-    angle_err   = torch.acos(torch.sum(torch.acros(gt*pred),1))
+    pred        = l2_norm(pred)*0.9999999999
+    gt          = l2_norm(gt)*0.9999999999
+    prod_sum    = torch.sum(gt*pred,1)
+    angle_err   = torch.acos(prod_sum)
     loss        = torch.sum(angle_err*angle_err)
-
     return loss
 
     # pred        = pred.transpose(1,2).transpose(2,3).contiguous()
     # gt          = gt.transpose(1,2).transpose(2,3).contiguous()
     # pred        = pred.view(-1, outputChannels)
     # gt          = gt.view(-1, outputChannels)
-    # #weight      = weight.view(-1, 1).float()
+    # #weight      = weigtorht.view(-1, 1).float()
     # pred        = l2_norm(pred)*0.999999
     # gt          = l2_norm(gt)*0.999999
     # p_xy  =pred[:,0]/torch.sqrt(torch.sum((pred*pred),1))   
@@ -174,9 +177,10 @@ def angularLoss(pred, gt, weight=0, outputChannels=2):
     # return loss
 
 def test_angularLoss():
-    A = torch.randn(10,10,2).cuda
+    A = torch.randn(1,2,1025,1025).double()
+    B = torch.randn(1,2,1025,1025).double()
     B = A
-    W = torch.randn(10,10,1)
+    W = torch.randn(1,1,3,3).double()
     W = torch.abs(l2_norm(W))
     print(angularLoss(A,B,W))
 
@@ -187,10 +191,6 @@ def test_angularLoss():
 
     # lossAngleTotal = tf.reduce_sum((tf.abs(errorAngles*errorAngles))*weight)
     # return lossAngleTotal
-
-
-
-
 
 # Recommend
 class CrossEntropyLoss2d(nn.Module):
