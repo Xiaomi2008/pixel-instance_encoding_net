@@ -45,9 +45,11 @@ def train(model_file =  None):
         os.mkdir(model_saved_dir)
     if model_file:
         netmodel.load_state_dict(torch.load(model_file))
+    gpus = [0]
+    use_parallel = True if len(gpus) >1 else False
     if use_parallel:
         #gpus = [0,1,2,3]
-        gpus =[0,1,2,3]
+       
         model = torch.nn.DataParallel(netmodel, device_ids=gpus)
     else:
         model = netmodel
@@ -56,7 +58,7 @@ def train(model_file =  None):
     im_size =224
     dataset = CRIME_Dataset(out_size  = im_size)
     train_loader = DataLoader(dataset =dataset,
-                              batch_size=32,
+                              batch_size=16,
                               shuffle  =True,
                               num_workers=2)
     for epoch in range(1):
