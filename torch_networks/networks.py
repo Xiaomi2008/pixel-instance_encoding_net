@@ -150,35 +150,46 @@ def dice_loss(input, target):
               (iflat.sum() + tflat.sum() + smooth)))
 
 def l2_norm(x):
-    epsilon=torch.DoubleTensor([1e-12])
-    sq_x   = torch.max(x**2,epsilon)
-    sum_x  = torch.sum(sq_x,1)
+    #epsilon=torch.cuda.DoubleTensor([1e-12])
+    #sq_x   = torch.max(x**2,epsilon)
+    #sq_x   = torch.max(x**2,epsilon)
+    #e_mat  = torch.zero_like(sq_x)
+    sum_x  = torch.sum(x**2,1,keepdim=True)
     sqrt_x = torch.sqrt(sum_x)
     return x/sqrt_x
 def angularLoss(pred, gt, weight=0, outputChannels=2):
-    pred        = l2_norm(pred)*0.9999999999
-    gt          = l2_norm(gt)*0.9999999999
-    prod_sum    = torch.sum(gt*pred,1)
-    angle_err   = torch.acos(prod_sum)
-    loss        = torch.sum(angle_err*angle_err)
+    # pred        = l2_norm(pred)*0.9999999999
+    # gt          = l2_norm(gt)*0.9999999999
+    # prod_sum    = torch.sum(gt*pred,1)
+    # angle_err   = torch.acos(prod_sum)
+    # loss        = torch.sum(angle_err*angle_err)
+    # return loss
+    pred        = pred.transpose(1,2).transpose(2,3).contiguous()
+    gt          = gt.transpose(1,2).transpose(2,3).contiguous()
+    pred        = pred.view(-1, outputChannels)
+    gt          = gt.view(-1, outputChannels)
+
+    # print(pred[0,:].shape)
+    # s = torch.sqrt(torch.sum((pred*pred),1))
+    # print(s.shape)
+    p_xy        = pred[:,0]/torch.sqrt(torch.sum((pred*pred),1))
+    gt_xy       = gt[:,0]/torch.sqrt(torch.sum((gt*gt),1))
+    err_angle   = torch.acos(p_xy) - torch.acos(gt_xy)
+    loss        = torch.sum(err_angle*err_angle)
     return loss
 
-    # pred        = pred.transpose(1,2).transpose(2,3).contiguous()
-    # gt          = gt.transpose(1,2).transpose(2,3).contiguous()
-    # pred        = pred.view(-1, outputChannels)
-    # gt          = gt.view(-1, outputChannels)
     # #weight      = weigtorht.view(-1, 1).float()
     # pred        = l2_norm(pred)*0.999999
     # gt          = l2_norm(gt)*0.999999
-    # p_xy  =pred[:,0]/torch.sqrt(torch.sum((pred*pred),1))   
-    # gt_xy =gt[:,0]/torch.sqrt(torch.sum((gt*gt),1))
-    # err_angle= torch.acos(p_xy) - torch.acos(gt_xy)
-    # loss = torch.sum(err_angle*err_angle)
+    # p_xy        = pred[:,0]/torch.sum((pred*pred),1)  
+    # gt_xy       = gt[:,0]/torch.sum((gt*gt),1)
+    # err_angle   = torch.acos(p_xy) - torch.acos(gt_xy)
+    # loss        = torch.sum(err_angle*err_angle)
     # return loss
 
 def test_angularLoss():
-    A = torch.randn(1,2,1025,1025).double()
-    B = torch.randn(1,2,1025,1025).double()
+    A = torch.randn(16,2,224,224).double()
+    B = torch.randn(16,2,224,224).double()
     B = A
     W = torch.randn(1,1,3,3).double()
     W = torch.abs(l2_norm(W))
