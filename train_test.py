@@ -47,7 +47,7 @@ def train(model_file =  None):
         netmodel.load_state_dict(torch.load(model_file))
     if use_parallel:
         #gpus = [0,1,2,3]
-        gpus =[0,1]
+        gpus =[0,1,2,3]
         model = torch.nn.DataParallel(netmodel, device_ids=gpus)
     else:
         model = netmodel
@@ -139,8 +139,7 @@ if __name__ =='__main__':
     model_saved_dir = 'models'
     model_save_steps = 500
     netmodel = Unet().double()
-    #use_gpu=torch.cuda.is_available()
-    use_gpu=False
+    use_gpu=torch.cuda.is_available()
     if use_gpu:
         netmodel.cuda().double()
     #use_gpu=False
@@ -148,5 +147,5 @@ if __name__ =='__main__':
     #optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.5)
     model_file = model_saved_dir +'/' +'Unet_instance_grad_iter_{}.model'.format(18000)
     print('resume training from {}'.format(model_file))
-    #train(model_file)
-    test()
+    train()
+    #test()
