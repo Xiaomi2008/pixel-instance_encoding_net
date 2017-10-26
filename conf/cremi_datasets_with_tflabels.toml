@@ -2,7 +2,7 @@
 data_dir = "data"
 #data_dir = "/tempspace/tzeng/kdd2018_proj/pixel-instance_encoding_net/data"
 [[dataset]]
-name = "Sampe A with extra transformed labels"
+name = "Sample A with extra transformed labels"
 hdf5_file = "SampleA_with_extra_labels.h5"
   [[dataset.data]]
   name="image_dataset"
