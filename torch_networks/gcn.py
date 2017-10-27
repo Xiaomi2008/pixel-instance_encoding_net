@@ -49,13 +49,15 @@ class _BoundaryRefineModule(nn.Module):
 
 
 class GCN(nn.Module):
-    def __init__(self, num_classes, input_size, pretrained=True):
+    def __init__(self, num_classes, input_size, pretrained=False):
         super(GCN, self).__init__()
         self.input_size = input_size
         resnet = models.resnet152()
         if pretrained:
             resnet.load_state_dict(torch.load(res152_path))
-        self.layer0 = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu)
+        self.EM_conv1=Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+        
+        self.layer0 = nn.Sequential(EM_conv1, resnet.bn1, resnet.relu)
         self.layer1 = nn.Sequential(resnet.maxpool, resnet.layer1)
         self.layer2 = resnet.layer2
         self.layer3 = resnet.layer3

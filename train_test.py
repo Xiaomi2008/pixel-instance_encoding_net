@@ -24,7 +24,7 @@ import pdb
 # data_config = 'conf/cremi_datasets_with_tflabels.toml'
 # volumes = HDF5Volume.from_toml(data_config)
 # V_1 = volumes[volumes.keys()[0]]
-
+input_size = 224
 def savefiguers(iters,output):
     my_dpi = 96
     plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
@@ -54,8 +54,8 @@ def train(model_file =  None):
         model = netmodel
     model.train()
     optimizer = optim.Adagrad(model.parameters(), lr=0.0002, lr_decay=0, weight_decay=0)
-    im_size =224
-    dataset = CRIME_Dataset(out_size  = im_size)
+    #im_size =224
+    dataset = CRIME_Dataset(out_size  = input_size)
     train_loader = DataLoader(dataset =dataset,
                               batch_size=16,
                               shuffle  =True,
@@ -146,7 +146,7 @@ if __name__ =='__main__':
     model_saved_dir = 'models'
     model_save_steps = 500
     #netmodel = Unet().double()
-    netmodel = GCN().double()
+    netmodel = GCN(num_classes=2, input_size=input_size).double()
     use_gpu=torch.cuda.is_available()
     if use_gpu:
         netmodel.cuda().double()
