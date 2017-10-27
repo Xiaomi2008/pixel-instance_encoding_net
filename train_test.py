@@ -77,7 +77,7 @@ def train(model_file =  None):
             optimizer.step()
             runing_loss += loss.data[0]
             if (i+1) % model_save_steps == 0:
-                model_save_file = model_saved_dir +'/' +'Unet_instance_grad_iter_{}.model'.format(i)
+                model_save_file = model_saved_dir +'/' +'GCN_instance_grad_iter_{}.model'.format(i)
                 torch.save(model.state_dict(),model_save_file)
                 print('model saved to {}'.format(model_save_file))
                 print('[{:5d}] loss: {:.3f}'.format(i,runing_loss/model_save_steps) )
@@ -155,5 +155,6 @@ if __name__ =='__main__':
     #optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.5)
     model_file = model_saved_dir +'/' +'Unet_instance_grad_iter_{}.model'.format(1999)
     #print('resume training from {}'.format(model_file))
+    train()
     #train(model_file)
-    test()
+    #test()
