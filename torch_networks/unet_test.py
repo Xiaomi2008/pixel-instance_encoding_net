@@ -96,6 +96,9 @@ class UNet(torch.nn.Module):
         x = self.relu(self.last_bn(self.last_conv1(x)))
         x = self.last_conv2(x)
         return x
+    @property
+    def name(self):
+        return 'Unet'
 if __name__ == '__main__':
     net = UNet()
     print(net)
