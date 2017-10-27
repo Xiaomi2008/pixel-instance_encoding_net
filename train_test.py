@@ -17,8 +17,8 @@ from label_transform.volumes import SubvolumeGenerator
 from matplotlib import pyplot as plt
 from utils.EMDataset import CRIME_Dataset
 from torch.utils.data import DataLoader
+from torch_networks.gcn import GCN
 import pdb
-
 
 
 # data_config = 'conf/cremi_datasets_with_tflabels.toml'
@@ -145,7 +145,8 @@ def test():
 if __name__ =='__main__':
     model_saved_dir = 'models'
     model_save_steps = 500
-    netmodel = Unet().double()
+    #netmodel = Unet().double()
+    netmodel = GCN().double()
     use_gpu=torch.cuda.is_available()
     if use_gpu:
         netmodel.cuda().double()
