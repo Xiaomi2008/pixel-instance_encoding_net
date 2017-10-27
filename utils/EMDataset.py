@@ -3,6 +3,7 @@ sys.path.append('../')
 import pdb
 import torch
 import numpy as np
+from matplotlib import pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 from label_transform.volumes import Volume
 from label_transform.volumes import HDF5Volume
@@ -13,11 +14,12 @@ class CRIME_Dataset(Dataset):
     """ EM dataset."""
 
     # Initialize your data
-    def __init__(self, out_size = 224, dataset = 'Set_A'):
+    def __init__(self, out_size = 224, dataset = 'Set_A', data_config = 'conf/cremi_datasets_with_tflabels.toml'):
       self.dataset      = dataset
       self.x_out_size   = out_size
       self.y_out_size   = out_size
       self.z_out_size   = 1
+      self.data_config  = data_config
       self.load_hdf()
 
       dim_shape         = self.im_data.shape
@@ -40,16 +42,20 @@ class CRIME_Dataset(Dataset):
 
       target_ch1  =np.array(self.gradX[z_start:z_end,x_start:x_end,y_start:y_end])
       target_ch2  =np.array(self.gradY[z_start:z_end,x_start:x_end,y_start:y_end])
-
+     # print('target1 shape:{}'.format(target_ch1.shape))
+      #pdb.set_trace()
       target_ch1  = np.expand_dims(target_ch1,1)
       target_ch2  = np.expand_dims(target_ch2,1)
       target      = np.concatenate((target_ch1,target_ch2),1)
-      
+      #print('target_xy shape:{}'.format(target.shape))
+      #pdb_set_trace()
 
       #target  = self.gt_data[z_start:z_end,x_start:x_end,y_start:y_end]
+      tc_data, tc_target= torch.from_numpy(data), torch.from_numpy(target)
 
+      #print('TC_target_xy shape:{}'.format(tc_target.shape))
 
-      return torch.from_numpy(data), torch.from_numpy(target)
+      return tc_data,tc_target
 
       #return self.im_data[z_start:z_end,x_start:x_end,y_start:y_end], \
       #       self.lb_data[z_start:z_end,x_start:x_end,y_start:y_end]
@@ -63,9 +69,9 @@ class CRIME_Dataset(Dataset):
       return self.len
 
     def load_hdf(self):
-      data_config = 'conf/cremi_datasets_with_tflabels.toml'
+      
       #data_config = 'conf/cremi_datasets.toml'
-      volumes = HDF5Volume.from_toml(data_config)
+      volumes = HDF5Volume.from_toml(self.data_config)
       #data_name ={'Set_A':'Sample A','Set_B':'Sample B','Set_C':'Sample C'}
       data_name = {'Set_A':'Sample A with extra transformed labels'}
       #data_name = {'Set_A':'Sample A'}
@@ -86,16 +92,90 @@ class CRIME_Dataset(Dataset):
       # self.lb_data = np.array(self.V.data_dict['label_dataset']).astype(np.int32)
       # self.im_data = np.array(self.V.data_dict['image_dataset']).astype(np.int32)
 
+def saveGradfiguers(iters,file_prefix,output):
+    my_dpi = 96
+    plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
+    #print ('tc data output shape = {}'.format(output.shape))
+    data = output.numpy()
+    #print ('output shape = {}'.format(data.shape))
+    I = data[0,0,:,:]
+    plt.imshow(I)
+    plt.savefig(file_prefix +'readerX{}.png'.format(iters))
+    I = data[0,1,:,:]
+    plt.imshow(I)
+    plt.savefig(file_prefix+'readerY{}.png'.format(iters))
+def saveRawfiguers(iters,file_prefix,output):
+    my_dpi = 96
+    plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
+    data = output.numpy()
+    print ('output shape = {}'.format(data.shape))
+    I = data[0,:,:]
+    plt.imshow(I)
+    #pdb.set_trace()
+    plt.savefig(file_prefix+'raw{}.png'.format(iters))
+
+
+def l2_norm(x):
+    #epsilon=torch.cuda.DoubleTensor([1e-12])
+    #sq_x   = torch.max(x**2,epsilon)
+    #sq_x   = torch.max(x**2,epsilon)
+    #e_mat  = torch.zero_like(sq_x)
+    sum_x  = torch.sum(x**2,1,keepdim=True)
+    sqrt_x = torch.sqrt(sum_x)
+    return x/sqrt_x
+def compute_angular(x):
+    x    = l2_norm(x)*0.9999999999
+    pdb.set_trace()
+    x_aix = x[0]/torch.sqrt(torch.sum(x**2,1))
+    angle_map   = torch.acos(x_aix)
+    return angle_map
+
+
+     # pred        = pred.transpose(1,2).transpose(2,3).contiguous()
+    # gt          = gt.transpose(1,2).transpose(2,3).contiguous()
+    # pred        = pred.view(-1, outputChannels)
+    # gt          = gt.view(-1, outputChannels)
+    # # print(pred[0,:].shape)
+    # # s = torch.sqrt(torch.sum((pred*pred),1))
+    # # print(s.shape)
+    # p_xy        = pred[:,0]/torch.sqrt(torch.sum((pred*pred),1))
+    # gt_xy       = gt[:,0]/torch.sqrt(torch.sum((gt*gt),1))
+    # err_angle   = torch.acos(p_xy) - torch.acos(gt_xy)
+    # loss        = torch.sum(err_angle*err_angle)
+    # return loss
+def test_angluar_map():
+  data_config = '../conf/cremi_datasets_with_tflabels.toml'
+  dataset = CRIME_Dataset(data_config = data_config)
+  train_loader = DataLoader(dataset=dataset,
+                          batch_size=1,
+                          shuffle=True,
+                          num_workers=1)
+  for i , data in enumerate(train_loader,start =0):
+    inputs, labels = data
+    labels = labels[:,0,:,:,:]
+    ang_map=compute_angular(labels)
+    saveRawfiguers(i,'ang_map',ang_map)
+    if i > 3:
+      break
+
 
 if __name__ == '__main__':
-  dataset = CRIME_Dataset()
-  train_loader = DataLoader(dataset=dataset,
-                          batch_size=32,
-                          shuffle=True,
-                          num_workers=2)
-  for epoch in range(1):
-    #d,l = dataset.__getitem__(1000)
-    for i, data in enumerate(train_loader, 0):
-         # get the inputs
-         inputs, labels = data
-         print ('Input iter = {} shape inputs = {}'.format(i,inputs.shape))
+  test_angluar_map()
+  # data_config = '../conf/cremi_datasets_with_tflabels.toml'
+  # dataset = CRIME_Dataset(data_config = data_config)
+  # train_loader = DataLoader(dataset=dataset,
+  #                         batch_size=1,
+  #                         shuffle=True,
+  #                         num_workers=1)
+  # for epoch in range(1):
+  #   #d,l = dataset.__getitem__(1000)
+  #   for i, data in enumerate(train_loader, start=0):
+  #        # get the inputs
+  #        inputs, labels = data
+  #        labels = labels[:,0,:,:,:]
+  #        pdb.set_trace()
+  #        print ('iter = {} shape labels = {}'.format(i,labels.shape))
+  #        saveGradfiguers(i,'grad',labels,)
+  #        #saveRawfiguers(i,'raw',inputs,)
+  #        if i > 3:
+  #         break

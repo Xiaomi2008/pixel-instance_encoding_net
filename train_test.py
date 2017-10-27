@@ -8,7 +8,7 @@ import torch.nn.functional as functional
 import torch.optim as optim
 from torch.autograd import Variable
 from torch_networks.networks import Unet
-from torch_networks.networks import dice_loss as dice_loss, angularLoss
+from utils.torch_loss_functions import angularLoss,dice_loss
 from label_transform.volumes import Volume
 from label_transform.volumes import HDF5Volume
 from label_transform.volumes import bounds_generator
@@ -49,7 +49,6 @@ def train(model_file =  None):
     use_parallel = True if len(gpus) >1 else False
     if use_parallel:
         #gpus = [0,1,2,3]
-       
         model = torch.nn.DataParallel(netmodel, device_ids=gpus)
     else:
         model = netmodel
@@ -62,8 +61,11 @@ def train(model_file =  None):
                               shuffle  =True,
                               num_workers=2)
     for epoch in range(5):
+        runing_loss = 0.0
         for i, batch in enumerate(train_loader, 0):
             data, target = batch
+            target = target[:,0,:,:,:]
+            # print ('DataLoader target shape : {}'.format(target.shape))
             data, target = Variable(data).double(), Variable(target).double()
             if use_gpu:
                 data   = data.cuda().double()
@@ -73,12 +75,15 @@ def train(model_file =  None):
             loss = angularLoss(output, target)
             loss.backward()
             optimizer.step()
-
+            runing_loss += loss.data[0]
             if (i+1) % model_save_steps == 0:
                 model_save_file = model_saved_dir +'/' +'Unet_instance_grad_iter_{}.model'.format(i)
                 torch.save(model.state_dict(),model_save_file)
+                print('model saved to {}'.format(model_save_file))
+                print('[{:5d}] loss: {:.3f}'.format(i,runing_loss/model_save_steps) )
+                runing_loss = 0
 
-            print('iter {}, loss = {:.5f}'.format(i,loss.data[0]))
+            print('train iter {}, loss = {:.5f}'.format(i,loss.data[0]))
 
         # print ('Input iter = {} shape inputs = {}'.format(i,inputs.shape))
 
@@ -115,10 +120,10 @@ def validate():
     model.eval()
 
 def test():
-    data_config = 'conf/cremi_datasets.toml'
+    data_config = 'conf/cremi_datasets_with_tflabels.toml'
     volumes = HDF5Volume.from_toml(data_config)
     V_1 = volumes[volumes.keys()[0]]
-    model_file = model_saved_dir +'/' +'Unet_instance_grad_iter_{}.model'.format(8000)
+    model_file = model_saved_dir +'/' +'Unet_instance_grad_iter_{}.model'.format(11499)
     netmodel.load_state_dict(torch.load(model_file))
     netmodel.eval()
     im_size =1024
@@ -147,7 +152,7 @@ if __name__ =='__main__':
     #use_gpu=False
     use_parallel = True
     #optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.5)
-    model_file = model_saved_dir +'/' +'Unet_instance_grad_iter_{}.model'.format(8000)
+    model_file = model_saved_dir +'/' +'Unet_instance_grad_iter_{}.model'.format(1999)
     #print('resume training from {}'.format(model_file))
-    train()
-    #test()
+    #train(model_file)
+    test()
