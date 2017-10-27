@@ -1,5 +1,5 @@
 import torch
-import torch.nn
+from torch import nn
 def initialize_weights(*models):
     for model in models:
         for module in model.modules():
