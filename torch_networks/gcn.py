@@ -4,7 +4,7 @@ from torch import nn
 from torchvision import models
 
 from utils import initialize_weights
-from .config import res152_path
+#from .config import res152_path
 
 
 # many are borrowed from https://github.com/ycszen/pytorch-ss/blob/master/gcn.py
