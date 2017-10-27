@@ -55,7 +55,7 @@ class GCN(nn.Module):
         resnet = models.resnet152()
         if pretrained:
             resnet.load_state_dict(torch.load(res152_path))
-        self.EM_conv1=Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+        self.EM_conv1=nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
         
         self.layer0 = nn.Sequential(EM_conv1, resnet.bn1, resnet.relu)
         self.layer1 = nn.Sequential(resnet.maxpool, resnet.layer1)
