@@ -308,7 +308,7 @@ def create_model(model_name, input_size =224, pre_trained_iter=None):
 
 if __name__ =='__main__':
     input_size =1024
-    model, model_file = create_model('Unet',input_size=input_size,pre_trained_iter=2999)
-    #model, model_file = create_model('GCN',2999)
+    #model, model_file = create_model('Unet',input_size=input_size,pre_trained_iter=4499)
+    model, model_file = create_model('GCN',input_size=input_size,5999)
     TrTs =train_test(model=model, input_size=input_size,pretrain_model= model_file)
     TrTs.test()
