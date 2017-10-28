@@ -299,7 +299,7 @@ def create_model(model_name, pre_trained_iter=None):
     if model_name == 'GCN':
         model = GCN(num_classes=2, input_size=input_size).double()
     elif model_name == 'Unet':
-        model = Unet()
+        model = Unet(input_size=input_size)
     if  pre_trained_iter:
         model_file = model_saved_dir +'/' +'{}_instance_grad_iter_{}.model'.format(model_name,pre_trained_iter)
     else:
