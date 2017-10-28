@@ -294,7 +294,7 @@ def test():
         output = netmodel(data)
         savefiguers(i,output)
 def create_model(model_name, pre_trained_iter=None):
-    input_size = 224
+    input_size = 1024
     model_saved_dir = 'models'
     if model_name == 'GCN':
         model = GCN(num_classes=2, input_size=input_size).double()
@@ -308,7 +308,7 @@ def create_model(model_name, pre_trained_iter=None):
 
 
 if __name__ =='__main__':
-    #model, model_file = create_model('Unet',1999)
-    model, model_file = create_model('GCN',2999)
+    model, model_file = create_model('Unet',3999)
+    #model, model_file = create_model('GCN',2999)
     TrTs =train_test(model=model, pretrain_model= model_file)
     TrTs.test()
