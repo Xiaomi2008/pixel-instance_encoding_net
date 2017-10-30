@@ -4,12 +4,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as functional
 def l2_norm(x):
+    epsilon = 1e-12
     #epsilon=torch.cuda.DoubleTensor([1e-12])
     #sq_x   = torch.max(x**2,epsilon)
     #sq_x   = torch.max(x**2,epsilon)
     #e_mat  = torch.zero_like(sq_x)
     sum_x  = torch.sum(x**2,1,keepdim=True)
-    sqrt_x = torch.sqrt(sum_x)
+    sqrt_x = torch.sqrt(sum_x).clamp(min=epsilon).expand_as(x)
     return x/sqrt_x
 
 def dice_loss(input, target):

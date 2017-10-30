@@ -324,7 +324,7 @@ def create_model(model_name, input_size =224, pre_trained_iter=None):
 if __name__ =='__main__':
     input_size =448
     #model, model_file = create_model('Unet',input_size=input_size,pre_trained_iter=69499)
-    model, model_file = create_model('GCN',input_size,70499)
+    model, model_file = create_model('GCN',input_size,74499)
     TrTs =train_test(model=model, input_size=input_size,pretrain_model= model_file)
     #TrTs.train()
     TrTs.test()
