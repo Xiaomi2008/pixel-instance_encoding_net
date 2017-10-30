@@ -38,7 +38,7 @@ class train_test():
                                             lr_decay=0, 
                                             weight_decay=0)
     def valid(self, dataset):
-        dataset.set_phase('valid'):
+        dataset.set_phase('valid')
         self.model.eval()
         valid_loader = DataLoader(dataset =dataset,
                                   batch_size=1,
