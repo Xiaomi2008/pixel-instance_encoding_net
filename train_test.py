@@ -28,10 +28,10 @@ class train_test():
         self.model_file = pretrained_model
         self.model_saved_dir   = 'models'
         self.model_save_steps  = 10
-        self.model             = model.double()
+        self.model             = model.float()
         self.use_gpu           = torch.cuda.is_available()
         if self.use_gpu:
-            self.model.cuda().double()
+            self.model.cuda().float()
         self.use_parallel = False
         self.optimizer    = optim.Adagrad(self.model.parameters(), 
                                             lr=0.001, 
@@ -47,16 +47,16 @@ class train_test():
         gen = enumerate(valid_loader)
         loss = 0.0
         iters = 100
-        save_interval =5
+        save_interval =10
         for i, (data,target) in enumerate(valid_loader, 0):
             target = target[:,0,:,:,:]
-            data, target = Variable(data).double(), Variable(target).double()
+            data, target = Variable(data).float(), Variable(target).float()
             if self.use_gpu:
-                data = data.cuda().double()
-                target =data.cuda().double()
+                data = data.cuda().float()
+                target =data.cuda().float()
             pred = self.model(data)
             loss += angularLoss(pred, target)
-            if i % 5 ==0:
+            if i % 10 ==0:
                 ang_t_map=compute_angular(target)
                 ang_p_map=compute_angular(pred)
                 saveRawfiguers(i,'ang_t_map',ang_t_map)
@@ -65,6 +65,9 @@ class train_test():
                 pred_y = pred.data[:,1,:,:]
                 saveRawfiguers(i,'pred_x',pred_x)
                 saveRawfiguers(i,'pred_y',pred_y)
+            del pred
+            del data
+            del target
             if i >= iters-1:
                 break
         loss = loss / iters
@@ -91,11 +94,11 @@ class train_test():
             for i, batch in enumerate(train_loader, 0):
                 data, target = batch
                 target = target[:,0,:,:,:]
-                data, target = Variable(data).double(), Variable(target).double()
+                data, target = Variable(data).float(), Variable(target).float()
                 
                 if self.use_gpu:
-                     data   = data.cuda().double()
-                     target = target.cuda().double()
+                     data   = data.cuda().float()
+                     target = target.cuda().float()
                
                 self.optimizer.zero_grad()
                 output = self.model(data)
@@ -137,10 +140,10 @@ class train_test():
         for i , batch in enumerate(train_loader,start =0):
             data, target = batch
             target = target[:,0,:,:,:]
-            data, target = Variable(data).double(), Variable(target).double()
+            data, target = Variable(data).float(), Variable(target).float()
             if self.use_gpu:
-                data   = data.cuda().double()
-                target = target.cuda().double()
+                data   = data.cuda().float()
+                target = target.cuda().float()
 
             pred = self.model(data)
             loss = angularLoss(pred, target)
@@ -227,10 +230,10 @@ def savefiguers(iters,output):
 #             data, target = batch
 #             target = target[:,0,:,:,:]
 #             # print ('DataLoader target shape : {}'.format(target.shape))
-#             data, target = Variable(data).double(), Variable(target).double()
+#             data, target = Variable(data).float(), Variable(target).float()
 #             if use_gpu:
-#                 data   = data.cuda().double()
-#                 target = target.cuda().double()
+#                 data   = data.cuda().float()
+#                 target = target.cuda().float()
 #             optimizer.zero_grad()
 #             output = model(data)
 #             loss = angularLoss(output, target)
@@ -262,15 +265,15 @@ def test():
         C = six.next(sub_vol_gen);
         I[0,0,:,:] = C['image_dataset'].astype(np.int32)
         images = torch.from_numpy(I)
-        data = Variable(images).double()
+        data = Variable(images).float()
         if use_gpu:
-            data=data.cuda().double()
+            data=data.cuda().float()
         output = netmodel(data)
         savefiguers(i,output)
 def create_model(model_name, input_size =224, pretrained_iter=None):
     model_saved_dir = 'models'
     if model_name == 'GCN':
-        model = GCN(num_classes=2, input_size=input_size).double()
+        model = GCN(num_classes=2, input_size=input_size).float()
     elif model_name == 'Unet':
         model = Unet()
 
