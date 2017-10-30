@@ -65,9 +65,9 @@ class train_test():
                 pred_y = pred.data[:,1,:,:]
                 saveRawfiguers(i,'pred_x',pred_x)
                 saveRawfiguers(i,'pred_y',pred_y)
-            del pred
-            del data
-            del target
+            # del pred
+            # del data
+            # del target
             if i >= iters-1:
                 break
         loss = loss / iters
