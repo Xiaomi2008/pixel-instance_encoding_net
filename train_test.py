@@ -23,9 +23,9 @@ from torch_networks.gcn import GCN
 import pdb
 
 class train_test():
-    def __init__(self, model, pretrain_model = None,input_size = 224):
+    def __init__(self, model, pretrained_model = None,input_size = 224):
         self.input_size = input_size 
-        self.model_file = pretrain_model
+        self.model_file = pretrained_model
         self.model_saved_dir   = 'models'
         self.model_save_steps  = 500
         self.model             = model.double()
@@ -112,13 +112,13 @@ class train_test():
                     model_save_file = self.model_saved_dir +'/' \
                                   +'{}_size{}_iter_{}.model'.format(self.model.name,self.input_size,i)
                     torch.save(self.model.state_dict(),model_save_file)
-                    loss_str = 'loss : {}'.fromat(runing_loss/float(self.model_save_steps))
+                    loss_str = 'loss : {:.5f}'.fromat(runing_loss/float(self.model_save_steps))
                     printProgressBar(steps, self.model_save_steps, prefix = iters, suffix = loss_str, length = 50)
                     print('model saved to {}'.format(model_save_file))
                     runing_loss = 0
                     self.valid(dataset)
                 else:
-                    loss_str = '{:.5f}'.format(loss.data[0])
+                    loss_str = 'loss : {:.5f}'.format(loss.data[0])
                 printProgressBar(steps, self.model_save_steps, prefix = iters, suffix = loss_str, length = 50)
                # print('train iter {}, loss = {:.5f}'.format(i,loss.data[0]))
     
