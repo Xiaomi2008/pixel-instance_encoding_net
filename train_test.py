@@ -102,20 +102,23 @@ class train_test():
                 #print('done angular and backword')
                 self.optimizer.step()
                 runing_loss += loss.data[0]
+                iter_range = (i+1) // self.model_save_steps
                 steps = (i+1) % self.model_save_steps
-                iters = 'iters : {} to {}:'.format(i,i+self.model_save_steps)
+                start_iters = iter_range*self.model_save_steps
+                end_iters   = start_iters + self.model_save_steps
+                iters = 'iters : {} to {}:'.format(start_iters,end_iters)
                 loss_str  = 0
                 if steps == 0:
                     model_save_file = self.model_saved_dir +'/' \
                                   +'{}_size{}_iter_{}.model'.format(self.model.name,self.input_size,i)
                     torch.save(self.model.state_dict(),model_save_file)
-                    loss_str = runing_loss/self.model_save_steps
+                    loss_str = 'loss : {}'.fromat(runing_loss/float(self.model_save_steps))
                     printProgressBar(steps, self.model_save_steps, prefix = iters, suffix = loss_str, length = 50)
                     print('model saved to {}'.format(model_save_file))
                     runing_loss = 0
                     self.valid(dataset)
                 else:
-                    loss_str = '{:.5f}'.format(i,loss.data[0])
+                    loss_str = '{:.5f}'.format(loss.data[0])
                 printProgressBar(steps, self.model_save_steps, prefix = iters, suffix = loss_str, length = 50)
                # print('train iter {}, loss = {:.5f}'.format(i,loss.data[0]))
     
@@ -134,6 +137,7 @@ class train_test():
             if self.use_gpu:
                 data   = data.cuda().double()
                 target = target.cuda().double()
+
             pred = self.model(data)
             loss = angularLoss(pred, target)
             print('loss:{}'.format(loss))
