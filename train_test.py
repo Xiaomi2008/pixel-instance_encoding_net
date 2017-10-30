@@ -59,7 +59,7 @@ class train_test():
             if i % 10 ==0:
                 ang_t_map=compute_angular(target)
                 ang_p_map=compute_angular(pred)
-                print (angle_p_map.shape)
+                print (ang_p_map.shape)
                 saveRawfiguers(i,'ang_t_map',ang_t_map)
                 saveRawfiguers(i,'ang_p_map',ang_p_map)
                 pred_x = pred.data[:,0,:,:]
