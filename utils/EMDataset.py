@@ -14,10 +14,13 @@ class CRIME_Dataset(Dataset):
     """ EM dataset."""
 
     # Initialize your data
-    def __init__(self, out_size = 224, dataset = 'Set_A',
-                  subtract_mean = False,
-                  data_config = 'conf/cremi_datasets_with_tflabels.toml'):
+    def __init__(self, out_size = 224, 
+                 dataset = 'Set_A',
+                 subtract_mean = False,
+                 phase   = 'train',
+                data_config = 'conf/cremi_datasets_with_tflabels.toml'):
       self.dataset      = dataset
+      self.phase        = phase
       self.x_out_size   = out_size
       self.y_out_size   = out_size
       self.z_out_size   = 1
@@ -28,10 +31,23 @@ class CRIME_Dataset(Dataset):
       dim_shape         = self.im_data.shape
       self.y_size       = dim_shape[2] -self.x_out_size + 1
       self.x_size       = dim_shape[1] -self.y_out_size + 1 
-      self.z_size       = dim_shape[0] -self.z_out_size + 1
+      self.set_phase(phase)
+      #self.z_size       = dim_shape[0] -self.z_out_size + 1
+    def set_phase(self,phase):
+      self.phase = phase
+      if phase == 'train':
+        self.slice_start_z= 0
+        self.slice_end_z   = 99
+      elif phase == 'valid':
+        self.slice_start_z = 100
+        self.slice_end_z = 125
+
+      self.z_size = self.slice_end_z - self.slice_end_z +1
+
+
         
     def __getitem__(self, index):
-      z_start = index // (self.x_size * self.y_size)
+      z_start = index // (self.x_size * self.y_size) + self.slice_start_z
       remain  = index % (self.x_size * self.y_size)
       x_start = remain // self.y_size
       y_start = remain % self.y_size

@@ -37,6 +37,37 @@ class train_test():
                                             lr=0.001, 
                                             lr_decay=0, 
                                             weight_decay=0)
+    def valid(self, dataset):
+        dataset.set_phase('valid'):
+        self.model.eval()
+        valid_loader = DataLoader(dataset =dataset,
+                                  batch_size=1,
+                                  shuffle  =True,
+                                  num_workers=1)
+        gen = enumerate(valid_loader)
+        loss = 0.0
+        iters = 100
+        save_interval =5
+        for i in range(iters):
+            data, target = gen.next()
+            if self.use_gpu:
+                data = data.cuda().double()
+                target =data.cuda().double()
+            output = self.model(data)
+            loss += angularLoss(output, target)
+            if i % 5 ==0:
+                ang_t_map=compute_angular(target)
+                ang_p_map=compute_angular(pred)
+                saveRawfiguers(i,'ang_t_map',ang_t_map)
+                saveRawfiguers(i,'ang_p_map',ang_p_map)
+                pred_x = pred.data[:,0,:,:]
+                pred_y = pred.data[:,1,:,:]
+                saveRawfiguers(i,'pred_x',pred_x)
+                saveRawfiguers(i,'pred_y',pred_y)
+        loss = loss / iters
+        print ('valid loss:{}'.format(loss))
+
+
     def train(self):
         if not os.path.exists(self.model_saved_dir):
             os.mkdir(self.model_saved_dir)
@@ -47,7 +78,7 @@ class train_test():
         if use_parallel:
             self.model = torch.nn.DataParallel(self.model, device_ids=gpus)
         self.model.train()
-        dataset = CRIME_Dataset(out_size  = self.input_size)
+        dataset = CRIME_Dataset(out_size  = self.input_size,phase = 'train')
         train_loader = DataLoader(dataset =dataset,
                                   batch_size=16,
                                   shuffle  =True,
@@ -64,7 +95,7 @@ class train_test():
                      target = target.cuda().double()
                
                 self.optimizer.zero_grad()
-                output = model(data)
+                output = self.model(data)
                 #print('iter {}'.format(i))
                 loss = angularLoss(output, target)
                 loss.backward()
@@ -78,10 +109,11 @@ class train_test():
                     model_save_file = self.model_saved_dir +'/' \
                                   +'{}_size{}_iter_{}.model'.format(self.model.name,self.input_size,i)
                     torch.save(self.model.state_dict(),model_save_file)
+                    loss_str = runing_loss/self.model_save_steps
                     printProgressBar(steps, self.model_save_steps, prefix = iters, suffix = loss_str, length = 50)
                     print('model saved to {}'.format(model_save_file))
-                    loss_str = runing_loss/self.model_save_steps
                     runing_loss = 0
+                    self.valid(dataset)
                 else:
                     loss_str = '{:.5f}'.format(i,loss.data[0])
                 printProgressBar(steps, self.model_save_steps, prefix = iters, suffix = loss_str, length = 50)
@@ -90,7 +122,7 @@ class train_test():
     def test(self):
         self.model.eval()
         model.load_state_dict(torch.load(self.model_file))
-        dataset = CRIME_Dataset(out_size  = self.input_size)
+        dataset = CRIME_Dataset(out_size  = self.input_size, phase ='valid')
         train_loader = DataLoader(dataset =dataset,
                                   batch_size=1,
                                   shuffle  =True,
