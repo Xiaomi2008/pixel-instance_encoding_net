@@ -39,7 +39,7 @@ if __name__ =='__main__':
     printProgressBar(0, l, prefix = 'Progress:', suffix = 'Complete', length = 50)
     for j in xrange(5):
         #print ('this is {}'.format(j))
-        print('')
+        print(' \n next ')
         for i, item in enumerate(items):
             # Do stuff...
             sleep(0.1)

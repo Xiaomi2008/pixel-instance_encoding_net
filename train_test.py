@@ -27,7 +27,7 @@ class train_test():
         self.input_size = input_size 
         self.model_file = pretrained_model
         self.model_saved_dir   = 'models'
-        self.model_save_steps  = 50
+        self.model_save_steps  = 10
         self.model             = model.double()
         self.use_gpu           = torch.cuda.is_available()
         if self.use_gpu:
@@ -54,8 +54,8 @@ class train_test():
             if self.use_gpu:
                 data = data.cuda().double()
                 target =data.cuda().double()
-            output = self.model(data)
-            loss += angularLoss(output, target)
+            pred = self.model(data)
+            loss += angularLoss(pred, target)
             if i % 5 ==0:
                 ang_t_map=compute_angular(target)
                 ang_p_map=compute_angular(pred)
@@ -68,7 +68,7 @@ class train_test():
             if i >= iters-1:
                 break
         loss = loss / iters
-        print ('valid loss:{}'.format(loss))
+        print (' valid loss : {}'.format(loss))
 
 
     def train(self):
@@ -117,9 +117,9 @@ class train_test():
                     torch.save(self.model.state_dict(),model_save_file)
                     loss_str = 'loss : {:.5f}'.format(runing_loss/float(self.model_save_steps))
                     printProgressBar(steps, self.model_save_steps, prefix = iters, suffix = loss_str, length = 50)
-                    print('model saved to {}'.format(model_save_file))
                     runing_loss = 0.0
                     self.valid(dataset)
+                    print(' saved {}'.format(model_save_file))
                     self.model.train()
                 else:
                     loss_str = 'loss : {:.5f}'.format(loss.data[0])
