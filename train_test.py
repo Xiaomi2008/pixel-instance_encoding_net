@@ -48,8 +48,7 @@ class train_test():
         loss = 0.0
         iters = 100
         save_interval =5
-        for i in range(iters):
-            data, target = gen.next()
+        for i, (data,target) in enumerate(valid_loader, 0):
             if self.use_gpu:
                 data = data.cuda().double()
                 target =data.cuda().double()
@@ -64,6 +63,8 @@ class train_test():
                 pred_y = pred.data[:,1,:,:]
                 saveRawfiguers(i,'pred_x',pred_x)
                 saveRawfiguers(i,'pred_y',pred_y)
+            if i >= iters-1:
+                break
         loss = loss / iters
         print ('valid loss:{}'.format(loss))
 
