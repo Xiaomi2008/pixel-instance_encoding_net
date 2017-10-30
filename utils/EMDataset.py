@@ -72,7 +72,7 @@ class CRIME_Dataset(Dataset):
       #pdb_set_trace()
 
       #target  = self.gt_data[z_start:z_end,x_start:x_end,y_start:y_end]
-      tc_data, tc_target= torch.from_numpy(data), torch.from_numpy(target)
+      tc_data, tc_target= torch.from_numpy(data).float(), torch.from_numpy(target).float()
 
       #print('TC_target_xy shape:{}'.format(tc_target.shape))
 
