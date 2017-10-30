@@ -259,7 +259,7 @@ def test():
             data=data.cuda().double()
         output = netmodel(data)
         savefiguers(i,output)
-def create_model(model_name, input_size =224, pre_trained_iter=None):
+def create_model(model_name, input_size =224, pretrained_iter=None):
     model_saved_dir = 'models'
     if model_name == 'GCN':
         model = GCN(num_classes=2, input_size=input_size).double()
@@ -276,8 +276,8 @@ def create_model(model_name, input_size =224, pre_trained_iter=None):
 
 if __name__ =='__main__':
     input_size =224
-    #model, model_file = create_model('Unet',input_size=input_size,pre_trained_iter=69499)
-    model, model_file = create_model('GCN',input_size=input_size,pre_train_iter=79499)
+    #model, model_file = create_model('Unet',input_size=input_size,pretrained_iter=69499)
+    model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=79499)
     TrTs =train_test(model=model, input_size=input_size,pretrain_model= model_file)
     #TrTs.train()
     TrTs.test()
