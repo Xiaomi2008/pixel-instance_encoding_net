@@ -25,7 +25,7 @@ class CRIME_Dataset(Dataset):
       self.y_out_size   = out_size
       self.z_out_size   = 1
       self.data_config  = data_config
-      self.subtract_mean = sub_ract_mean
+      self.subtract_mean = subtract_mean
       self.load_hdf()
 
       dim_shape         = self.im_data.shape
