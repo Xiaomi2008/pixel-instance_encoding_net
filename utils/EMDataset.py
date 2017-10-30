@@ -14,12 +14,15 @@ class CRIME_Dataset(Dataset):
     """ EM dataset."""
 
     # Initialize your data
-    def __init__(self, out_size = 224, dataset = 'Set_A', data_config = 'conf/cremi_datasets_with_tflabels.toml'):
+    def __init__(self, out_size = 224, dataset = 'Set_A',
+                  subtract_mean = False,
+                  data_config = 'conf/cremi_datasets_with_tflabels.toml'):
       self.dataset      = dataset
       self.x_out_size   = out_size
       self.y_out_size   = out_size
       self.z_out_size   = 1
       self.data_config  = data_config
+      self.subtract_mean = sub_ract_mean
       self.load_hdf()
 
       dim_shape         = self.im_data.shape
@@ -38,6 +41,8 @@ class CRIME_Dataset(Dataset):
       y_end   = y_start + self.y_out_size
 
       data    = np.array(self.im_data[z_start:z_end,x_start:x_end,y_start:y_end])
+      if self.subtract_mean:
+        data -=127.5
 
 
       target_ch1  =np.array(self.gradX[z_start:z_end,x_start:x_end,y_start:y_end])
