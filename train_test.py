@@ -49,6 +49,8 @@ class train_test():
         iters = 100
         save_interval =5
         for i, (data,target) in enumerate(valid_loader, 0):
+            target = target[:,0,:,:,:]
+            data, target = Variable(data).double(), Variable(target).double()
             if self.use_gpu:
                 data = data.cuda().double()
                 target =data.cuda().double()
