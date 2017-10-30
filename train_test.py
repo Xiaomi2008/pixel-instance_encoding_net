@@ -280,5 +280,5 @@ if __name__ =='__main__':
     #model, model_file = create_model('Unet',input_size=input_size,pretrained_iter=69499)
     model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=50499)
     TrTs =train_test(model=model, input_size=input_size,pretrain_model= model_file)
-    #TrTs.train()
-    TrTs.test()
+    TrTs.train()
+    #TrTs.test()
