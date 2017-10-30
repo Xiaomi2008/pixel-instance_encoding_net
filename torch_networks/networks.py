@@ -116,7 +116,9 @@ class Unet(nn.Module):
         self.finnal_conv2d = nn.Conv2d(last_up_ch, out_ch, kernel_size=1, padding=0)
         self.upsample = nn.Upsample(scale_factor=2,mode='bilinear')
         self.finnal_conv2d = nn.Conv2d(48, 2, kernel_size=3, padding=1)
-
+    @property
+    def name(self):
+        return 'Unet'
     def forward(self,x):
         #x=self.finnal_conv2d(x)
         x1  = self.conv_2d_1(x)

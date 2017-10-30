@@ -23,9 +23,7 @@ class _GlobalConvModule(nn.Module):
                                  padding=(0, pad1))
         self.conv_r2 = nn.Conv2d(out_dim, out_dim, kernel_size=(kernel_size[0], 1),
                                  padding=(pad0, 0))
-    @property
-    def name(self):
-        return 'GCN'
+
     def forward(self, x):
         x_l = self.conv_l1(x)
         x_l = self.conv_l2(x_l)
@@ -82,7 +80,9 @@ class GCN(nn.Module):
 
         initialize_weights(self.gcm1, self.gcm2, self.gcm3, self.gcm4, self.brm1, self.brm2, self.brm3,
                            self.brm4, self.brm5, self.brm6, self.brm7, self.brm8, self.brm9)
-
+    @property
+    def name(self):
+        return 'GCN'
     def forward(self, x):
         # if x: 512
         fm0 = self.layer0(x)  # 256

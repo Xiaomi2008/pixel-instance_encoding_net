@@ -45,25 +45,29 @@ class train_test():
         use_parallel = True if len(gpus) >1 else False
         if use_parallel:
             self.model = torch.nn.DataParallel(self.model, device_ids=gpus)
-        model.train()
-        dataset = CRIME_Dataset(out_size  = input_size)
+        self.model.train()
+        dataset = CRIME_Dataset(out_size  = self.input_size)
         train_loader = DataLoader(dataset =dataset,
                                   batch_size=16,
                                   shuffle  =True,
-                                  num_workers=2)
+                                  num_workers=1)
         for epoch in range(5):
             runing_loss = 0.0
             for i, batch in enumerate(train_loader, 0):
                 data, target = batch
                 target = target[:,0,:,:,:]
                 data, target = Variable(data).double(), Variable(target).double()
-                if use_gpu:
-                    data   = data.cuda().double()
-                    target = target.cuda().double()
+                
+                if self.use_gpu:
+                     data   = data.cuda().double()
+                     target = target.cuda().double()
+               
                 self.optimizer.zero_grad()
                 output = model(data)
+                #print('iter {}'.format(i))
                 loss = angularLoss(output, target)
                 loss.backward()
+                #print('done angular and backword')
                 self.optimizer.step()
                 runing_loss += loss.data[0]
                 if (i+1) % self.model_save_steps == 0:
@@ -71,9 +75,9 @@ class train_test():
                                   +'{}_size{}_iter{}.model'.format(self.model.name,self.input_size,i)
                     torch.save(self.model.state_dict(),model_save_file)
                     print('model saved to {}'.format(model_save_file))
-                    print('[{:5d}] loss: {:.3f}'.format(i,runing_loss/model_save_steps) )
+                    print('[{:5d}] loss: {:.3f}'.format(i,runing_loss/self.model_save_steps) )
                     runing_loss = 0
-                    print('train iter {}, loss = {:.5f}'.format(i,loss.data[0]))
+                print('train iter {}, loss = {:.5f}'.format(i,loss.data[0]))
     
     def test(self):
         self.model.eval()
@@ -97,7 +101,13 @@ class train_test():
             ang_p_map=compute_angular(pred)
             saveRawfiguers(i,'ang_t_map',ang_t_map)
             saveRawfiguers(i,'ang_p_map',ang_p_map)
-            if i > 3:
+
+            pred_x = pred.data[:,0,:,:]
+            pred_y = pred.data[:,1,:,:]
+
+            saveRawfiguers(i,'pred_x',pred_x)
+            saveRawfiguers(i,'pred_y',pred_y)
+            if i > 5:
                 break
 
 
@@ -118,7 +128,10 @@ def saveRawfiguers(iters,file_prefix,output):
     plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
     data = output.cpu().numpy()
     print ('output shape = {}'.format(data.shape))
-    I = data[0,0]
+    if data.ndim ==4:
+        I = data[0,0]
+    elif data.ndim==3:
+        I=data[0]
     plt.imshow(I)
     #pdb.set_trace()
     plt.savefig(file_prefix+'{}.png'.format(iters))
@@ -300,15 +313,18 @@ def create_model(model_name, input_size =224, pre_trained_iter=None):
     elif model_name == 'Unet':
         model = Unet()
     if  pre_trained_iter:
-        model_file = model_saved_dir +'/' +'{}_instance_grad_iter_{}.model'.format(model_name,pre_trained_iter)
+        #model_file = model_saved_dir +'/' +'{}_size244_iter{}.model'.format(model_name,pre_trained_iter)
+        model_file =model_saved_dir + '/' + 'GCN_size224_iter40499.model'
+        #model_file = model_saved_dir +'/' +'{}_instance_grad_iter_{}.model'.format(model_name,pre_trained_iter)
     else:
         model_file = None
     return model, model_file
 
 
 if __name__ =='__main__':
-    input_size =1024
-    #model, model_file = create_model('Unet',input_size=input_size,pre_trained_iter=4499)
-    model, model_file = create_model('GCN',input_size,5999)
+    input_size =448
+    #model, model_file = create_model('Unet',input_size=input_size,pre_trained_iter=69499)
+    model, model_file = create_model('GCN',input_size,70499)
     TrTs =train_test(model=model, input_size=input_size,pretrain_model= model_file)
+    #TrTs.train()
     TrTs.test()
