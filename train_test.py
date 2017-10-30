@@ -267,7 +267,7 @@ def create_model(model_name, input_size =224, pre_trained_iter=None):
         model = Unet()
     if  pre_trained_iter:
         #model_file = model_saved_dir +'/' +'{}_size244_iter_{}.model'.format(model_name,pre_trained_iter)
-        model_file =model_saved_dir + '/' + 'GCN_size224_iter40499.model'
+        model_file =model_saved_dir + '/' + 'GCN_size224_iter49499.model'
         #model_file = model_saved_dir +'/' +'{}_instance_grad_iter_{}.model'.format(model_name,pre_trained_iter)
     else:
         model_file = None
@@ -277,7 +277,7 @@ def create_model(model_name, input_size =224, pre_trained_iter=None):
 if __name__ =='__main__':
     input_size =448
     #model, model_file = create_model('Unet',input_size=input_size,pre_trained_iter=69499)
-    model, model_file = create_model('GCN',input_size,74499)
+    model, model_file = create_model('GCN',input_size,79499)
     TrTs =train_test(model=model, input_size=input_size,pretrain_model= model_file)
     #TrTs.train()
     TrTs.test()
