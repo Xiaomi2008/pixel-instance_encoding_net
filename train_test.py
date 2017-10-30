@@ -27,7 +27,7 @@ class train_test():
         self.input_size = input_size 
         self.model_file = pretrained_model
         self.model_saved_dir   = 'models'
-        self.model_save_steps  = 500
+        self.model_save_steps  = 50
         self.model             = model.double()
         self.use_gpu           = torch.cuda.is_available()
         if self.use_gpu:
@@ -112,11 +112,12 @@ class train_test():
                     model_save_file = self.model_saved_dir +'/' \
                                   +'{}_size{}_iter_{}.model'.format(self.model.name,self.input_size,i)
                     torch.save(self.model.state_dict(),model_save_file)
-                    loss_str = 'loss : {:.5f}'.fromat(runing_loss/float(self.model_save_steps))
+                    loss_str = 'loss : {:.5f}'.format(runing_loss/float(self.model_save_steps))
                     printProgressBar(steps, self.model_save_steps, prefix = iters, suffix = loss_str, length = 50)
                     print('model saved to {}'.format(model_save_file))
-                    runing_loss = 0
+                    runing_loss = 0.0
                     self.valid(dataset)
+                    self.model.train()
                 else:
                     loss_str = 'loss : {:.5f}'.format(loss.data[0])
                 printProgressBar(steps, self.model_save_steps, prefix = iters, suffix = loss_str, length = 50)
