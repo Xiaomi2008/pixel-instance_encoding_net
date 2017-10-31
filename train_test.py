@@ -39,7 +39,8 @@ class train_test():
                                             lr=0.001, 
                                             lr_decay=0, 
                                             weight_decay=0)
-        subtract_mean = False if model.name is 'Unet' else False
+        subtract_mean = False if model.name is 'Unet' else True
+        pdb.set_trace()
         self.trainDataset = CRIME_Dataset(out_size  = self.input_size, phase = 'train',subtract_mean =subtract_mean)
         self.validDataset = CRIME_Dataset(out_size  = self.input_size, phase = 'valid',subtract_mean =subtract_mean)
         if self.model_file:
