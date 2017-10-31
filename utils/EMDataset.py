@@ -56,9 +56,10 @@ class CRIME_Dataset(Dataset):
       x_end   = x_start + self.x_out_size
       y_end   = y_start + self.y_out_size
 
-      data    = np.array(self.im_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.float)
-      if self.subtract_mean:
-        data -= 127
+      # data    = np.array(self.im_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.float)
+      # if self.subtract_mean:
+      #   data -= 127
+      data    = np.array(self.im_data[z_start:z_end,x_start:x_end,y_start:y_end])
 
 
       target_ch1  =np.array(self.gradX[z_start:z_end,x_start:x_end,y_start:y_end])
