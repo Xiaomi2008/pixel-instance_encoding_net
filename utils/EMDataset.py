@@ -18,7 +18,7 @@ class CRIME_Dataset(Dataset):
                  dataset = 'Set_A',
                  subtract_mean = False,
                  phase   = 'train',
-                data_config = 'conf/cremi_datasets_with_tflabels.toml'):
+                 data_config = 'conf/cremi_datasets_with_tflabels.toml'):
       self.dataset      = dataset
       self.phase        = phase
       self.x_out_size   = out_size
@@ -40,7 +40,7 @@ class CRIME_Dataset(Dataset):
         self.slice_end_z   = 99
       elif phase == 'valid':
         self.slice_start_z = 100
-        self.slice_end_z = 125
+        self.slice_end_z = 124
 
       self.z_size = self.slice_end_z - self.slice_end_z +1
 
@@ -56,9 +56,9 @@ class CRIME_Dataset(Dataset):
       x_end   = x_start + self.x_out_size
       y_end   = y_start + self.y_out_size
 
-      data    = np.array(self.im_data[z_start:z_end,x_start:x_end,y_start:y_end])
+      data    = np.array(self.im_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.float)
       if self.subtract_mean:
-        data -=127.5
+        data -= 127
 
 
       target_ch1  =np.array(self.gradX[z_start:z_end,x_start:x_end,y_start:y_end])
@@ -121,10 +121,10 @@ def saveGradfiguers(iters,file_prefix,output):
     #print ('output shape = {}'.format(data.shape))
     I = data[0,0,:,:]
     plt.imshow(I)
-    plt.savefig(file_prefix +'readerX{}.png'.format(iters))
+    plt.savefig(file_prefix +'_readerX{}.png'.format(iters))
     I = data[0,1,:,:]
     plt.imshow(I)
-    plt.savefig(file_prefix+'readerY{}.png'.format(iters))
+    plt.savefig(file_prefix+'_readerY{}.png'.format(iters))
 def saveRawfiguers(iters,file_prefix,output):
     my_dpi = 96
     plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
@@ -133,7 +133,7 @@ def saveRawfiguers(iters,file_prefix,output):
     I = data[0,:,:]
     plt.imshow(I)
     #pdb.set_trace()
-    plt.savefig(file_prefix+'raw{}.png'.format(iters))
+    plt.savefig(file_prefix+'_raw{}.png'.format(iters))
 
 
 def l2_norm(x):
@@ -145,10 +145,11 @@ def l2_norm(x):
     sqrt_x = torch.sqrt(sum_x)
     return x/sqrt_x
 def compute_angular(x):
-    x    = l2_norm(x)*0.9999999999
-    pdb.set_trace()
-    x_aix = x[0]/torch.sqrt(torch.sum(x**2,1))
+    x    = l2_norm(x)*0.9999
+    
+    x_aix = x[:,0]/torch.sqrt(torch.sum(x**2,1))
     angle_map   = torch.acos(x_aix)
+    #pdb.set_trace()
     return angle_map
 
 
@@ -166,7 +167,7 @@ def compute_angular(x):
     # return loss
 def test_angluar_map():
   data_config = '../conf/cremi_datasets_with_tflabels.toml'
-  dataset = CRIME_Dataset(data_config = data_config)
+  dataset = CRIME_Dataset(data_config = data_config,phase='valid')
   train_loader = DataLoader(dataset=dataset,
                           batch_size=1,
                           shuffle=True,
@@ -175,7 +176,7 @@ def test_angluar_map():
     inputs, labels = data
     labels = labels[:,0,:,:,:]
     ang_map=compute_angular(labels)
-    saveRawfiguers(i,'ang_map',ang_map)
+    saveRawfiguers(i,'ang_map_test',ang_map)
     if i > 3:
       break
 

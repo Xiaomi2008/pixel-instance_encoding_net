@@ -80,7 +80,7 @@ def test_tf_l2_norm(gt,pred):
     pred = tf.reshape(pred, (-1, outputChannels))
     #print (pred)
     #gt = tf.to_float(tf.reshape(gt, (-1, outputChannels)))
-    pred = tf_l2_norm(pred, 1) * 0.999999
+    pred = tf_l2_norm(pred, 1) * 0.99999
     # gt   = tf_l2_norm(gt, 1) * 0.999999
     # # pred = tf.nn.l2_normalize(pred, 1) * 0.999999
     # # gt = tf.nn.l2_normalize(gt, 1) * 0.999999

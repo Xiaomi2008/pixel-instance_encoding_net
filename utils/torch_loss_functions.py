@@ -2,7 +2,7 @@ import os, sys
 sys.path.append('../')
 import torch
 import torch.nn as nn
-import torch.nn.functional as functional
+import torch.nn.functional as F
 def l2_norm(x):
     epsilon = 1e-12
     #epsilon=torch.cuda.DoubleTensor([1e-12])
@@ -14,7 +14,7 @@ def l2_norm(x):
     return x/sqrt_x
 
 def dice_loss(input, target):
-    smooth = 1.
+    smooth = 1.0
 
     iflat = input.view(-1)
     tflat = target.view(-1)
@@ -24,8 +24,13 @@ def dice_loss(input, target):
               (iflat.sum() + tflat.sum() + smooth)))
 
 def angularLoss(pred, gt, weight=0, outputChannels=2):
-    pred        = l2_norm(pred)*0.9999999999
-    gt          = l2_norm(gt)*0.9999999999
+   
+   # pred        = l2_norm(pred)*0.9999999999
+   # gt          = l2_norm(gt)*0.9999999999
+
+    pred        = F.normalize(pred)*0.999999
+    gt          = F.normalize(gt)*0.999999
+
     prod_sum    = torch.sum(gt*pred,1)
     angle_err   = torch.acos(prod_sum)
     loss        = torch.sum(angle_err*angle_err)
@@ -38,7 +43,7 @@ class CrossEntropyLoss2d(nn.Module):
         self.nll_loss = nn.NLLLoss2d(weight, size_average)
 
     def forward(self, inputs, targets):
-        return self.nll_loss(functional.log_softmax(inputs), targets)
+        return self.nll_loss(F.log_softmax(inputs), targets)
 
 # this may be unstable sometimes.Notice set the size_average
 def CrossEntropy2d(input, target, weight=None, size_average=False):

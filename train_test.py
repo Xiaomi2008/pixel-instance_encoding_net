@@ -4,10 +4,12 @@ import numpy as np
 import six
 import torch
 import torch.nn as nn
-import torch.nn.functional as functional
+import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import Variable
 from torch_networks.networks import Unet
+from torch_networks.duc  import ResNetDUCHDC
+from torch_networks.gcn import GCN
 from utils.torch_loss_functions import angularLoss,dice_loss,l2_norm
 from utils.printProgressBar import printProgressBar
 from label_transform.volumes import Volume
@@ -19,7 +21,7 @@ import torchvision.utils as vutils
 from matplotlib import pyplot as plt
 from utils.EMDataset import CRIME_Dataset
 from torch.utils.data import DataLoader
-from torch_networks.gcn import GCN
+import time
 import pdb
 
 class train_test():
@@ -27,86 +29,88 @@ class train_test():
         self.input_size = input_size 
         self.model_file = pretrained_model
         self.model_saved_dir   = 'models'
-        self.model_save_steps  = 10
+        self.model_save_steps  = 500
         self.model             = model.float()
         self.use_gpu           = torch.cuda.is_available()
         if self.use_gpu:
-            self.model.cuda().float()
+            self.model.cuda()
         self.use_parallel = False
         self.optimizer    = optim.Adagrad(self.model.parameters(), 
                                             lr=0.001, 
                                             lr_decay=0, 
                                             weight_decay=0)
-    def valid(self, dataset):
+        subtract_mean = False if model.name is 'Unet' else False
+        self.trainDataset = CRIME_Dataset(out_size  = self.input_size, phase = 'train',subtract_mean =subtract_mean)
+        self.validDataset = CRIME_Dataset(out_size  = self.input_size, phase = 'valid',subtract_mean =subtract_mean)
+        if self.model_file:
+            self.model.load_state_dict(torch.load(self.model_file))
+        print('don init')
+    def valid(self):
+        dataset = self.validDataset
         dataset.set_phase('valid')
         self.model.eval()
         valid_loader = DataLoader(dataset =dataset,
                                   batch_size=1,
                                   shuffle  =True,
                                   num_workers=1)
-        gen = enumerate(valid_loader)
         loss = 0.0
-        iters = 100
-        save_interval =10
+        iters = 20
+        save_interval =20
         for i, (data,target) in enumerate(valid_loader, 0):
             target = target[:,0,:,:,:]
+            #print(target)
             data, target = Variable(data).float(), Variable(target).float()
             if self.use_gpu:
                 data = data.cuda().float()
-                target =data.cuda().float()
+                target =target.cuda().float()
             pred = self.model(data)
-            loss += angularLoss(pred, target)
-            if i % 10 ==0:
-                ang_t_map=compute_angular(target)
-                ang_p_map=compute_angular(pred)
-                print (ang_p_map.shape)
-                saveRawfiguers(i,'ang_t_map',ang_t_map)
-                saveRawfiguers(i,'ang_p_map',ang_p_map)
+            loss += angularLoss(pred, target).data[0]
+            if i % iters ==0:
+                ang_t_map=compute_angular(target[0])
+                ang_p_map=compute_angular(pred[0])
+                model_name=self.model.name
+                saveRawfiguers(i,'ang_t_map_'+model_name,ang_t_map)
+                saveRawfiguers(i,'ang_p_map_'+model_name,ang_p_map)
                 pred_x = pred.data[:,0,:,:]
                 pred_y = pred.data[:,1,:,:]
-                saveRawfiguers(i,'pred_x',pred_x)
-                saveRawfiguers(i,'pred_y',pred_y)
-            # del pred
-            # del data
-            # del target
+                saveRawfiguers(i,'pred_x_'+model_name,pred_x)
+                saveRawfiguers(i,'pred_y_'+model_name,pred_y)
             if i >= iters-1:
                 break
+        print (loss)
         loss = loss / iters
-        print (' valid loss : {}'.format(loss))
+        print (' valid loss : {:.3f}'.format(loss))
 
 
     def train(self):
         if not os.path.exists(self.model_saved_dir):
             os.mkdir(self.model_saved_dir)
-        if self.model_file:
-            self.model.load_state_dict(torch.load(self.model_file))
         gpus = [0]
         use_parallel = True if len(gpus) >1 else False
         if use_parallel:
             self.model = torch.nn.DataParallel(self.model, device_ids=gpus)
         self.model.train()
-        dataset = CRIME_Dataset(out_size  = self.input_size,phase = 'train')
+        #dataset = CRIME_Dataset(out_size  = self.input_size,phase = 'train')
+        dataset  = self.trainDataset
         train_loader = DataLoader(dataset =dataset,
                                   batch_size=16,
                                   shuffle  =True,
                                   num_workers=2)
         for epoch in range(5):
             runing_loss = 0.0
+            start_time = time.time()
             for i, batch in enumerate(train_loader, 0):
                 data, target = batch
                 target = target[:,0,:,:,:]
                 data, target = Variable(data).float(), Variable(target).float()
-                
+                  
                 if self.use_gpu:
                      data   = data.cuda().float()
                      target = target.cuda().float()
-               
                 self.optimizer.zero_grad()
                 output = self.model(data)
-                #print('iter {}'.format(i))
                 loss = angularLoss(output, target)
                 loss.backward()
-                #print('done angular and backword')
                 self.optimizer.step()
                 runing_loss += loss.data[0]
                 iter_range = (i+1) // self.model_save_steps
@@ -115,18 +119,21 @@ class train_test():
                 end_iters   = start_iters + self.model_save_steps
                 iters = 'iters : {} to {}:'.format(start_iters,end_iters)
                 loss_str  = 0
+                elaps_time =time.time() - start_time
                 if steps == 0:
                     model_save_file = self.model_saved_dir +'/' \
                                   +'{}_size{}_iter_{}.model'.format(self.model.name,self.input_size,i)
                     torch.save(self.model.state_dict(),model_save_file)
                     loss_str = 'loss : {:.5f}'.format(runing_loss/float(self.model_save_steps))
-                    printProgressBar(steps, self.model_save_steps, prefix = iters, suffix = loss_str, length = 50)
+                    printProgressBar(self.model_save_steps, self.model_save_steps, prefix = iters, suffix = loss_str, length = 50)
                     runing_loss = 0.0
-                    self.valid(dataset)
-                    print(' saved {}'.format(model_save_file))
+                    self.valid()
                     self.model.train()
+                    print(' saved {}'.format(model_save_file))
+                    start_time = time.time()
                 else:
-                    loss_str = 'loss : {:.5f}'.format(loss.data[0])
+                    loss_str = 'loss : {:.3f}'.format(loss.data[0])
+                loss_str =  loss_str + ', time : {:.2}s'.format(elaps_time)
                 printProgressBar(steps, self.model_save_steps, prefix = iters, suffix = loss_str, length = 50)
                # print('train iter {}, loss = {:.5f}'.format(i,loss.data[0]))
     
@@ -148,17 +155,15 @@ class train_test():
 
             pred = self.model(data)
             loss = angularLoss(pred, target)
-            print('loss:{}'.format(loss))
+            print('loss:{}'.format(loss.data[0]))
             ang_t_map=compute_angular(target)
             ang_p_map=compute_angular(pred)
-            saveRawfiguers(i,'ang_t_map',ang_t_map)
-            saveRawfiguers(i,'ang_p_map',ang_p_map)
-
+            saveRawfiguers(i,'ang_t_map_{}'.format(self.model.name),ang_t_map)
+            saveRawfiguers(i,'ang_p_map_{}'.format(self.model.name),ang_p_map)
             pred_x = pred.data[:,0,:,:]
             pred_y = pred.data[:,1,:,:]
-
-            saveRawfiguers(i,'pred_x',pred_x)
-            saveRawfiguers(i,'pred_y',pred_y)
+            saveRawfiguers(i,'pred_x_{}'.format(self.model.name),pred_x)
+            saveRawfiguers(i,'pred_y_{}'.format(self.model.name),pred_y)
             if i > 5:
                 break
 
@@ -171,19 +176,23 @@ def compute_angular(x):
     #pdb.set_trace()
     if isinstance(x,Variable):
         x = x.data
-    x    = l2_norm(x)*0.9999999999
-    x_aix = x/torch.sqrt(torch.sum(x**2,1))
+   # x    = l2_norm(x)*0.999999
+    x = F.normalize(x)*0.99999
+    #print(x.shape)
+    x_aix = x[0,:,:]/torch.sqrt(torch.sum(x**2,0))
     angle_map   = torch.acos(x_aix)
     return angle_map
 def saveRawfiguers(iters,file_prefix,output):
     my_dpi = 96
     plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
     data = output.cpu().numpy()
-    print ('output shape = {}'.format(data.shape))
+    #print ('output shape = {}'.format(data.shape))
     if data.ndim ==4:
         I = data[0,0]
     elif data.ndim==3:
         I=data[0]
+    else:
+        I = data
     plt.imshow(I)
     #pdb.set_trace()
     plt.savefig(file_prefix+'{}.png'.format(iters))
@@ -274,9 +283,11 @@ def test():
 def create_model(model_name, input_size =224, pretrained_iter=None):
     model_saved_dir = 'models'
     if model_name == 'GCN':
-        model = GCN(num_classes=2, input_size=input_size).float()
+        model = GCN(num_classes=2, input_size=input_size)
     elif model_name == 'Unet':
         model = Unet()
+    elif model_name == 'DUCHDC':
+        model =ResNetDUCHDC(num_classes=2)
 
     if  pretrained_iter:
         model_file = model_saved_dir +'/' +'{}_size224_iter_{}.model'.format(model_name,pretrained_iter)
@@ -288,9 +299,10 @@ def create_model(model_name, input_size =224, pretrained_iter=None):
 
 
 if __name__ =='__main__':
-    input_size =224
-    #model, model_file = create_model('Unet',input_size=input_size,pretrained_iter=69499)
-    model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=50499)
-    TrTs =train_test(model=model, input_size=input_size,pretrained_model= None)
-    TrTs.train()
-    #TrTs.test()
+    input_size =1024
+    model, model_file = create_model('Unet',input_size=input_size,pretrained_iter=1499)
+    #model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=21999)
+    #model, model_file = create_model('DUCHDC',input_size = input_size)
+    TrTs =train_test(model=model, input_size=input_size,pretrained_model= model_file)
+    #TrTs.train()
+    TrTs.test()
