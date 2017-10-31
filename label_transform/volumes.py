@@ -212,10 +212,11 @@ class HDF5Volume(Volume):
         self._mask_bounds = tuple(map(np.asarray, mask_bounds)) if mask_bounds is not None else None
         #print(self.file['transformed_label'].keys())
         #print dataset_dict
-        for name, data in dataset_dict.iteritems():
-            d = np.array(self.file[data])
+        # for name, data in dataset_dict.iteritems():
+        #     d = np.array(self.file[data])
 
-        self.data_dict ={name:np.array(self.file[data]) for name, data in dataset_dict.iteritems()}
+        # self.data_dict ={name:np.array(self.file[data]) for name, data in dataset_dict.iteritems()}
+        self.data_dict ={name:np.self.file[data] for name, data in dataset_dict.iteritems()}
         #print(self.data_dict[self.data_dict.keys()[0]].shape)
 
 def run_test():
