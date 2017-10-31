@@ -216,7 +216,7 @@ class HDF5Volume(Volume):
         #     d = np.array(self.file[data])
 
         # self.data_dict ={name:np.array(self.file[data]) for name, data in dataset_dict.iteritems()}
-        self.data_dict ={name:np.self.file[data] for name, data in dataset_dict.iteritems()}
+        self.data_dict ={name : self.file[data] for name, data in dataset_dict.iteritems()}
         #print(self.data_dict[self.data_dict.keys()[0]].shape)
 
 def run_test():
