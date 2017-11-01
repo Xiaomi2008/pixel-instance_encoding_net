@@ -5,7 +5,7 @@ from utils import initialize_weights
 from deformConv2D import Conv2dDeformable
 
 class _EncoderBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, dropout=False):
+    def __init__(self, in_channels, out_channels, deformConv=False, dropout=False):
         super(_EncoderBlock, self).__init__()
         layers = [
             nn.Conv2d(in_channels, out_channels, kernel_size=3),
@@ -15,6 +15,10 @@ class _EncoderBlock(nn.Module):
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
         ]
+
+        if deformConv:
+            layers[0] = Conv2dDeformable(layers[0])
+            layers[3] = Conv2dDeformable(layers[3])
         if dropout:
             layers.append(nn.Dropout())
         layers.append(nn.MaxPool2d(kernel_size=2, stride=2))
@@ -25,9 +29,9 @@ class _EncoderBlock(nn.Module):
 
 
 class _DecoderBlock(nn.Module):
-    def __init__(self, in_channels, middle_channels, out_channels):
+    def __init__(self, in_channels, middle_channels, out_channels,deformConv=False):
         super(_DecoderBlock, self).__init__()
-        self.decode = nn.Sequential(
+        layes = [
             nn.Conv2d(in_channels, middle_channels, kernel_size=3),
             nn.BatchNorm2d(middle_channels),
             nn.ReLU(inplace=True),
@@ -35,15 +39,21 @@ class _DecoderBlock(nn.Module):
             nn.BatchNorm2d(middle_channels),
             nn.ReLU(inplace=True),
             nn.ConvTranspose2d(middle_channels, out_channels, kernel_size=2, stride=2),
-        )
+        ]
+        if deformConv:
+           layers[0] = Conv2dDeformable(layers[0])
+           layers[3] = Conv2dDeformable(layers[3])
+
+        self.decode = nn.Sequential(*layers)
 
     def forward(self, x):
         return self.decode(x)
 
 
 class UNet(nn.Module):
-    def __init__(self, num_classes):
+    def __init__(self, num_classes, deformConv = False):
         super(UNet, self).__init__()
+        self.deformConv = deformConv
         self.enc1 = _EncoderBlock(1, 64)
         self.enc2 = _EncoderBlock(64, 128)
         self.enc3 = _EncoderBlock(128, 256)
@@ -77,4 +87,4 @@ class UNet(nn.Module):
         return F.upsample(final, x.size()[2:], mode='bilinear')
     @property
     def name(self):
-        return 'Unet2'
+        return 'Unet_II_DeformConv' if self.deformConv else 'Unet_II'
