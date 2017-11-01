@@ -257,7 +257,7 @@ def create_model(model_name, input_size =224, pretrained_iter=None):
     elif model_name == 'Unet':
         model = Unet()
     elif model_name == 'Unet2':
-        model = Unet2()
+        model = Unet2(num_classes=2)
     elif model_name == 'DUCHDC':
         model =ResNetDUCHDC(num_classes=2)
 
