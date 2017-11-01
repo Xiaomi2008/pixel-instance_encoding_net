@@ -258,6 +258,8 @@ def create_model(model_name, input_size =224, pretrained_iter=None):
         model = Unet()
     elif model_name == 'Unet2':
         model = Unet2(num_classes=2)
+    elif model_name == 'Unet2DeformConv':
+        model = Unet2(num_classes=2,deformConv=True)
     elif model_name == 'DUCHDC':
         model =ResNetDUCHDC(num_classes=2)
 
@@ -273,7 +275,9 @@ def create_model(model_name, input_size =224, pretrained_iter=None):
 if __name__ =='__main__':
     input_size =320
     #model, model_file = create_model('Unet',input_size=input_size,pretrained_iter=5499)
-    model, model_file = create_model('Unet2',input_size=input_size)
+    #model, model_file = create_model('Unet2',input_size=input_size)
+
+    model, model_file = create_model('Unet2DeformConv',input_size=input_size)
     #model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=13999)
     #model, model_file = create_model('DUCHDC',input_size = input_size)
     TrTs =train_test(model=model, input_size=input_size,pretrained_model= model_file)
