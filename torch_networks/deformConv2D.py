@@ -1,5 +1,7 @@
 import torch
 from torch import nn
+import numpy as np
+import torch.nn.functional as F
 #from torchvision import models
 class Conv2dDeformable(nn.Module):
     def __init__(self, regular_filter, cuda=True):
