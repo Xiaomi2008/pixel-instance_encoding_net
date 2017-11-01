@@ -12,6 +12,7 @@ from torch.autograd import Variable
 from torch_networks.networks import Unet
 from torch_networks.duc  import ResNetDUCHDC
 from torch_networks.gcn import GCN
+from torch_networks.unet2 import Unet as Unet2
 from utils.torch_loss_functions import angularLoss,dice_loss,l2_norm
 from utils.printProgressBar import printProgressBar
 from label_transform.volumes import Volume
@@ -83,6 +84,7 @@ class train_test():
                 break
         print (loss)
         loss = loss / iters
+        self.model.train()
         print (' valid loss : {:.3f}'.format(loss))
 
     def train(self):
@@ -104,14 +106,14 @@ class train_test():
         for epoch in range(5):
             runing_loss = 0.0
             start_time = time.time()
-            for i, batch in enumerate(train_loader, 0):
-                data, target = batch
+            for i, (data,target) in enumerate(train_loader, 0):
                 target = target[:,0,:,:,:]
                 data, target = Variable(data).float(), Variable(target).float()
                   
                 if self.use_gpu:
                      data   = data.cuda().float()
                      target = target.cuda().float()
+                
                 self.optimizer.zero_grad()
                 output = self.model(data)
                 loss = angularLoss(output, target)
@@ -119,6 +121,8 @@ class train_test():
                 #loss = 0.9*a_loss+0.1*m_loss
                 loss.backward()
                 self.optimizer.step()
+                
+
                 runing_loss += loss.data[0]
                 iter_range = (i+1) // self.model_save_steps
                 steps = (i+1) % self.model_save_steps
@@ -135,7 +139,7 @@ class train_test():
                     printProgressBar(self.model_save_steps, self.model_save_steps, prefix = iters, suffix = loss_str, length = 50)
                     runing_loss = 0.0
                     self.valid()
-                    self.model.train()
+                    
                     print(' saved {}'.format(model_save_file))
                     start_time = time.time()
                 else:
@@ -189,6 +193,7 @@ def compute_angular(x):
     x_aix = x[:,0,:,:]/torch.sqrt(torch.sum(x**2,1))
     angle_map   = torch.acos(x_aix)
     return angle_map
+
 def saveRawfiguers(iters,file_prefix,output):
     from torchvision.utils import save_image
     my_dpi = 96
@@ -207,6 +212,7 @@ def saveRawfiguers(iters,file_prefix,output):
     #pdb.set_trace()
     plt.savefig(file_prefix+'{}.png'.format(iters))
     plt.close('all')
+
 def savefiguers(iters,output):
     my_dpi = 96
     plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
@@ -222,53 +228,6 @@ def savefiguers(iters,output):
     # I = data
     # vutils.save_image(I[0,0],'iter_predX_{}.png'.format(iters),now)
     # vutils.save_image(I[0,1],'iter_predY_{}.png'.format(iters),now)
-
-
-# def train(model_file =  None):
-#     #use_gpu=torch.cuda.is_available()
-#     if not os.path.exists(model_saved_dir):
-#         os.mkdir(model_saved_dir)
-#     if model_file:
-#         netmodel.load_state_dict(torch.load(model_file))
-#     gpus = [0]
-#     use_parallel = True if len(gpus) >1 else False
-#     if use_parallel:
-#         #gpus = [0,1,2,3]
-#         model = torch.nn.DataParallel(netmodel, device_ids=gpus)
-#     else:
-#         model = netmodel
-#     model.train()
-#     optimizer = optim.Adagrad(model.parameters(), lr=0.001, lr_decay=0, weight_decay=0)
-#     #im_size =224
-#     dataset = CRIME_Dataset(out_size  = input_size)
-#     train_loader = DataLoader(dataset =dataset,
-#                               batch_size=16,
-#                               shuffle  =True,
-#                               num_workers=2)
-#     for epoch in range(5):
-#         runing_loss = 0.0
-#         for i, batch in enumerate(train_loader, 0):
-#             data, target = batch
-#             target = target[:,0,:,:,:]
-#             # print ('DataLoader target shape : {}'.format(target.shape))
-#             data, target = Variable(data).float(), Variable(target).float()
-#             if use_gpu:
-#                 data   = data.cuda().float()
-#                 target = target.cuda().float()
-#             optimizer.zero_grad()
-#             output = model(data)
-#             loss = angularLoss(output, target)
-#             loss.backward()
-#             optimizer.step()
-#             runing_loss += loss.data[0]
-#             if (i+1) % model_save_steps == 0:
-#                 model_save_file = model_saved_dir +'/' +'Unet_instance_grad_iter_{}.model'.format(i)
-#                 torch.save(model.state_dict(),model_save_file)
-#                 print('model saved to {}'.format(model_save_file))
-#                 print('[{:5d}] loss: {:.3f}'.format(i,runing_loss/model_save_steps) )
-#                 runing_loss = 0
-
-#            print('train iter {}, loss = {:.5f}'.format(i,loss.data[0]))
 
 
 def test():
@@ -297,6 +256,8 @@ def create_model(model_name, input_size =224, pretrained_iter=None):
         model = GCN(num_classes=2, input_size=input_size)
     elif model_name == 'Unet':
         model = Unet()
+    elif model_name == 'Unet2':
+        model = Unet2()
     elif model_name == 'DUCHDC':
         model =ResNetDUCHDC(num_classes=2)
 
@@ -311,7 +272,8 @@ def create_model(model_name, input_size =224, pretrained_iter=None):
 
 if __name__ =='__main__':
     input_size =320
-    model, model_file = create_model('Unet',input_size=input_size,pretrained_iter=5499)
+    #model, model_file = create_model('Unet',input_size=input_size,pretrained_iter=5499)
+    model, model_file = create_model('Unet2',input_size=input_size)
     #model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=13999)
     #model, model_file = create_model('DUCHDC',input_size = input_size)
     TrTs =train_test(model=model, input_size=input_size,pretrained_model= model_file)
