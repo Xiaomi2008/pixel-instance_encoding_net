@@ -13,7 +13,7 @@ from label_transform.volumes import SubvolumeGenerator
 class CRIME_Dataset(Dataset):
     """ EM dataset."""
 
-    # Initialize your data
+    # Initialize EM data
     def __init__(self, out_size = 224, 
                  dataset = 'Set_A',
                  subtract_mean = False,
@@ -56,9 +56,9 @@ class CRIME_Dataset(Dataset):
       x_end   = x_start + self.x_out_size
       y_end   = y_start + self.y_out_size
 
-      # data    = np.array(self.im_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.float)
-      # if self.subtract_mean:
-      #   data -= 127
+      data    = np.array(self.im_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.float)
+      if self.subtract_mean:
+        data -= 127.0
       data    = np.array(self.im_data[z_start:z_end,x_start:x_end,y_start:y_end])
 
 
@@ -98,8 +98,6 @@ class CRIME_Dataset(Dataset):
       data_name = {'Set_A':'Sample A with extra transformed labels'}
       #data_name = {'Set_A':'Sample A'}
       self.V = volumes[data_name[self.dataset]]
-      #gradX = np.array(self.V.data_dict['gradX_dataset']).astype(np.double)
-      #gradY = np.array(self.V.data_dict['gradY_dataset']).astype(np.double)
       self.gradX = self.V.data_dict['gradX_dataset']
       self.gradY = self.V.data_dict['gradY_dataset']
       self.lb_data = self.V.data_dict['label_dataset']

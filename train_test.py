@@ -6,6 +6,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+#from torch.nn.modules.loss import MSELoss
+#import torch.nn.MSELoss
 from torch.autograd import Variable
 from torch_networks.networks import Unet
 from torch_networks.duc  import ResNetDUCHDC
@@ -35,17 +37,16 @@ class train_test():
         if self.use_gpu:
             self.model.cuda()
         self.use_parallel = False
+        self.mse_loss = torch.nn.MSELoss()
         self.optimizer    = optim.Adagrad(self.model.parameters(), 
                                             lr=0.001, 
                                             lr_decay=0, 
                                             weight_decay=0)
         subtract_mean = False if model.name is 'Unet' else True
-        pdb.set_trace()
         self.trainDataset = CRIME_Dataset(out_size  = self.input_size, phase = 'train',subtract_mean =subtract_mean)
         self.validDataset = CRIME_Dataset(out_size  = self.input_size, phase = 'valid',subtract_mean =subtract_mean)
         if self.model_file:
             self.model.load_state_dict(torch.load(self.model_file))
-        print('don init')
     def valid(self):
         dataset = self.validDataset
         dataset.set_phase('valid')
@@ -66,9 +67,11 @@ class train_test():
                 target =target.cuda().float()
             pred = self.model(data)
             loss += angularLoss(pred, target).data[0]
+            #print('t shape = {}'.format(target.data.shape))
+            #print('p shape = {}'.format(pred.data.shape))
             if i % iters ==0:
-                ang_t_map=compute_angular(target[0])
-                ang_p_map=compute_angular(pred[0])
+                ang_t_map=compute_angular(target)
+                ang_p_map=compute_angular(pred)
                 model_name=self.model.name
                 saveRawfiguers(i,'ang_t_map_'+model_name,ang_t_map)
                 saveRawfiguers(i,'ang_p_map_'+model_name,ang_p_map)
@@ -82,21 +85,22 @@ class train_test():
         loss = loss / iters
         print (' valid loss : {:.3f}'.format(loss))
 
-
     def train(self):
         if not os.path.exists(self.model_saved_dir):
             os.mkdir(self.model_saved_dir)
         gpus = [0]
         use_parallel = True if len(gpus) >1 else False
+        num_workers =2
         if use_parallel:
             self.model = torch.nn.DataParallel(self.model, device_ids=gpus)
+            num_workers =2
         self.model.train()
         #dataset = CRIME_Dataset(out_size  = self.input_size,phase = 'train')
         dataset  = self.trainDataset
         train_loader = DataLoader(dataset =dataset,
                                   batch_size=16,
                                   shuffle  =True,
-                                  num_workers=2)
+                                  num_workers=num_workers)
         for epoch in range(5):
             runing_loss = 0.0
             start_time = time.time()
@@ -111,6 +115,8 @@ class train_test():
                 self.optimizer.zero_grad()
                 output = self.model(data)
                 loss = angularLoss(output, target)
+                #loss = self.mse_loss(output,target)
+                #loss = 0.9*a_loss+0.1*m_loss
                 loss.backward()
                 self.optimizer.step()
                 runing_loss += loss.data[0]
@@ -174,29 +180,33 @@ class train_test():
 # volumes = HDF5Volume.from_toml(data_config)
 # V_1 = volumes[volumes.keys()[0]]
 def compute_angular(x):
-    #pdb.set_trace()
+    # input x must be a 4D data [n,c,h,w]
     if isinstance(x,Variable):
         x = x.data
    # x    = l2_norm(x)*0.999999
     x = F.normalize(x)*0.99999
     #print(x.shape)
-    x_aix = x[0,:,:]/torch.sqrt(torch.sum(x**2,0))
+    x_aix = x[:,0,:,:]/torch.sqrt(torch.sum(x**2,1))
     angle_map   = torch.acos(x_aix)
     return angle_map
 def saveRawfiguers(iters,file_prefix,output):
+    from torchvision.utils import save_image
     my_dpi = 96
     plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
     data = output.cpu().numpy()
+    #data = output.cpu()
     #print ('output shape = {}'.format(data.shape))
     if data.ndim ==4:
-        I = data[0,0]
+         I = data[0,0]
     elif data.ndim==3:
-        I=data[0]
+         I=data[0]
     else:
-        I = data
+         I = data
+    #save_image(data,file_prefix+'{}.png'.format(iters))
     plt.imshow(I)
     #pdb.set_trace()
     plt.savefig(file_prefix+'{}.png'.format(iters))
+    plt.close('all')
 def savefiguers(iters,output):
     my_dpi = 96
     plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
@@ -300,10 +310,10 @@ def create_model(model_name, input_size =224, pretrained_iter=None):
 
 
 if __name__ =='__main__':
-    input_size =1024
-    model, model_file = create_model('Unet',input_size=input_size,pretrained_iter=69499)
-    #model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=21999)
+    input_size =320
+    model, model_file = create_model('Unet',input_size=input_size,pretrained_iter=5499)
+    #model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=13999)
     #model, model_file = create_model('DUCHDC',input_size = input_size)
     TrTs =train_test(model=model, input_size=input_size,pretrained_model= model_file)
-    #TrTs.train()
-    TrTs.test()
+    TrTs.train()
+    #TrTs.test()

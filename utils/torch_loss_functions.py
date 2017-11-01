@@ -28,8 +28,8 @@ def angularLoss(pred, gt, weight=0, outputChannels=2):
    # pred        = l2_norm(pred)*0.9999999999
    # gt          = l2_norm(gt)*0.9999999999
 
-    pred        = F.normalize(pred)*0.999999
-    gt          = F.normalize(gt)*0.999999
+    pred        = F.normalize(pred)*0.99999
+    gt          = F.normalize(gt)*0.99999
 
     prod_sum    = torch.sum(gt*pred,1)
     angle_err   = torch.acos(prod_sum)
