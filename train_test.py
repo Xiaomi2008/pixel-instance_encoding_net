@@ -12,7 +12,7 @@ from torch.autograd import Variable
 from torch_networks.networks import Unet
 from torch_networks.duc  import ResNetDUCHDC
 from torch_networks.gcn import GCN
-from torch_networks.unet2 import Unet as Unet2
+from torch_networks.unet2 import UNet as Unet2
 from utils.torch_loss_functions import angularLoss,dice_loss,l2_norm
 from utils.printProgressBar import printProgressBar
 from label_transform.volumes import Volume
