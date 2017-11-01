@@ -72,8 +72,8 @@ class UNet(nn.Module):
         ]
 
         if deformConv:
-            layers[0] = Conv2dDeformable(layers[0])
-            layers[3] = Conv2dDeformable(layers[3])
+            dec1_layers[0] = Conv2dDeformable(dec1_layers[0])
+            dec1_layers[3] = Conv2dDeformable(dec1_layers[3])
 
         self.dec1 = nn.Sequential(*dec1_layers)
         self.final = nn.Conv2d(64, num_classes, kernel_size=1)
