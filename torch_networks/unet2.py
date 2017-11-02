@@ -54,14 +54,14 @@ class UNet(nn.Module):
     def __init__(self, num_classes, deformConv = False):
         super(UNet, self).__init__()
         self.deformConv = deformConv
-        self.enc1 = _EncoderBlock(1, 64,deformConv)
-        self.enc2 = _EncoderBlock(64, 128,deformConv)
+        self.enc1 = _EncoderBlock(1, 64,False)
+        self.enc2 = _EncoderBlock(64, 128,False)
         self.enc3 = _EncoderBlock(128, 256,deformConv)
         self.enc4 = _EncoderBlock(256, 512, dropout=True,deformConv=deformConv)
         self.center = _DecoderBlock(512, 1024, 512,deformConv)
         self.dec4 = _DecoderBlock(1024, 512, 256,deformConv)
-        self.dec3 = _DecoderBlock(512, 256, 128,deformConv)
-        self.dec2 = _DecoderBlock(256, 128, 64,deformConv)
+        self.dec3 = _DecoderBlock(512, 256, 128,False)
+        self.dec2 = _DecoderBlock(256, 128, 64,False)
         dec1_layers = [
             nn.Conv2d(128, 64, kernel_size=3),
             nn.BatchNorm2d(64),
@@ -71,9 +71,9 @@ class UNet(nn.Module):
             nn.ReLU(inplace=True),
         ]
 
-        if deformConv:
-            dec1_layers[0] = Conv2dDeformable(dec1_layers[0])
-            dec1_layers[3] = Conv2dDeformable(dec1_layers[3])
+        # if deformConv:
+        #     dec1_layers[0] = Conv2dDeformable(dec1_layers[0])
+        #     dec1_layers[3] = Conv2dDeformable(dec1_layers[3])
 
         self.dec1 = nn.Sequential(*dec1_layers)
         self.final = nn.Conv2d(64, num_classes, kernel_size=1)

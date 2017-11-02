@@ -40,7 +40,7 @@ class train_test():
         self.use_parallel = False
         self.mse_loss = torch.nn.MSELoss()
         self.optimizer    = optim.Adagrad(self.model.parameters(), 
-                                            lr=0.001, 
+                                            lr=0.0001, 
                                             lr_decay=0, 
                                             weight_decay=0)
         subtract_mean = False if model.name is 'Unet' else True
@@ -264,7 +264,7 @@ def create_model(model_name, input_size =224, pretrained_iter=None):
         model =ResNetDUCHDC(num_classes=2)
 
     if  pretrained_iter:
-        model_file = model_saved_dir +'/' +'{}_size224_iter_{}.model'.format(model_name,pretrained_iter)
+        model_file = model_saved_dir +'/' +'{}_size{}_iter_{}.model'.format(model.name,input_size,pretrained_iter)
         #model_file =model_saved_dir + '/' + 'GCN_size224_iter49499.model'
         #model_file = model_saved_dir +'/' +'{}_instance_grad_iter_{}.model'.format(model_name,pre_trained_iter)
     else:
@@ -274,11 +274,11 @@ def create_model(model_name, input_size =224, pretrained_iter=None):
 
 if __name__ =='__main__':
     input_size =320
-    #model, model_file = create_model('Unet',input_size=input_size,pretrained_iter=5499)
-    #model, model_file = create_model('Unet2',input_size=input_size)
+    model, model_file = create_model('Unet',input_size=input_size,pretrained_iter=53499)
+    #model, model_file = create_model('Unet2',input_size=input_size,pretrained_iter=30999)
 
-    model, model_file = create_model('Unet2DeformConv',input_size=input_size)
-    #model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=13999)
+    #model, model_file = create_model('Unet2DeformConv',input_size=input_size)
+    #model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=15499)
     #model, model_file = create_model('DUCHDC',input_size = input_size)
     TrTs =train_test(model=model, input_size=input_size,pretrained_model= model_file)
     TrTs.train()
