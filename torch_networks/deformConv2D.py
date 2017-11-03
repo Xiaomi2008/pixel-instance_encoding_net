@@ -2,6 +2,7 @@ import torch
 from torch import nn
 import numpy as np
 import torch.nn.functional as F
+from torch.autograd import Variable
 #from torchvision import models
 class Conv2dDeformable(nn.Module):
     def __init__(self, regular_filter, cuda=True):
@@ -30,8 +31,9 @@ class Conv2dDeformable(nn.Module):
             if self.cuda:
                 grid_w = grid_w.cuda()
                 grid_h = grid_h.cuda()
-            self.grid_w = nn.Parameter(grid_w)
-            self.grid_h = nn.Parameter(grid_h)
+            Variable
+            self.grid_w = Variable(grid_w,requires_grad=False)
+            self.grid_h = Variable(grid_h,requires_grad=False)
         offset_w = offset_w + self.grid_w  # (b*c, h, w)
         offset_h = offset_h + self.grid_h  # (b*c, h, w)
         x = x.contiguous().view(-1, int(x_shape[2]), int(x_shape[3])).unsqueeze(1)  # (b*c, 1, h, w)

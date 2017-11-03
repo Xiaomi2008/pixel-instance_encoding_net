@@ -23,6 +23,7 @@ from label_transform.volumes import SubvolumeGenerator
 import torchvision.utils as vutils
 from matplotlib import pyplot as plt
 from utils.EMDataset import CRIME_Dataset
+from utils.transform import VFlip, HFlip, Rot90, random_transform
 from torch.utils.data import DataLoader
 import time
 import pdb
@@ -40,14 +41,19 @@ class train_test():
         self.use_parallel = False
         self.mse_loss = torch.nn.MSELoss()
         self.optimizer    = optim.Adagrad(self.model.parameters(), 
-                                            lr=0.0001, 
+                                            lr=0.001, 
                                             lr_decay=0, 
                                             weight_decay=0)
         subtract_mean = False if model.name is 'Unet' else True
-        self.trainDataset = CRIME_Dataset(out_size  = self.input_size, phase = 'train',subtract_mean =subtract_mean)
+        self.tranform = self.build_transformer()
+        self.trainDataset = CRIME_Dataset(out_size  = self.input_size, phase = 'train',subtract_mean =subtract_mean,transform = self.tranform)
         self.validDataset = CRIME_Dataset(out_size  = self.input_size, phase = 'valid',subtract_mean =subtract_mean)
         if self.model_file:
             self.model.load_state_dict(torch.load(self.model_file))
+    
+    def build_transformer(self):
+        return random_transform(VFlip(),HFlip(),Rot90())
+    
     def valid(self):
         dataset = self.validDataset
         dataset.set_phase('valid')
@@ -60,8 +66,6 @@ class train_test():
         iters = 20
         save_interval =20
         for i, (data,target) in enumerate(valid_loader, 0):
-            target = target[:,0,:,:,:]
-            #print(target)
             data, target = Variable(data).float(), Variable(target).float()
             if self.use_gpu:
                 data = data.cuda().float()
@@ -107,7 +111,7 @@ class train_test():
             runing_loss = 0.0
             start_time = time.time()
             for i, (data,target) in enumerate(train_loader, 0):
-                target = target[:,0,:,:,:]
+                #target = target[:,0,:,:,:]
                 data, target = Variable(data).float(), Variable(target).float()
                   
                 if self.use_gpu:
@@ -187,7 +191,6 @@ def compute_angular(x):
     # input x must be a 4D data [n,c,h,w]
     if isinstance(x,Variable):
         x = x.data
-   # x    = l2_norm(x)*0.999999
     x = F.normalize(x)*0.99999
     #print(x.shape)
     x_aix = x[:,0,:,:]/torch.sqrt(torch.sum(x**2,1))
@@ -267,6 +270,7 @@ def create_model(model_name, input_size =224, pretrained_iter=None):
         model_file = model_saved_dir +'/' +'{}_size{}_iter_{}.model'.format(model.name,input_size,pretrained_iter)
         #model_file =model_saved_dir + '/' + 'GCN_size224_iter49499.model'
         #model_file = model_saved_dir +'/' +'{}_instance_grad_iter_{}.model'.format(model_name,pre_trained_iter)
+        print('Load parameters from {}'.format(model_file))
     else:
         model_file = None
     return model, model_file
@@ -274,10 +278,10 @@ def create_model(model_name, input_size =224, pretrained_iter=None):
 
 if __name__ =='__main__':
     input_size =320
-    model, model_file = create_model('Unet',input_size=input_size,pretrained_iter=53499)
-    #model, model_file = create_model('Unet2',input_size=input_size,pretrained_iter=30999)
+    #model, model_file = create_model('Unet',input_size=input_size,pretrained_iter=35499)
+    model, model_file = create_model('Unet2',input_size=input_size,pretrained_iter=39999)
 
-    #model, model_file = create_model('Unet2DeformConv',input_size=input_size)
+    #model, model_file = create_model('Unet2DeformConv',input_size=input_size,pretrained_iter=3999)
     #model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=15499)
     #model, model_file = create_model('DUCHDC',input_size = input_size)
     TrTs =train_test(model=model, input_size=input_size,pretrained_model= model_file)

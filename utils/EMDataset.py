@@ -64,17 +64,21 @@ class CRIME_Dataset(Dataset):
       data    = np.array(self.im_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.float)
       if self.subtract_mean:
         data -= 127.0
-      data    = np.array(self.im_data[z_start:z_end,x_start:x_end,y_start:y_end])
-
-
       target_ch1  =np.array(self.gradX[z_start:z_end,x_start:x_end,y_start:y_end])
       target_ch2  =np.array(self.gradY[z_start:z_end,x_start:x_end,y_start:y_end])
 
+
       if self.transform:
-        data, target_ch1, target_ch2 = transform(data,target_ch1,target_ch2)
-      target_ch1  = np.expand_dims(target_ch1,1)
-      target_ch2  = np.expand_dims(target_ch2,1)
-      target      = np.concatenate((target_ch1,target_ch2),1)
+        data, target_ch1, target_ch2 = self.transform(data,target_ch1,target_ch2)
+        #print data.shape, target_ch1.shape, target_ch2.shape
+        #print len(out)
+
+      
+      # (data, target_ch1, target_ch2) = out
+      #target_ch1  = np.expand_dims(target_ch1,1)
+      #target_ch2  = np.expand_dims(target_ch2,1)
+      target      = np.concatenate((target_ch1,target_ch2),0)
+      #print data.shape, target.shape
       #print('target_xy shape:{}'.format(target.shape))
       #pdb_set_trace()
 
@@ -189,21 +193,25 @@ def test_angluar_map():
 
 def test_transform():
   data_config = '../conf/cremi_datasets_with_tflabels.toml'
-  dataset = CRIME_Dataset(data_config = data_config,phase='valid')
-  trans = transform.RandomVerticalFlip()
+  trans=random_transform(VFlip(),HFlip(),Rot90())
+  dataset = CRIME_Dataset(data_config = data_config,phase='valid',transform = trans)
   train_loader = DataLoader(dataset=dataset,
                           batch_size=1,
                           shuffle=True,
-                          num_workers=1,
-                          transform=trans)
-  for i , (inputs,lables) in enumerate(train_loader,start =0):
-    labels = labels[:,0,:,:,:]
-    im = inputs[0,:].numpy()
-    tg = labels[0,:].numpy()
+                          num_workers=1)
+  for i , (inputs,labels) in enumerate(train_loader,start =0):
+    #labels = labels[:,0,:,:,:]
+    im = inputs[0,0].numpy()
+    tg = labels[0,0].numpy()
+    #print(im)
+    im = (im - np.min(im))/np.mean(im)
+    tg = (tg - np.min(tg))/np.mean(tg)
+    #im*=255
+    tg*=255
     cv2.imshow("image",im)
-    cv2.imshow("lb",lb)
-    cv2.waitKey(0)
-    if i >200:
+    cv2.imshow("lb",tg)
+    cv2.waitKey(2000)
+    if i >20:
       break
 
 
