@@ -3,12 +3,15 @@ sys.path.append('../')
 import pdb
 import torch
 import numpy as np
+from transform import *
+import cv2
 from matplotlib import pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 from label_transform.volumes import Volume
 from label_transform.volumes import HDF5Volume
 from label_transform.volumes import bounds_generator
 from label_transform.volumes import SubvolumeGenerator
+
 
 class CRIME_Dataset(Dataset):
     """ EM dataset."""
@@ -18,6 +21,7 @@ class CRIME_Dataset(Dataset):
                  dataset = 'Set_A',
                  subtract_mean = False,
                  phase   = 'train',
+                 transform = None,
                  data_config = 'conf/cremi_datasets_with_tflabels.toml'):
       self.dataset      = dataset
       self.phase        = phase
@@ -26,6 +30,7 @@ class CRIME_Dataset(Dataset):
       self.z_out_size   = 1
       self.data_config  = data_config
       self.subtract_mean = subtract_mean
+      self.transform = transform
       self.load_hdf()
 
       dim_shape         = self.im_data.shape
@@ -64,8 +69,9 @@ class CRIME_Dataset(Dataset):
 
       target_ch1  =np.array(self.gradX[z_start:z_end,x_start:x_end,y_start:y_end])
       target_ch2  =np.array(self.gradY[z_start:z_end,x_start:x_end,y_start:y_end])
-     # print('target1 shape:{}'.format(target_ch1.shape))
-      #pdb.set_trace()
+
+      if self.transform:
+        data, target_ch1, target_ch2 = transform(data,target_ch1,target_ch2)
       target_ch1  = np.expand_dims(target_ch1,1)
       target_ch2  = np.expand_dims(target_ch2,1)
       target      = np.concatenate((target_ch1,target_ch2),1)
@@ -180,8 +186,30 @@ def test_angluar_map():
       break
 
 
+
+def test_transform():
+  data_config = '../conf/cremi_datasets_with_tflabels.toml'
+  dataset = CRIME_Dataset(data_config = data_config,phase='valid')
+  trans = transform.RandomVerticalFlip()
+  train_loader = DataLoader(dataset=dataset,
+                          batch_size=1,
+                          shuffle=True,
+                          num_workers=1,
+                          transform=trans)
+  for i , (inputs,lables) in enumerate(train_loader,start =0):
+    labels = labels[:,0,:,:,:]
+    im = inputs[0,:].numpy()
+    tg = labels[0,:].numpy()
+    cv2.imshow("image",im)
+    cv2.imshow("lb",lb)
+    cv2.waitKey(0)
+    if i >200:
+      break
+
+
 if __name__ == '__main__':
-  test_angluar_map()
+  test_transform()
+  #test_angluar_map()
   # data_config = '../conf/cremi_datasets_with_tflabels.toml'
   # dataset = CRIME_Dataset(data_config = data_config)
   # train_loader = DataLoader(dataset=dataset,
