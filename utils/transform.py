@@ -66,3 +66,76 @@ class Rot90(object):
         for idex,_input in enumerate(input):
             output.append(np.rot90(_input,2).copy())
         return tuple(output)
+
+
+
+class Contrast(object):
+    """
+    """
+    def __init__(self, value):
+        """
+        Adjust Contrast of image.
+        Contrast is adjusted independently for each channel of each image.
+        For each channel, this Op computes the mean of the image pixels 
+        in the channel and then adjusts each component x of each pixel to 
+        (x - mean) * contrast_factor + mean.
+        Arguments
+        ---------
+        value : float
+            smaller value: less contrast
+            ZERO: channel means
+            larger positive value: greater contrast
+            larger negative value: greater inverse contrast
+        """
+        self.value = value
+
+    def __call__(self, *inputs):
+        outputs = []
+        for idx, _input in enumerate(inputs):
+            channel_means = _input.mean(1).mean(2)
+            channel_means = channel_means.expand_as(_input)
+            _input = th.clamp((_input - channel_means) * self.value + channel_means,0,1)
+            outputs.append(_input)
+        return outputs if idx > 1 else outputs[0]
+
+class RandomContrast(object):
+
+    def __init__(self, min_val, max_val):
+        """
+        Alter the Contrast of an image with a value randomly selected
+        between `min_val` and `max_val`
+        Arguments
+        ---------
+        min_val : float
+            min range
+        max_val : float
+            max range
+        """
+        self.values = (min_val, max_val)
+
+    def __call__(self, *inputs):
+        value = random.uniform(self.values[0], self.values[1])
+        outputs = Contrast(value)(*inputs)
+        return outputs
+
+class RandomChoiceContrast(object):
+
+    def __init__(self, values, p=None):
+        """
+        Alter the Contrast of an image with a value randomly selected
+        from the list of given values with given probabilities
+        Arguments
+        ---------
+        values : list of floats
+            contrast values to sampled from
+        p : list of floats - same length as `values`
+            if None, values will be sampled uniformly.
+            Must sum to 1.
+        """
+        self.values = values
+        self.p = p
+
+    def __call__(self, *inputs):
+        value = th_random_choice(self.values, p=None)
+        outputs = Contrast(value)(*inputs)
+        return outputs
