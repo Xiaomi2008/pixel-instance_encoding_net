@@ -4,7 +4,7 @@ import numpy as np
 from scipy.ndimage.morphology import distance_transform_edt as dis_transform
 import scipy.ndimage as nd
 
-class gradient(obejct):
+class gradient(object):
     def __call__(self,*input):
         output =[]
         for idex,_input in enumerate(input):
@@ -22,7 +22,7 @@ class gradient(obejct):
                 sum_gx+=gx
                 sum_gy+=gy
                 sum_dt+=dt
-        output.append((sum_gx,sum_gy))
+            output.append((sum_gx,sum_gy))
         return output
                 #obj_idx = obj_arr==1
                 #sum_obj_wt[obj_idx]=(float(image_size)/100.0)/float(np.sum(obj_arr))
