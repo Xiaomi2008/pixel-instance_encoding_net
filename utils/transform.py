@@ -4,12 +4,14 @@ import numpy as np
 from scipy.ndimage.morphology import distance_transform_edt as dis_transform
 import scipy.ndimage as nd
 
-class gradient(objct):
+class gradient(obejct):
     def __call__(self,*input):
         output =[]
         for idex,_input in enumerate(input):
             _input =np.squeeze(_input)
             s_ids =np.unique(_input).tolist()
+            sum_gx =np.zero_like(_input)
+            sum_gy =np.zeros_like(_input)
             for obj_id in s_ids:
                 obj_arr = (slice_lbs == obj_id).astype(int)
                 dt  =  dis_transform(obj_arr)
@@ -20,7 +22,9 @@ class gradient(objct):
                 sum_gx+=gx
                 sum_gy+=gy
                 sum_dt+=dt
-                obj_idx = obj_arr==1
+        output.append((sum_gx,sum_gy))
+        return output
+                #obj_idx = obj_arr==1
                 #sum_obj_wt[obj_idx]=(float(image_size)/100.0)/float(np.sum(obj_arr))
 
 class random_transform(object):
