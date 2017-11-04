@@ -37,6 +37,7 @@ class CRIME_Dataset(Dataset):
       self.y_size       = dim_shape[2] -self.x_out_size + 1
       self.x_size       = dim_shape[1] -self.y_out_size + 1 
       self.set_phase(phase)
+      self.gradient_gen = gradient()
       #self.z_size       = dim_shape[0] -self.z_out_size + 1
     def set_phase(self,phase):
       self.phase = phase
@@ -64,15 +65,19 @@ class CRIME_Dataset(Dataset):
       data    = np.array(self.im_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.float)
       if self.subtract_mean:
         data -= 127.0
-      target_ch1  =np.array(self.gradX[z_start:z_end,x_start:x_end,y_start:y_end])
-      target_ch2  =np.array(self.gradY[z_start:z_end,x_start:x_end,y_start:y_end])
+      seg_label   =np.array(self.lb_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.int)
+      [target_ch1,target_ch2] =self.gradient_gen()
+      #target_ch1  =np.array(self.gradX[z_start:z_end,x_start:x_end,y_start:y_end])
+      #target_ch2  =np.array(self.gradY[z_start:z_end,x_start:x_end,y_start:y_end])
 
 
       if self.transform:
-        data, target_ch1, target_ch2 = self.transform(data,target_ch1,target_ch2)
-        #print data.shape, target_ch1.shape, target_ch2.shape
-        #print len(out)
+        data,seg_label  = self.transform(data,seg_label)
+        #data, target_ch1, target_ch2 = self.transform(data,target_ch1,target_ch2)
+      
 
+      # use the runtime obj graidient instead of pre-computed one
+      target_ch1, target_ch2 = self.gradient_gen(seg_label)
       
       # (data, target_ch1, target_ch2) = out
       #target_ch1  = np.expand_dims(target_ch1,1)

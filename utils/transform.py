@@ -1,6 +1,27 @@
 import random
 import torch
 import numpy as np
+from scipy.ndimage.morphology import distance_transform_edt as dis_transform
+import scipy.ndimage as nd
+
+class gradient(objct):
+    def __call__(self,*input):
+        output =[]
+        for idex,_input in enumerate(input):
+            _input =np.squeeze(_input)
+            s_ids =np.unique(_input).tolist()
+            for obj_id in s_ids:
+                obj_arr = (slice_lbs == obj_id).astype(int)
+                dt  =  dis_transform(obj_arr)
+                dx,dy   = 1,1
+                gx,gy   = np.gradient(dt,dx,dy,edge_order =1)
+                #gx-=np.min(gx)+0.01
+                #gy-=np.min(gy)+0.01
+                sum_gx+=gx
+                sum_gy+=gy
+                sum_dt+=dt
+                obj_idx = obj_arr==1
+                #sum_obj_wt[obj_idx]=(float(image_size)/100.0)/float(np.sum(obj_arr))
 
 class random_transform(object):
     def __init__(self,*transform):
