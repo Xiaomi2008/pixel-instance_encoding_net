@@ -142,18 +142,18 @@ class Unet(nn.Module):
 
 class DUnet(nn.Module):
     def __init__(self, grad_unet, in_ch =1, first_out_ch=16, out_ch =1, number_bolck=4,num_conv_in_block=2,ch_change_rate=2,kernel_size = 3):
-        super(Unet, self).__init__()
+        super(DUnet, self).__init__()
         self.net1 = grad_unet
         self.net2 = Unet()
         self.first_conv_in_net2 = nn.Conv2d(3,16,kernel_size=kernel_size,padding =kernel_size // 2)
         self.final_conv_in_net2 = nn.Conv2d(48,1,kernel_size=kernel_size,padding =kernel_size // 2) 
         self.net2.conv_2d_1 = self.first_conv_in_net2
         self.net2.finnal_conv2d = self.final_conv_in_net2
-        elf.freezeWeight(self.net1)
+        self.freezeWeight(self.net1)
     @property
     def name(self):
         return 'DUnet'
-    def freezeWeight(net):
+    def freezeWeight(self,net):
         for child in net.children():
             for param in child.parameters():
                 param.requires_grad = False

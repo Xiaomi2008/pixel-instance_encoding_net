@@ -112,14 +112,14 @@ class CRIME_Dataset(Dataset):
       #data_config = 'conf/cremi_datasets.toml'
       volumes = HDF5Volume.from_toml(self.data_config)
       #data_name ={'Set_A':'Sample A','Set_B':'Sample B','Set_C':'Sample C'}
-      # data_name = {'Set_A':'Sample A with extra transformed labels',
-      #              'Set_B':'Sample B with extra transformed labels',
-      #              'Set_C':'Sample C with extra transformed labels'
-      #             }
-      data_name = {'Set_A':'Sample A',
-                   'Set_B':'Sample B',
-                   'Set_C':'Sample C'
+      data_name = {'Set_A':'Sample A with extra transformed labels',
+                   'Set_B':'Sample B with extra transformed labels',
+                   'Set_C':'Sample C with extra transformed labels'
                   }
+      # data_name = {'Set_A':'Sample A',
+      #              'Set_B':'Sample B',
+      #              'Set_C':'Sample C'
+      #             }
       #data_name = {'Set_B':'Sample B with extra transformed labels'}
       #data_name = {'Set_A':'Sample A'}
       self.V = volumes[data_name[self.dataset]]

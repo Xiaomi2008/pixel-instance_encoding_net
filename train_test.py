@@ -33,14 +33,21 @@ class train_test():
         self.input_size = input_size 
         self.model_file = pretrained_model
         self.model_saved_dir   = 'models'
-        self.model_save_steps  = 500
+        self.model_save_steps  = 250
         self.model             = model.float()
         self.use_gpu           = torch.cuda.is_available()
         if self.use_gpu:
             self.model.cuda()
         self.use_parallel = False
         self.mse_loss = torch.nn.MSELoss()
-        self.optimizer    = optim.Adagrad(self.model.parameters(), 
+        # x=filter(lambda x: x.requires_grad, model.parameters())
+        # self.optimizer    = optim.Adagrad(self.model.parameters(), 
+        #                                     lr=0.01, 
+        #                                     lr_decay=0, 
+        #                                     weight_decay=0)
+
+
+        self.optimizer    = optim.Adagrad(filter(lambda x: x.requires_grad, self.model.parameters()), 
                                             lr=0.01, 
                                             lr_decay=0, 
                                             weight_decay=0)
@@ -53,7 +60,35 @@ class train_test():
     
     def build_transformer(self):
         return random_transform(VFlip(),HFlip(),Rot90())
-    
+    def valid_dist(self):
+        dataset = self.validDataset
+        self.model.eval()
+        valid_loader = DataLoader(dataset =dataset,
+                                  batch_size=1,
+                                  shuffle  =True,
+                                  num_workers=1)
+        loss = 0.0
+        iters = 120
+        for i, (data,target) in enumerate(valid_loader, 0):
+            distance = target['distance']
+            data, distance = Variable(data).float(), Variable(distance).float()
+            if self.use_gpu:
+                data = data.cuda().float()
+                distance =distance.cuda().float()
+            pred = self.model(data)
+            loss += self.mse_loss(pred,distance).data[0]
+            #print('t shape = {}'.format(target.data.shape))
+            #print('p shape = {}'.format(pred.data.shape))
+            if i % iters ==0:
+                model_name=self.model.name
+                saveRawfiguers(i,'dist_t_map_'+model_name,distance)
+                saveRawfiguers(i,'dist_p_map_'+model_name,pred)
+            if i >= iters-1:
+                break
+        loss = loss / iters
+        self.model.train()
+        print (' valid loss : {:.3f}'.format(loss))
+
     def valid(self):
         dataset = self.validDataset
         dataset.set_phase('valid')
@@ -67,15 +102,17 @@ class train_test():
         save_interval =20
         for i, (data,target) in enumerate(valid_loader, 0):
             data, target = Variable(data).float(), Variable(target).float()
+            gradient = target['gradient']
+            data, gradient = Variable(data).float(), Variable(gradient).float()
             if self.use_gpu:
                 data = data.cuda().float()
-                target =target.cuda().float()
+                gradient =gradient.cuda().float()
             pred = self.model(data)
-            loss += angularLoss(pred, target).data[0]
+            loss += angularLoss(pred, gradient).data[0]
             #print('t shape = {}'.format(target.data.shape))
             #print('p shape = {}'.format(pred.data.shape))
             if i % iters ==0:
-                ang_t_map=compute_angular(target)
+                ang_t_map=compute_angular(gradient)
                 ang_p_map=compute_angular(pred)
                 model_name=self.model.name
                 saveRawfiguers(i,'ang_t_map_'+model_name,ang_t_map)
@@ -104,7 +141,7 @@ class train_test():
         #dataset = CRIME_Dataset(out_size  = self.input_size,phase = 'train')
         dataset  = self.trainDataset
         train_loader = DataLoader(dataset =dataset,
-                                  batch_size=16,
+                                  batch_size=8,
                                   shuffle  =True,
                                   num_workers=num_workers)
         for epoch in range(5):
@@ -113,9 +150,10 @@ class train_test():
             for i, (data,target) in enumerate(train_loader, 0):
                 #target = target[:,0,:,:,:]
                 #gradient = target['gradient']
+                #data, gradient = Variable(data).float(), Variable(gradient).float()
                 distance = target['distance']
                 data, distance = Variable(data).float(), Variable(distance).float()
-                #data, gradient = Variable(data).float(), Variable(gradient).float()
+                
                   
                 if self.use_gpu:
                      data     = data.cuda().float()
@@ -129,8 +167,6 @@ class train_test():
                 #loss = 0.9*a_loss+0.1*m_loss
                 loss.backward()
                 self.optimizer.step()
-                
-
                 runing_loss += loss.data[0]
                 iter_range = (i+1) // self.model_save_steps
                 steps = (i+1) % self.model_save_steps
@@ -146,7 +182,7 @@ class train_test():
                     loss_str = 'loss : {:.5f}'.format(runing_loss/float(self.model_save_steps))
                     printProgressBar(self.model_save_steps, self.model_save_steps, prefix = iters, suffix = loss_str, length = 50)
                     runing_loss = 0.0
-                    #self.valid()
+                    self.valid_dist()
                     
                     print(' saved {}'.format(model_save_file))
                     start_time = time.time()
@@ -186,6 +222,32 @@ class train_test():
             saveRawfiguers(i,'pred_y_{}'.format(self.model.name),pred_y)
             if i > 5:
                 break
+    def test_dist(self):
+        self.model.eval()
+        model.load_state_dict(torch.load(self.model_file))
+        # dataset = CRIME_Dataset(out_size  = self.input_size, phase ='valid')
+        dataset = self.validDataset
+        train_loader = DataLoader(dataset =dataset,
+                                  batch_size=1,
+                                  shuffle  =True,
+                                  num_workers=1)
+        for i , (data,target)in enumerate(train_loader,start =0):
+            #data, target = Variable(data).float(), Variable(target).float()
+            distance = target['distance']
+            data, distance = Variable(data).float(), Variable(distance).float()
+            if self.use_gpu:
+                data   = data.cuda().float()
+                distance = distance.cuda().float()
+
+            pred = self.model(data)
+            loss = self.mse_loss(pred, distance)
+            print('loss:{}'.format(loss.data[0]))
+            model_name=self.model.name
+            saveRawfiguers(i,'dist_t_map_'+model_name,distance)
+            saveRawfiguers(i,'dist_p_map_'+model_name,pred)
+            if i > 7:
+                break
+
 
 
 
@@ -206,6 +268,8 @@ def saveRawfiguers(iters,file_prefix,output):
     from torchvision.utils import save_image
     my_dpi = 96
     plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
+    if isinstance(output,Variable):
+        output = output.data
     data = output.cpu().numpy()
     #data = output.cpu()
     #print ('output shape = {}'.format(data.shape))
@@ -284,12 +348,12 @@ def creat_dist_net_from_grad_unet(model_pretrained_iter=None, unet_pretrained_it
     net1 = Unet()
     model_saved_dir = 'models'
     if unet_pretrained_iter:
-        model_file = model_saved_dir +'/' +'{}_size320_iter_{}.model'.format(net.name,pretrained_iter)
+        model_file = model_saved_dir +'/' +'{}_size320_iter_{}.model'.format(net1.name,unet_pretrained_iter)
         net1.load_state_dict(torch.load(model_file))
     model = DUnet(net1)
 
     if model_pretrained_iter:
-        model_file = model_saved_dir +'/' +'{}_size320_iter_{}.model'.format(model.name,pretrained_iter)
+        model_file = model_saved_dir +'/' +'{}_size320_iter_{}.model'.format(model.name,model_pretrained_iter)
     else:
         model_file = None
 
@@ -303,7 +367,9 @@ if __name__ =='__main__':
     #model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=None)
     #model, model_file = create_model('DUCHDC',input_size = input_size,pretrained_iter=9999)
 
-    creat_dist_net_from_grad_unet(unet_pretrained_iter = 11999):
+    model,model_file = creat_dist_net_from_grad_unet(model_pretrained_iter=16999)
+    #unet_pretrained_iter = 11999
     TrTs =train_test(model=model, input_size=input_size,pretrained_model= model_file)
-    TrTs.train()
+    #TrTs.train()
     #TrTs.test()
+    TrTs.test_dist()
