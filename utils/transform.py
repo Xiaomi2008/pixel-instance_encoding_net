@@ -7,10 +7,10 @@ import scipy.ndimage as nd
 class label_transform(object):
     def __init__(self, gradient = True, 
                        distance = True,
-                       objSizeWeight =False):
+                       objSizeMap =False):
         self.gradient = gradient
         self.distance = distance
-        self.objSizeWeight =objSizeWeight
+        self.objSizeMap =objSizeMap
 
     def __call__(self,*input):
         """
@@ -25,8 +25,8 @@ class label_transform(object):
             sum_gx =np.zeros_like(_input).astype(np.float)
             sum_gy =np.zeros_like(_input).astype(np.float)
             sum_dt =np.zeros_like(_input).astype(np.float)
-            if self.objSizeWeight:
-                sum_sizeWeight =np.zeros_like(_input).astype(np.float)
+            if self.objSizeMap:
+                sum_sizeMap =np.zeros_like(_input).astype(np.float)
             for obj_id in s_ids:
                 obj_arr =  (_input == obj_id).astype(int)
                 dt      =  dis_transform(obj_arr)
@@ -34,19 +34,21 @@ class label_transform(object):
                 sum_gx+=gx
                 sum_gy+=gy
                 sum_dt+=dt
-                if self.objSizeWeight:
+                if self.objSizeMap:
                     obj_idx = obj_arr==1
-                    sum_sizeWeight[obj_idx]=(float(input.size)/300.0)/float(np.sum(obj_arr))
+                    sum_sizeMap[obj_idx]=(float(_input.size)/300.0)/float(np.sum(obj_arr))
             # make it to 3D data (c,h,w)
             sum_gx = np.expand_dims(sum_gx,0)
             sum_gy = np.expand_dims(sum_gy,0)
-            sum_dt = np.expand_dims(sum_gy,0)
+            sum_dt = np.expand_dims(sum_dt,0)
+            if self.objSizeMap:
+                sum_sizeMap = np.expand_dims(sum_sizeMap,0)
             out_dict ={}
             out_dict['gradient'] = (sum_gx,sum_gy)
             if self.distance:
                 out_dict['distance'] = sum_dt
-            if self.objSizeWeight:
-                out_dict['size_weight'] = sum_sizeWeight
+            if self.objSizeMap:
+                out_dict['sizemap'] = sum_sizeMap
             output.append(out_dict)
         return tuple(output)
 

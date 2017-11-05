@@ -9,7 +9,7 @@ import torch.optim as optim
 #from torch.nn.modules.loss import MSELoss
 #import torch.nn.MSELoss
 from torch.autograd import Variable
-from torch_networks.networks import Unet
+from torch_networks.networks import Unet,DUnet
 from torch_networks.duc  import ResNetDUCHDC
 from torch_networks.gcn import GCN
 from torch_networks.unet2 import UNet as Unet2
@@ -112,16 +112,20 @@ class train_test():
             start_time = time.time()
             for i, (data,target) in enumerate(train_loader, 0):
                 #target = target[:,0,:,:,:]
-                data, target = Variable(data).float(), Variable(target).float()
+                #gradient = target['gradient']
+                distance = target['distance']
+                data, distance = Variable(data).float(), Variable(distance).float()
+                #data, gradient = Variable(data).float(), Variable(gradient).float()
                   
                 if self.use_gpu:
-                     data   = data.cuda().float()
-                     target = target.cuda().float()
+                     data     = data.cuda().float()
+                     #gradient = gradient.cuda().float()
+                     distance = distance.cuda().float()
                 
                 self.optimizer.zero_grad()
                 output = self.model(data)
-                loss = angularLoss(output, target)
-                #loss = self.mse_loss(output,target)
+                #loss = angularLoss(output, gradient)
+                loss = self.mse_loss(output,distance)
                 #loss = 0.9*a_loss+0.1*m_loss
                 loss.backward()
                 self.optimizer.step()
@@ -142,7 +146,7 @@ class train_test():
                     loss_str = 'loss : {:.5f}'.format(runing_loss/float(self.model_save_steps))
                     printProgressBar(self.model_save_steps, self.model_save_steps, prefix = iters, suffix = loss_str, length = 50)
                     runing_loss = 0.0
-                    self.valid()
+                    #self.valid()
                     
                     print(' saved {}'.format(model_save_file))
                     start_time = time.time()
@@ -162,15 +166,17 @@ class train_test():
                                   shuffle  =True,
                                   num_workers=1)
         for i , (data,target)in enumerate(train_loader,start =0):
-            data, target = Variable(data).float(), Variable(target).float()
+            #data, target = Variable(data).float(), Variable(target).float()
+            gradient = target['gradient']
+            data, gradient = Variable(data).float(), Variable(gradient).float()
             if self.use_gpu:
                 data   = data.cuda().float()
-                target = target.cuda().float()
+                gradient = gradient.cuda().float()
 
             pred = self.model(data)
-            loss = angularLoss(pred, target)
+            loss = angularLoss(pred, gradient)
             print('loss:{}'.format(loss.data[0]))
-            ang_t_map=compute_angular(target)
+            ang_t_map=compute_angular(gradient)
             ang_p_map=compute_angular(pred)
             saveRawfiguers(i,'ang_t_map_{}'.format(self.model.name),ang_t_map)
             saveRawfiguers(i,'ang_p_map_{}'.format(self.model.name),ang_p_map)
@@ -264,7 +270,6 @@ def create_model(model_name, input_size =224, pretrained_iter=None):
         model = Unet2(num_classes=2,deformConv=True)
     elif model_name == 'DUCHDC':
         model =ResNetDUCHDC(num_classes=2)
-
     if  pretrained_iter:
         model_file = model_saved_dir +'/' +'{}_size320_iter_{}.model'.format(model.name,pretrained_iter)
         #model_file =model_saved_dir + '/' + 'GCN_size224_iter49499.model'
@@ -275,13 +280,30 @@ def create_model(model_name, input_size =224, pretrained_iter=None):
     return model, model_file
 
 
+def creat_dist_net_from_grad_unet(model_pretrained_iter=None, unet_pretrained_iter = None):
+    net1 = Unet()
+    model_saved_dir = 'models'
+    if unet_pretrained_iter:
+        model_file = model_saved_dir +'/' +'{}_size320_iter_{}.model'.format(net.name,pretrained_iter)
+        net1.load_state_dict(torch.load(model_file))
+    model = DUnet(net1)
+
+    if model_pretrained_iter:
+        model_file = model_saved_dir +'/' +'{}_size320_iter_{}.model'.format(model.name,pretrained_iter)
+    else:
+        model_file = None
+
+    return model, model_file
+
 if __name__ =='__main__':
     input_size =1024
-    model, model_file = create_model('Unet',input_size=input_size,pretrained_iter=6999)
+    #model, model_file = create_model('Unet',input_size=input_size,pretrained_iter=11999)
     #model, model_file = create_model('Unet2',input_size=input_size,pretrained_iter=10999)
     #model, model_file = create_model('Unet2DeformConv',input_size=input_size,pretrained_iter=None)
     #model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=None)
     #model, model_file = create_model('DUCHDC',input_size = input_size,pretrained_iter=9999)
+
+    creat_dist_net_from_grad_unet(unet_pretrained_iter = 11999):
     TrTs =train_test(model=model, input_size=input_size,pretrained_model= model_file)
-    #TrTs.train()
-    TrTs.test()
+    TrTs.train()
+    #TrTs.test()

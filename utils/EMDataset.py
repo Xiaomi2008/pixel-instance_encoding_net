@@ -5,7 +5,9 @@ import torch
 import numpy as np
 from transform import *
 import cv2
+import torch.nn.functional as F
 from matplotlib import pyplot as plt
+#import matplotlib.gridspec as gridspec
 from torch.utils.data import Dataset, DataLoader
 from label_transform.volumes import Volume
 from label_transform.volumes import HDF5Volume
@@ -37,7 +39,7 @@ class CRIME_Dataset(Dataset):
       self.y_size       = dim_shape[2] -self.x_out_size + 1
       self.x_size       = dim_shape[1] -self.y_out_size + 1 
       self.set_phase(phase)
-      self.label_trans_gen = label_transform()
+      self.label_trans_gen = label_transform(objSizeMap =True)
       #self.z_size       = dim_shape[0] -self.z_out_size + 1
     def set_phase(self,phase):
       self.phase = phase
@@ -82,19 +84,22 @@ class CRIME_Dataset(Dataset):
       # to avoid using wrong gradient map after the label augmentation
       # such as flip, rotate etc.
       trans_data_list = self.label_trans_gen(seg_label)
-      grad_x,grad_y = trans_data_list[0]['gradient']
-      #[(target_ch1, target_ch2)] = self.gradient_gen(seg_label)
+      grad_x, grad_y = trans_data_list[0]['gradient']
+      grad  = np.concatenate((grad_x,grad_y),0)
       
-      # (data, target_ch1, target_ch2) = out
-      #target_ch1  = np.expand_dims(target_ch1,1)
-      #target_ch2  = np.expand_dims(target_ch2,1)
-      target  = np.concatenate((grad_x,grad_y),0)
-    
-      #target  = self.gt_data[z_start:z_end,x_start:x_end,y_start:y_end]
-      tc_data, tc_target= torch.from_numpy(data).float(), torch.from_numpy(target).float()
 
+      tc_label_dict ={}
+      for key,value in trans_data_list[0].iteritems():
+        tc_label_dict[key] = torch.from_numpy(value).float() \
+                                 if key is not 'gradient' \
+                                 else torch.from_numpy(grad).float()
 
-      return tc_data,tc_target
+      #tc_data, tc_grad, = torch.from_numpy(data).float(), torch.from_numpy(grad).float()
+      tc_data = torch.from_numpy(data).float()
+
+      return tc_data, tc_label_dict
+
+      #return tc_data,tc_target
 
 
 
@@ -107,14 +112,19 @@ class CRIME_Dataset(Dataset):
       #data_config = 'conf/cremi_datasets.toml'
       volumes = HDF5Volume.from_toml(self.data_config)
       #data_name ={'Set_A':'Sample A','Set_B':'Sample B','Set_C':'Sample C'}
-      data_name = {'Set_A':'Sample A with extra transformed labels',
-                   'Set_B':'Sample B with extra transformed labels'
+      # data_name = {'Set_A':'Sample A with extra transformed labels',
+      #              'Set_B':'Sample B with extra transformed labels',
+      #              'Set_C':'Sample C with extra transformed labels'
+      #             }
+      data_name = {'Set_A':'Sample A',
+                   'Set_B':'Sample B',
+                   'Set_C':'Sample C'
                   }
       #data_name = {'Set_B':'Sample B with extra transformed labels'}
       #data_name = {'Set_A':'Sample A'}
       self.V = volumes[data_name[self.dataset]]
-      self.gradX = self.V.data_dict['gradX_dataset']
-      self.gradY = self.V.data_dict['gradY_dataset']
+      #self.gradX = self.V.data_dict['gradX_dataset']
+      #self.gradY = self.V.data_dict['gradY_dataset']
       self.lb_data = self.V.data_dict['label_dataset']
       self.im_data = self.V.data_dict['image_dataset']
       #self.gradX = self.lb_data
@@ -158,13 +168,24 @@ def l2_norm(x):
     sum_x  = torch.sum(x**2,1,keepdim=True)
     sqrt_x = torch.sqrt(sum_x)
     return x/sqrt_x
+
+
 def compute_angular(x):
-    x    = l2_norm(x)*0.9999
-    
-    x_aix = x[:,0]/torch.sqrt(torch.sum(x**2,1))
+    x = F.normalize(x)*0.99999
+    #print('x shpe in angu {}'.format(x.shape))
+    x_aix = x[:,0,:,:]/torch.sqrt(torch.sum(x**2,1))
+    #print('x aix shape {}'.format(x_aix.shape))
     angle_map   = torch.acos(x_aix)
-    #pdb.set_trace()
+    #print('angle_map shape {}'.format(angle_map.shape))
     return angle_map
+
+    # print ('x shape {}'.format(x.shape))
+    # x    = l2_norm(x)*0.9999
+    
+    # x_aix = x[:,0]/torch.sqrt(torch.sum(x**2,1))
+    # angle_map   = torch.acos(x_aix)
+    # #pdb.set_trace()
+    # return angle_map
 
 
      # pred        = pred.transpose(1,2).transpose(2,3).contiguous()
@@ -197,43 +218,62 @@ def test_angluar_map():
 
 
 def test_transform():
-  data_config = '../conf/cremi_datasets_with_tflabels.toml'
+  #data_config = '../conf/cremi_datasets_with_tflabels.toml'
+  data_config = '../conf/cremi_datasets.toml'
   trans=random_transform(VFlip(),HFlip(),Rot90())
-  dataset = CRIME_Dataset(data_config = data_config,phase='valid',transform = trans,out_size = 512,dataset='Set_B')
+  dataset = CRIME_Dataset(data_config = data_config,phase='valid',transform = trans,out_size = 512,dataset='Set_C')
   train_loader = DataLoader(dataset=dataset,
-                          batch_size=1,
+                          batch_size=2,
                           shuffle=True,
                           num_workers=1)
-  for i , (inputs,labels) in enumerate(train_loader,start =0):
+  for i , (inputs,target) in enumerate(train_loader,start =0):
     #labels = labels[:,0,:,:,:]
-    print inputs.shape
-    im = inputs[0,0].numpy()
-    tg1 = labels[0,0].numpy()
-    tg2 = labels[0,1].numpy()
-    #print tg2.shape
-    #print(im)
-    #im = (im - np.min(im))/np.mean(im)
-    #tg1 = (tg1 - np.min(tg1))/np.mean(tg1 - np.min(tg1))
-    #cv2.imshow("image",im)
-    #cv2.imshow("lb",tg)
-    fig,axes = plt.subplots(nrows =1, ncols=3)
-    axes[0].imshow(im,cmap='gray')
-    axes[0].axis('off')
-    axes[1].imshow(tg1)
-    axes[1].axis('off')
-    axes[2].imshow(tg2)
-    axes[2].axis('off')
-    fig.tight_layout()
+    #print inputs.shape
+    im  = inputs[0,0].numpy()
+    #tg1 = target['gradient'][0,0].numpy()
+    #tg2 = target['gradient'][0,1].numpy()
+    ang_map=compute_angular(target['gradient'])[0].numpy()
+
+    for key, value in target.iteritems():
+      print( '{} shape is {}'.format(key,value.shape))
+
+    #print('ang_mp shape = {}'.format(ang_map.shape))
+    #print('dist shape {}'.format(target['distance'].shape))
+    dist    = target['distance'][0].numpy()
+    sizemap  = target['sizemap'][0].numpy()
+    dist    = np.squeeze(dist)
+    sizemap = np.squeeze(sizemap)
+
+    fig,axes = plt.subplots(nrows =2, ncols=2,gridspec_kw = {'wspace':0.01, 'hspace':0.01})
+    axes[0,0].imshow(im,cmap='gray')
+    axes[0,0].axis('off')
+    axes[0,0].margins(0,0)
+    
+    axes[0,1].imshow(ang_map)
+    axes[0,1].axis('off')
+    axes[0,1].margins(0,0)
+    
+    axes[1,0].imshow(dist)
+    axes[1,0].axis('off')
+    axes[1,0].margins(0,0)
+
+    axes[1,1].imshow(np.log(sizemap))
+    axes[1,1].axis('off')
+    axes[1,1].margins(0,0)
+    plt.margins(x=0.001,y=0.001)
+    plt.subplots_adjust(wspace=0, hspace=0)
+
+
+    #fig.tight_layout()
     # ax1 =fig.add_subplot(121)
     # ax1.show(im)
     # ax2 =fig.add_subplot(122)
     # ax2.show(tg)
     # cv2.waitKey(3000)
    
-    # plt.imshow(tg)
     plt.show()
     plt.close('all')
-    if i >20:
+    if i >5:
       break
 
 

@@ -84,7 +84,7 @@ class Unet(nn.Module):
         self.out_ch = out_ch
         #self.ch_down_rate =ch_down_rate
         
-        self.conv_2d_1 = nn.Conv2d(in_ch, first_out_ch, kernel_size=kernel_size, padding=1)
+        self.conv_2d_1 = nn.Conv2d(in_ch, first_out_ch, kernel_size=kernel_size, padding=kernel_size //2 )
         
         self.down_block_1 = Downblock(first_out_ch,num_conv_in_block,ch_change_rate,kernel_size)
         
@@ -111,7 +111,7 @@ class Unet(nn.Module):
         self.up_block_4 = Upblock(96,num_conv_in_block,ch_change_rate,kernel_size)
 
         last_up_ch = b4_up_ch // ch_change_rate
-        self.finnal_conv2d = nn.Conv2d(last_up_ch, out_ch, kernel_size=1, padding=0)
+        #self.finnal_conv2d = nn.Conv2d(last_up_ch, out_ch, kernel_size=1, padding=0)
         self.upsample = nn.Upsample(scale_factor=2,mode='bilinear')
         self.finnal_conv2d = nn.Conv2d(48, 2, kernel_size=3, padding=1)
     @property
@@ -138,6 +138,35 @@ class Unet(nn.Module):
 
         out = self.finnal_conv2d(u_4)
         return out
+
+
+class DUnet(nn.Module):
+    def __init__(self, grad_unet, in_ch =1, first_out_ch=16, out_ch =1, number_bolck=4,num_conv_in_block=2,ch_change_rate=2,kernel_size = 3):
+        super(Unet, self).__init__()
+        self.net1 = grad_unet
+        self.net2 = Unet()
+        self.first_conv_in_net2 = nn.Conv2d(3,16,kernel_size=kernel_size,padding =kernel_size // 2)
+        self.final_conv_in_net2 = nn.Conv2d(48,1,kernel_size=kernel_size,padding =kernel_size // 2) 
+        self.net2.conv_2d_1 = self.first_conv_in_net2
+        self.net2.finnal_conv2d = self.final_conv_in_net2
+        elf.freezeWeight(self.net1)
+    @property
+    def name(self):
+        return 'DUnet'
+    def freezeWeight(net):
+        for child in net.children():
+            for param in child.parameters():
+                param.requires_grad = False
+
+    def forward(self,x):
+        #x=self.finnal_conv2d(x)
+        x_net1_out = self.net1(x)
+        x_net2_in  = torch.cat((x_net1_out,x),1)
+        out        = self.net2(x_net2_in)
+        return out
+
+
+
 
 
 def test_angularLoss():
