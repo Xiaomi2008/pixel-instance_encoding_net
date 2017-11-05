@@ -41,13 +41,13 @@ class train_test():
         self.use_parallel = False
         self.mse_loss = torch.nn.MSELoss()
         self.optimizer    = optim.Adagrad(self.model.parameters(), 
-                                            lr=0.001, 
+                                            lr=0.01, 
                                             lr_decay=0, 
                                             weight_decay=0)
-        subtract_mean = False if model.name is 'Unet' else True
+        #subtract_mean = False if model.name is 'Unet' else True
         self.tranform = self.build_transformer()
-        self.trainDataset = CRIME_Dataset(out_size  = self.input_size, phase = 'train',subtract_mean =subtract_mean,transform = self.tranform)
-        self.validDataset = CRIME_Dataset(out_size  = self.input_size, phase = 'valid',subtract_mean =subtract_mean)
+        self.trainDataset = CRIME_Dataset(out_size  = self.input_size, phase = 'train',subtract_mean =True,transform = self.tranform)
+        self.validDataset = CRIME_Dataset(out_size  = self.input_size, phase = 'valid',subtract_mean =True, dataset='Set_A')
         if self.model_file:
             self.model.load_state_dict(torch.load(self.model_file))
     
@@ -96,7 +96,7 @@ class train_test():
             os.mkdir(self.model_saved_dir)
         gpus = [0]
         use_parallel = True if len(gpus) >1 else False
-        num_workers =2
+        num_workers =4
         if use_parallel:
             self.model = torch.nn.DataParallel(self.model, device_ids=gpus)
             num_workers =2
@@ -155,14 +155,13 @@ class train_test():
     def test(self):
         self.model.eval()
         model.load_state_dict(torch.load(self.model_file))
-        dataset = CRIME_Dataset(out_size  = self.input_size, phase ='valid')
+        # dataset = CRIME_Dataset(out_size  = self.input_size, phase ='valid')
+        dataset = self.validDataset
         train_loader = DataLoader(dataset =dataset,
                                   batch_size=1,
                                   shuffle  =True,
-                                  num_workers=2)
-        for i , batch in enumerate(train_loader,start =0):
-            data, target = batch
-            target = target[:,0,:,:,:]
+                                  num_workers=1)
+        for i , (data,target)in enumerate(train_loader,start =0):
             data, target = Variable(data).float(), Variable(target).float()
             if self.use_gpu:
                 data   = data.cuda().float()
@@ -267,7 +266,7 @@ def create_model(model_name, input_size =224, pretrained_iter=None):
         model =ResNetDUCHDC(num_classes=2)
 
     if  pretrained_iter:
-        model_file = model_saved_dir +'/' +'{}_size{}_iter_{}.model'.format(model.name,input_size,pretrained_iter)
+        model_file = model_saved_dir +'/' +'{}_size320_iter_{}.model'.format(model.name,pretrained_iter)
         #model_file =model_saved_dir + '/' + 'GCN_size224_iter49499.model'
         #model_file = model_saved_dir +'/' +'{}_instance_grad_iter_{}.model'.format(model_name,pre_trained_iter)
         print('Load parameters from {}'.format(model_file))
@@ -278,12 +277,11 @@ def create_model(model_name, input_size =224, pretrained_iter=None):
 
 if __name__ =='__main__':
     input_size =320
-    #model, model_file = create_model('Unet',input_size=input_size,pretrained_iter=35499)
-    model, model_file = create_model('Unet2',input_size=input_size,pretrained_iter=39999)
-
-    #model, model_file = create_model('Unet2DeformConv',input_size=input_size,pretrained_iter=3999)
-    #model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=15499)
-    #model, model_file = create_model('DUCHDC',input_size = input_size)
+    #model, model_file = create_model('Unet',input_size=input_size,pretrained_iter=17999)
+    #model, model_file = create_model('Unet2',input_size=input_size,pretrained_iter=10999)
+    #model, model_file = create_model('Unet2DeformConv',input_size=input_size,pretrained_iter=None)
+    model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=None)
+    #model, model_file = create_model('DUCHDC',input_size = input_size,pretrained_iter=9999)
     TrTs =train_test(model=model, input_size=input_size,pretrained_model= model_file)
     TrTs.train()
     #TrTs.test()

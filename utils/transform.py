@@ -4,28 +4,51 @@ import numpy as np
 from scipy.ndimage.morphology import distance_transform_edt as dis_transform
 import scipy.ndimage as nd
 
-class gradient(object):
+class label_transform(object):
+    def __init__(self, gradient = True, 
+                       distance = True,
+                       objSizeWeight =False):
+        self.gradient = gradient
+        self.distance = distance
+        self.objSizeWeight =objSizeWeight
+
     def __call__(self,*input):
+        """
+        Args:
+         2D numpy arrays whuch must be segmentation labels
+        """
         output =[]
+        dx,dy   = 1,1
         for idex,_input in enumerate(input):
             _input =np.squeeze(_input)
             s_ids =np.unique(_input).tolist()
-            sum_gx =np.zero_like(_input)
-            sum_gy =np.zeros_like(_input)
+            sum_gx =np.zeros_like(_input).astype(np.float)
+            sum_gy =np.zeros_like(_input).astype(np.float)
+            sum_dt =np.zeros_like(_input).astype(np.float)
+            if self.objSizeWeight:
+                sum_sizeWeight =np.zeros_like(_input).astype(np.float)
             for obj_id in s_ids:
-                obj_arr = (slice_lbs == obj_id).astype(int)
-                dt  =  dis_transform(obj_arr)
-                dx,dy   = 1,1
-                gx,gy   = np.gradient(dt,dx,dy,edge_order =1)
-                #gx-=np.min(gx)+0.01
-                #gy-=np.min(gy)+0.01
+                obj_arr =  (_input == obj_id).astype(int)
+                dt      =  dis_transform(obj_arr)
+                gx,gy   =  np.gradient(dt,dx,dy,edge_order =1)
                 sum_gx+=gx
                 sum_gy+=gy
                 sum_dt+=dt
-            output.append((sum_gx,sum_gy))
-        return output
-                #obj_idx = obj_arr==1
-                #sum_obj_wt[obj_idx]=(float(image_size)/100.0)/float(np.sum(obj_arr))
+                if self.objSizeWeight:
+                    obj_idx = obj_arr==1
+                    sum_sizeWeight[obj_idx]=(float(input.size)/300.0)/float(np.sum(obj_arr))
+            # make it to 3D data (c,h,w)
+            sum_gx = np.expand_dims(sum_gx,0)
+            sum_gy = np.expand_dims(sum_gy,0)
+            sum_dt = np.expand_dims(sum_gy,0)
+            out_dict ={}
+            out_dict['gradient'] = (sum_gx,sum_gy)
+            if self.distance:
+                out_dict['distance'] = sum_dt
+            if self.objSizeWeight:
+                out_dict['size_weight'] = sum_sizeWeight
+            output.append(out_dict)
+        return tuple(output)
 
 class random_transform(object):
     def __init__(self,*transform):

@@ -37,7 +37,7 @@ class CRIME_Dataset(Dataset):
       self.y_size       = dim_shape[2] -self.x_out_size + 1
       self.x_size       = dim_shape[1] -self.y_out_size + 1 
       self.set_phase(phase)
-      self.gradient_gen = gradient()
+      self.label_trans_gen = label_transform()
       #self.z_size       = dim_shape[0] -self.z_out_size + 1
     def set_phase(self,phase):
       self.phase = phase
@@ -66,7 +66,9 @@ class CRIME_Dataset(Dataset):
       if self.subtract_mean:
         data -= 127.0
       seg_label   =np.array(self.lb_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.int)
-      [target_ch1,target_ch2] =self.gradient_gen()
+      #target_ch1,target_ch2 =self.gradient_gen(seg_label)
+      #A =self.gradient_gen(seg_label)
+      #print type(A)
       #target_ch1  =np.array(self.gradX[z_start:z_end,x_start:x_end,y_start:y_end])
       #target_ch2  =np.array(self.gradY[z_start:z_end,x_start:x_end,y_start:y_end])
 
@@ -76,28 +78,23 @@ class CRIME_Dataset(Dataset):
         #data, target_ch1, target_ch2 = self.transform(data,target_ch1,target_ch2)
       
 
-      # use the runtime obj graidient instead of pre-computed one
-      target_ch1, target_ch2 = self.gradient_gen(seg_label)
+      # compute the runtime obj graidient instead of pre-computed one
+      # to avoid using wrong gradient map after the label augmentation
+      # such as flip, rotate etc.
+      trans_data_list = self.label_trans_gen(seg_label)
+      grad_x,grad_y = trans_data_list[0]['gradient']
+      #[(target_ch1, target_ch2)] = self.gradient_gen(seg_label)
       
       # (data, target_ch1, target_ch2) = out
       #target_ch1  = np.expand_dims(target_ch1,1)
       #target_ch2  = np.expand_dims(target_ch2,1)
-      target      = np.concatenate((target_ch1,target_ch2),0)
-      #print data.shape, target.shape
-      #print('target_xy shape:{}'.format(target.shape))
-      #pdb_set_trace()
-
+      target  = np.concatenate((grad_x,grad_y),0)
+    
       #target  = self.gt_data[z_start:z_end,x_start:x_end,y_start:y_end]
       tc_data, tc_target= torch.from_numpy(data).float(), torch.from_numpy(target).float()
 
-      #print('TC_target_xy shape:{}'.format(tc_target.shape))
 
       return tc_data,tc_target
-
-      #return self.im_data[z_start:z_end,x_start:x_end,y_start:y_end], \
-      #       self.lb_data[z_start:z_end,x_start:x_end,y_start:y_end]
-      # return self.im_data[z_start:z_end,x_start:x_end,y_start:y_end], \
-      #        self.gradient_data[z_start:z_end,x_start:x_end,y_start:y_end]
 
 
 
@@ -110,7 +107,10 @@ class CRIME_Dataset(Dataset):
       #data_config = 'conf/cremi_datasets.toml'
       volumes = HDF5Volume.from_toml(self.data_config)
       #data_name ={'Set_A':'Sample A','Set_B':'Sample B','Set_C':'Sample C'}
-      data_name = {'Set_A':'Sample A with extra transformed labels'}
+      data_name = {'Set_A':'Sample A with extra transformed labels',
+                   'Set_B':'Sample B with extra transformed labels'
+                  }
+      #data_name = {'Set_B':'Sample B with extra transformed labels'}
       #data_name = {'Set_A':'Sample A'}
       self.V = volumes[data_name[self.dataset]]
       self.gradX = self.V.data_dict['gradX_dataset']
@@ -199,23 +199,40 @@ def test_angluar_map():
 def test_transform():
   data_config = '../conf/cremi_datasets_with_tflabels.toml'
   trans=random_transform(VFlip(),HFlip(),Rot90())
-  dataset = CRIME_Dataset(data_config = data_config,phase='valid',transform = trans)
+  dataset = CRIME_Dataset(data_config = data_config,phase='valid',transform = trans,out_size = 512,dataset='Set_B')
   train_loader = DataLoader(dataset=dataset,
                           batch_size=1,
                           shuffle=True,
                           num_workers=1)
   for i , (inputs,labels) in enumerate(train_loader,start =0):
     #labels = labels[:,0,:,:,:]
+    print inputs.shape
     im = inputs[0,0].numpy()
-    tg = labels[0,0].numpy()
+    tg1 = labels[0,0].numpy()
+    tg2 = labels[0,1].numpy()
+    #print tg2.shape
     #print(im)
-    im = (im - np.min(im))/np.mean(im)
-    tg = (tg - np.min(tg))/np.mean(tg)
-    #im*=255
-    tg*=255
-    cv2.imshow("image",im)
-    cv2.imshow("lb",tg)
-    cv2.waitKey(2000)
+    #im = (im - np.min(im))/np.mean(im)
+    #tg1 = (tg1 - np.min(tg1))/np.mean(tg1 - np.min(tg1))
+    #cv2.imshow("image",im)
+    #cv2.imshow("lb",tg)
+    fig,axes = plt.subplots(nrows =1, ncols=3)
+    axes[0].imshow(im,cmap='gray')
+    axes[0].axis('off')
+    axes[1].imshow(tg1)
+    axes[1].axis('off')
+    axes[2].imshow(tg2)
+    axes[2].axis('off')
+    fig.tight_layout()
+    # ax1 =fig.add_subplot(121)
+    # ax1.show(im)
+    # ax2 =fig.add_subplot(122)
+    # ax2.show(tg)
+    # cv2.waitKey(3000)
+   
+    # plt.imshow(tg)
+    plt.show()
+    plt.close('all')
     if i >20:
       break
 
