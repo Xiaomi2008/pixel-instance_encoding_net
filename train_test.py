@@ -27,6 +27,8 @@ from utils.transform import VFlip, HFlip, Rot90, random_transform
 from torch.utils.data import DataLoader
 import time
 import pdb
+from scipy import ndimage
+from scikits.image.morphology import watershed, is_local_maximum
 
 class train_test():
     def __init__(self, model, pretrained_model = None,input_size = 224):
@@ -245,6 +247,7 @@ class train_test():
             model_name=self.model.name
             saveRawfiguers(i,'dist_t_map_'+model_name,distance)
             saveRawfiguers(i,'dist_p_map_'+model_name,pred)
+            watershed(distance)
             if i > 7:
                 break
 
@@ -284,6 +287,12 @@ def saveRawfiguers(iters,file_prefix,output):
     #pdb.set_trace()
     plt.savefig(file_prefix+'{}.png'.format(iters))
     plt.close('all')
+
+def watershed_d(distance):
+    local_maxi = is_local_maximum(distance, foorprint=np.ones((3, 3)))
+    markers = ndimage.label(local_maxi)[0]
+    labels = watershed(-distance, markers)
+    plt.imshow(labels, cmap=plt.cm.spectral, interpolation='nearest')
 
 def savefiguers(iters,output):
     my_dpi = 96
