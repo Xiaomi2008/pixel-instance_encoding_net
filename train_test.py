@@ -28,7 +28,7 @@ from torch.utils.data import DataLoader
 import time
 import pdb
 from scipy import ndimage
-from scikits.image.morphology import watershed, is_local_maximum
+#from scikits.image.morphology import watershed, is_local_maximum
 
 class train_test():
     def __init__(self, model, pretrained_model = None,input_size = 224):
@@ -289,7 +289,9 @@ def saveRawfiguers(iters,file_prefix,output):
     plt.close('all')
 
 def watershed_d(distance):
-    local_maxi = is_local_maximum(distance, foorprint=np.ones((3, 3)))
+    from skimage.feature import peak_local_max
+    import skimage.segmentation.watershed
+    local_maxi = peak_local_max(distance, foorprint=np.ones((3, 3)))
     markers = ndimage.label(local_maxi)[0]
     labels = watershed(-distance, markers)
     plt.imshow(labels, cmap=plt.cm.spectral, interpolation='nearest')
