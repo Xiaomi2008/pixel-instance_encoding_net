@@ -276,12 +276,12 @@ def create_model(model_name, input_size =224, pretrained_iter=None):
 
 
 if __name__ =='__main__':
-    input_size =320
-    #model, model_file = create_model('Unet',input_size=input_size,pretrained_iter=17999)
+    input_size =1024
+    model, model_file = create_model('Unet',input_size=input_size,pretrained_iter=6999)
     #model, model_file = create_model('Unet2',input_size=input_size,pretrained_iter=10999)
     #model, model_file = create_model('Unet2DeformConv',input_size=input_size,pretrained_iter=None)
-    model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=None)
+    #model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=None)
     #model, model_file = create_model('DUCHDC',input_size = input_size,pretrained_iter=9999)
     TrTs =train_test(model=model, input_size=input_size,pretrained_model= model_file)
-    TrTs.train()
-    #TrTs.test()
+    #TrTs.train()
+    TrTs.test()
