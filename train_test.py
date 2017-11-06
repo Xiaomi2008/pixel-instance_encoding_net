@@ -247,7 +247,7 @@ class train_test():
             model_name=self.model.name
             saveRawfiguers(i,'dist_t_map_'+model_name,distance)
             saveRawfiguers(i,'dist_p_map_'+model_name,pred)
-            watershed(distance)
+            watershed_d(i,pred)
             if i > 7:
                 break
 
@@ -288,14 +288,43 @@ def saveRawfiguers(iters,file_prefix,output):
     plt.savefig(file_prefix+'{}.png'.format(iters))
     plt.close('all')
 
-def watershed_d(distance):
+def watershed_d(i,distance):
     from skimage.feature import peak_local_max
-    import skimage.segmentation.watershed
-    local_maxi = peak_local_max(distance, foorprint=np.ones((3, 3)))
-    markers = ndimage.label(local_maxi)[0]
-    labels = watershed(-distance, markers)
-    plt.imshow(labels, cmap=plt.cm.spectral, interpolation='nearest')
+    from skimage.segmentation import watershed
+    from skimage.color import label2rgb
+    from skimage.morphology import disk,skeletonize
+    import skimage
+   # from skimage.morphology.skeletonize
+    from skimage.filters import gaussian
 
+    if isinstance(distance,Variable):
+        distance = distance.data
+    my_dpi = 96
+    plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
+    distance = distance.cpu().numpy()
+    distance =np.squeeze(distance)
+    #local_maxi = peak_local_max(distance, footprint=np.ones((3, 3)),indices=False)
+
+
+
+
+    from skimage.filters.rank import mean_bilateral
+    #distance = mean_bilateral(distance.astype(np.uint16), disk(20), s0=10, s1=10) 
+    #distance = gaussian((distance-np.mean(distance))/np.max(np.abs(distance)))   
+    #local_maxi = peak_local_max(distance, indices=False, min_distance=5)
+    #markers = ndimage.label(local_maxi)[0]
+    #markers = ndimage.label(local_maxi, structure=np.ones((3, 3)))[0]
+    #labels = watershed(-distance, markers)
+
+
+    ccImage = (distance > 5)
+    ccImage=skeletonize(ccImage)
+    labels = skimage.morphology.label(ccImage)
+    #labels = skimage.morphology.remove_small_objects(labels, min_size=4)
+    #labels = skimage.morphology.remove_small_holes(labels)
+    plt.imshow(label2rgb(labels), cmap=plt.cm.spectral, interpolation='nearest')
+    plt.savefig('seg_{}.png'.format(i))
+    plt.close('all')
 def savefiguers(iters,output):
     my_dpi = 96
     plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
@@ -371,14 +400,14 @@ def creat_dist_net_from_grad_unet(model_pretrained_iter=None, unet_pretrained_it
     return model, model_file
 
 if __name__ =='__main__':
-    input_size =1024
+    input_size =448*2
     #model, model_file = create_model('Unet',input_size=input_size,pretrained_iter=11999)
     #model, model_file = create_model('Unet2',input_size=input_size,pretrained_iter=10999)
     #model, model_file = create_model('Unet2DeformConv',input_size=input_size,pretrained_iter=None)
     #model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=None)
     #model, model_file = create_model('DUCHDC',input_size = input_size,pretrained_iter=9999)
 
-    model,model_file = creat_dist_net_from_grad_unet(model_pretrained_iter=16999)
+    model,model_file = creat_dist_net_from_grad_unet(model_pretrained_iter=33999)
     #unet_pretrained_iter = 11999
     TrTs =train_test(model=model, input_size=input_size,pretrained_model= model_file)
     #TrTs.train()
