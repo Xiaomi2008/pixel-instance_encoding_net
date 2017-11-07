@@ -42,6 +42,9 @@ class train_test():
             self.model.cuda()
         self.use_parallel = False
         self.mse_loss = torch.nn.MSELoss()
+        def weighted_mse_loss(input, target, weight):
+            return torch.sum(weight * (input - target) ** 2)
+        self.weight_mes_loss= weighted_mse_loss
         # x=filter(lambda x: x.requires_grad, model.parameters())
         # self.optimizer    = optim.Adagrad(self.model.parameters(), 
         #                                     lr=0.01, 
@@ -77,14 +80,14 @@ class train_test():
             if self.use_gpu:
                 data = data.cuda().float()
                 distance =distance.cuda().float()
-            pred = self.model(data)
-            loss += self.mse_loss(pred,distance).data[0]
+            grad_pred,dist_pred = self.model(data)
+            loss += self.mse_loss(dist_pred,distance).data[0]
             #print('t shape = {}'.format(target.data.shape))
             #print('p shape = {}'.format(pred.data.shape))
             if i % iters ==0:
                 model_name=self.model.name
                 saveRawfiguers(i,'dist_t_map_'+model_name,distance)
-                saveRawfiguers(i,'dist_p_map_'+model_name,pred)
+                saveRawfiguers(i,'dist_p_map_'+model_name,dist_pred)
             if i >= iters-1:
                 break
         loss = loss / iters
@@ -151,22 +154,23 @@ class train_test():
             start_time = time.time()
             for i, (data,target) in enumerate(train_loader, 0):
                 #target = target[:,0,:,:,:]
-                #gradient = target['gradient']
+                gradient = target['gradient']
                 #data, gradient = Variable(data).float(), Variable(gradient).float()
                 distance = target['distance']
-                data, distance = Variable(data).float(), Variable(distance).float()
+                objSize  = target['sizemap']
+                data, gradient, distance = Variable(data).float(), Variable(gradient).float(), Variable(distance).float()
                 
                   
                 if self.use_gpu:
                      data     = data.cuda().float()
-                     #gradient = gradient.cuda().float()
+                     gradient = gradient.cuda().float()
                      distance = distance.cuda().float()
                 
                 self.optimizer.zero_grad()
-                output = self.model(data)
-                #loss = angularLoss(output, gradient)
-                loss = self.mse_loss(output,distance)
-                #loss = 0.9*a_loss+0.1*m_loss
+                grad_pred,dist_pred = self.model(data)
+                ang_loss = angularLoss(grad_pred, gradient)
+                dist_loss = self.mse_loss(dist_pred,distance)
+                loss = 0.95*dist_loss+0.05*ang_loss
                 loss.backward()
                 self.optimizer.step()
                 runing_loss += loss.data[0]
@@ -317,8 +321,8 @@ def watershed_d(i,distance):
     #labels = watershed(-distance, markers)
 
 
-    ccImage = (distance > 5)
-    ccImage=skeletonize(ccImage)
+    ccImage = (distance > 2)
+    #ccImage=skeletonize(ccImage)
     labels = skimage.morphology.label(ccImage)
     #labels = skimage.morphology.remove_small_objects(labels, min_size=4)
     #labels = skimage.morphology.remove_small_holes(labels)
@@ -390,7 +394,7 @@ def creat_dist_net_from_grad_unet(model_pretrained_iter=None, unet_pretrained_it
     if unet_pretrained_iter:
         model_file = model_saved_dir +'/' +'{}_size320_iter_{}.model'.format(net1.name,unet_pretrained_iter)
         net1.load_state_dict(torch.load(model_file))
-    model = DUnet(net1)
+    model = DUnet(net1,freeze_net1=False)
 
     if model_pretrained_iter:
         model_file = model_saved_dir +'/' +'{}_size320_iter_{}.model'.format(model.name,model_pretrained_iter)
@@ -400,16 +404,16 @@ def creat_dist_net_from_grad_unet(model_pretrained_iter=None, unet_pretrained_it
     return model, model_file
 
 if __name__ =='__main__':
-    input_size =448*2
-    #model, model_file = create_model('Unet',input_size=input_size,pretrained_iter=11999)
+    input_size =320
+    # model, model_file = create_model('Unet',input_size=input_size,pretrained_iter=11999)
     #model, model_file = create_model('Unet2',input_size=input_size,pretrained_iter=10999)
     #model, model_file = create_model('Unet2DeformConv',input_size=input_size,pretrained_iter=None)
     #model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=None)
     #model, model_file = create_model('DUCHDC',input_size = input_size,pretrained_iter=9999)
 
-    model,model_file = creat_dist_net_from_grad_unet(model_pretrained_iter=33999)
+    model,model_file = creat_dist_net_from_grad_unet(model_pretrained_iter=76499)
     #unet_pretrained_iter = 11999
     TrTs =train_test(model=model, input_size=input_size,pretrained_model= model_file)
-    #TrTs.train()
+    TrTs.train()
     #TrTs.test()
-    TrTs.test_dist()
+    #TrTs.test_dist()

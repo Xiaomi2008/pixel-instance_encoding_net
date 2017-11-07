@@ -68,15 +68,23 @@ class CRIME_Dataset(Dataset):
       if self.subtract_mean:
         data -= 127.0
       seg_label   =np.array(self.lb_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.int)
+
+      print ('seg_label shape ={}'.format(seg_label.shape))
+      affineXFuc=affinity(axis=-1,distance =10)
+      affineYFuc=affinity(axis=-2,distance =10)
+
+
+
+      affinMap = ((affineXFuc(seg_label) + affineYFuc(seg_label))>0).astype(np.int)
+
       #target_ch1,target_ch2 =self.gradient_gen(seg_label)
       #A =self.gradient_gen(seg_label)
       #print type(A)
       #target_ch1  =np.array(self.gradX[z_start:z_end,x_start:x_end,y_start:y_end])
       #target_ch2  =np.array(self.gradY[z_start:z_end,x_start:x_end,y_start:y_end])
 
-
       if self.transform:
-        data,seg_label  = self.transform(data,seg_label)
+        data,seg_label,affinMap  = self.transform(data,seg_label,affinMap)
         #data, target_ch1, target_ch2 = self.transform(data,target_ch1,target_ch2)
       
 
@@ -93,6 +101,8 @@ class CRIME_Dataset(Dataset):
         tc_label_dict[key] = torch.from_numpy(value).float() \
                                  if key is not 'gradient' \
                                  else torch.from_numpy(grad).float()
+
+      tc_label_dict['affinity'] = torch.from_numpy(affinMap).float()
 
       #tc_data, tc_grad, = torch.from_numpy(data).float(), torch.from_numpy(grad).float()
       tc_data = torch.from_numpy(data).float()
@@ -112,14 +122,14 @@ class CRIME_Dataset(Dataset):
       #data_config = 'conf/cremi_datasets.toml'
       volumes = HDF5Volume.from_toml(self.data_config)
       #data_name ={'Set_A':'Sample A','Set_B':'Sample B','Set_C':'Sample C'}
-      data_name = {'Set_A':'Sample A with extra transformed labels',
-                   'Set_B':'Sample B with extra transformed labels',
-                   'Set_C':'Sample C with extra transformed labels'
-                  }
-      # data_name = {'Set_A':'Sample A',
-      #              'Set_B':'Sample B',
-      #              'Set_C':'Sample C'
+      # data_name = {'Set_A':'Sample A with extra transformed labels',
+      #              'Set_B':'Sample B with extra transformed labels',
+      #              'Set_C':'Sample C with extra transformed labels'
       #             }
+      data_name = {'Set_A':'Sample A',
+                   'Set_B':'Sample B',
+                   'Set_C':'Sample C'
+                  }
       #data_name = {'Set_B':'Sample B with extra transformed labels'}
       #data_name = {'Set_A':'Sample A'}
       self.V = volumes[data_name[self.dataset]]
@@ -221,7 +231,7 @@ def test_transform():
   #data_config = '../conf/cremi_datasets_with_tflabels.toml'
   data_config = '../conf/cremi_datasets.toml'
   trans=random_transform(VFlip(),HFlip(),Rot90())
-  dataset = CRIME_Dataset(data_config = data_config,phase='valid',transform = trans,out_size = 512,dataset='Set_C')
+  dataset = CRIME_Dataset(data_config = data_config,phase='valid',transform = trans,out_size = 512,dataset='Set_A')
   train_loader = DataLoader(dataset=dataset,
                           batch_size=2,
                           shuffle=True,
@@ -241,8 +251,10 @@ def test_transform():
     #print('dist shape {}'.format(target['distance'].shape))
     dist    = target['distance'][0].numpy()
     sizemap  = target['sizemap'][0].numpy()
+    affinity = target['affinity'][0].numpy()
     dist    = np.squeeze(dist)
     sizemap = np.squeeze(sizemap)
+    affinity =np.squeeze(affinity)
 
     fig,axes = plt.subplots(nrows =2, ncols=2,gridspec_kw = {'wspace':0.01, 'hspace':0.01})
     axes[0,0].imshow(im,cmap='gray')
@@ -257,9 +269,18 @@ def test_transform():
     axes[1,0].axis('off')
     axes[1,0].margins(0,0)
 
-    axes[1,1].imshow(np.log(sizemap))
+    axes[1,1].imshow(affinity)
     axes[1,1].axis('off')
     axes[1,1].margins(0,0)
+
+    # axes[1,1].imshow(np.log(sizemap))
+    # axes[1,1].axis('off')
+    # axes[1,1].margins(0,0)
+
+    # axes[2,0].imshow(affinity)
+    # axes[2,0].axis('off')
+    # axes[2,0].margins(0,0)
+
     plt.margins(x=0.001,y=0.001)
     plt.subplots_adjust(wspace=0, hspace=0)
 
@@ -272,7 +293,7 @@ def test_transform():
     # cv2.waitKey(3000)
    
     plt.show()
-    plt.close('all')
+    #plt.close('all')
     if i >5:
       break
 

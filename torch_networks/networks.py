@@ -141,7 +141,7 @@ class Unet(nn.Module):
 
 
 class DUnet(nn.Module):
-    def __init__(self, grad_unet, in_ch =1, first_out_ch=16, out_ch =1, number_bolck=4,num_conv_in_block=2,ch_change_rate=2,kernel_size = 3):
+    def __init__(self, grad_unet, freeze_net1 =True, in_ch =1, first_out_ch=16, out_ch =1, number_bolck=4,num_conv_in_block=2,ch_change_rate=2,kernel_size = 3):
         super(DUnet, self).__init__()
         self.net1 = grad_unet
         self.net2 = Unet()
@@ -149,7 +149,8 @@ class DUnet(nn.Module):
         self.final_conv_in_net2 = nn.Conv2d(48,1,kernel_size=kernel_size,padding =kernel_size // 2) 
         self.net2.conv_2d_1 = self.first_conv_in_net2
         self.net2.finnal_conv2d = self.final_conv_in_net2
-        self.freezeWeight(self.net1)
+        if freeze_net1:
+            self.freezeWeight(self.net1)
     @property
     def name(self):
         return 'DUnet'
@@ -160,11 +161,10 @@ class DUnet(nn.Module):
 
     def forward(self,x):
         #x=self.finnal_conv2d(x)
-        x_net1_out = self.net1(x)
-        x_net2_in  = torch.cat((x_net1_out,x),1)
-        out        = self.net2(x_net2_in)
-        return out
-
+        gradient_out = self.net1(x)
+        x_net2_in  = torch.cat((gradient_out,x),1)
+        distance_out        = self.net2(x_net2_in)
+        return gradient_out,distance_out
 
 
 

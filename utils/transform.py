@@ -51,6 +51,33 @@ class label_transform(object):
                 out_dict['sizemap'] = sum_sizeMap
             output.append(out_dict)
         return tuple(output)
+class affinity(object):
+    """
+    Args:
+        2D numpy arrays whuch must be segmentation labels
+    """
+    def __init__(self, axis=3,distance=1):
+        self.distance = distance
+        self.axis     = axis
+    def __call__(self,*input):
+        for idex,_input in enumerate(input):
+            _shape =  _input.shape
+            print _shape
+            n_dim  =  _input.ndim
+            slice1 = [slice(None)]*n_dim
+            slice2 = [slice(None)]*n_dim
+            slice1[self.axis] = slice(self.distance,None)
+            slice2[self.axis] = slice(None,-self.distance)
+            affinityMap= (abs(_input[slice1] - _input[slice2]) > 0 ).astype(np.int32)
+            if self.axis ==-1:
+                zeros_pad_array = np.zeros([_shape[0], _shape[-2],self.distance])
+            elif self.axis ==-2:
+                zeros_pad_array = np.zeros([_shape[0], self.distance, _shape[-1]])
+            print zeros_pad_array.shape
+            print affinityMap.shape
+            affinityMap = np.concatenate([zeros_pad_array,affinityMap],self.axis)
+        return affinityMap
+
 
 class random_transform(object):
     def __init__(self,*transform):
