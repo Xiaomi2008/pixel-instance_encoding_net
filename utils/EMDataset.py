@@ -69,13 +69,16 @@ class CRIME_Dataset(Dataset):
         data -= 127.0
       seg_label   =np.array(self.lb_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.int)
 
-     # print ('seg_label shape ={}'.format(seg_label.shape))
-      affineXFuc=affinity(axis=-1,distance =10)
-      affineYFuc=affinity(axis=-2,distance =10)
+     
+     #set distance larget enough to conver the boundary 
+     # as to put more weight on bouday areas.
+     #, which is important when do cut for segmentation 
+      affineX=affinity(axis=-1,distance =10)
+      affineY=affinity(axis=-2,distance =10)
 
 
 
-      affinMap = ((affineXFuc(seg_label) + affineYFuc(seg_label))>0).astype(np.int)
+      affinMap = ((affineX(seg_label) + affineY(seg_label))>0).astype(np.int)
 
       #target_ch1,target_ch2 =self.gradient_gen(seg_label)
       #A =self.gradient_gen(seg_label)
