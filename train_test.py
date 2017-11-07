@@ -86,7 +86,7 @@ class train_test():
                 model_name=self.model.name
                 saveRawfiguers(i,'dist_t_map_'+model_name,distance)
                 saveRawfiguers(i,'dist_p_map_'+model_name,dist_pred)
-                saveRawfiguers(i,'raw_img_' + model_name, dist_pred)
+                saveRawfiguers(i,'dist_raw_img_' + model_name, data)
             if i >= iters-1:
                 break
         loss = loss / iters

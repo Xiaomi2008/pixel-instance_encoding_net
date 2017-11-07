@@ -133,17 +133,13 @@ class CRIME_Dataset(Dataset):
       #              'Set_B':'Sample B',
       #              'Set_C':'Sample C'
       #             }
-      #data_name = {'Set_B':'Sample B with extra transformed labels'}
-      #data_name = {'Set_A':'Sample A'}
       self.V = volumes[data_name[self.dataset]]
-      #self.gradX = self.V.data_dict['gradX_dataset']
-      #self.gradY = self.V.data_dict['gradY_dataset']
+      
       self.lb_data = self.V.data_dict['label_dataset']
       self.im_data = self.V.data_dict['image_dataset']
-      #self.gradX = self.lb_data
-      #self.gradY = self.lb_data
-      
-
+      #self.gradX = self.V.data_dict['gradX_dataset']
+      #self.gradY = self.V.data_dict['gradY_dataset']
+     
       # gradX = np.expand_dims(gradX, 1)
       # gradY = np.expand_dims(gradY, 1)
       # self.gd_data = np.concatenate((gradX,gradY),axis=1)
