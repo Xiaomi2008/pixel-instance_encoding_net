@@ -69,7 +69,7 @@ class CRIME_Dataset(Dataset):
         data -= 127.0
       seg_label   =np.array(self.lb_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.int)
 
-      print ('seg_label shape ={}'.format(seg_label.shape))
+     # print ('seg_label shape ={}'.format(seg_label.shape))
       affineXFuc=affinity(axis=-1,distance =10)
       affineYFuc=affinity(axis=-2,distance =10)
 
@@ -122,14 +122,14 @@ class CRIME_Dataset(Dataset):
       #data_config = 'conf/cremi_datasets.toml'
       volumes = HDF5Volume.from_toml(self.data_config)
       #data_name ={'Set_A':'Sample A','Set_B':'Sample B','Set_C':'Sample C'}
-      # data_name = {'Set_A':'Sample A with extra transformed labels',
-      #              'Set_B':'Sample B with extra transformed labels',
-      #              'Set_C':'Sample C with extra transformed labels'
-      #             }
-      data_name = {'Set_A':'Sample A',
-                   'Set_B':'Sample B',
-                   'Set_C':'Sample C'
+      data_name = {'Set_A':'Sample A with extra transformed labels',
+                   'Set_B':'Sample B with extra transformed labels',
+                   'Set_C':'Sample C with extra transformed labels'
                   }
+      # data_name = {'Set_A':'Sample A',
+      #              'Set_B':'Sample B',
+      #              'Set_C':'Sample C'
+      #             }
       #data_name = {'Set_B':'Sample B with extra transformed labels'}
       #data_name = {'Set_A':'Sample A'}
       self.V = volumes[data_name[self.dataset]]

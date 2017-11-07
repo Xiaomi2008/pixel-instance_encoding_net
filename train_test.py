@@ -13,7 +13,7 @@ from torch_networks.networks import Unet,DUnet
 from torch_networks.duc  import ResNetDUCHDC
 from torch_networks.gcn import GCN
 from torch_networks.unet2 import UNet as Unet2
-from utils.torch_loss_functions import angularLoss,dice_loss,l2_norm
+from utils.torch_loss_functions import angularLoss,dice_loss,l2_norm,weighted_mse_loss
 from utils.printProgressBar import printProgressBar
 from label_transform.volumes import Volume
 from label_transform.volumes import HDF5Volume
@@ -42,9 +42,7 @@ class train_test():
             self.model.cuda()
         self.use_parallel = False
         self.mse_loss = torch.nn.MSELoss()
-        def weighted_mse_loss(input, target, weight):
-            return torch.sum(weight * (input - target) ** 2)
-        self.weight_mes_loss= weighted_mse_loss
+        #self.weight_mes_loss= weighted_mse_loss
         # x=filter(lambda x: x.requires_grad, model.parameters())
         # self.optimizer    = optim.Adagrad(self.model.parameters(), 
         #                                     lr=0.01, 
@@ -88,6 +86,7 @@ class train_test():
                 model_name=self.model.name
                 saveRawfiguers(i,'dist_t_map_'+model_name,distance)
                 saveRawfiguers(i,'dist_p_map_'+model_name,dist_pred)
+                saveRawfiguers(i,'raw_img_' + model_name, dist_pred)
             if i >= iters-1:
                 break
         loss = loss / iters
@@ -142,8 +141,8 @@ class train_test():
         if use_parallel:
             self.model = torch.nn.DataParallel(self.model, device_ids=gpus)
             num_workers =2
+        # set model to the train mode
         self.model.train()
-        #dataset = CRIME_Dataset(out_size  = self.input_size,phase = 'train')
         dataset  = self.trainDataset
         train_loader = DataLoader(dataset =dataset,
                                   batch_size=8,
@@ -158,19 +157,27 @@ class train_test():
                 #data, gradient = Variable(data).float(), Variable(gradient).float()
                 distance = target['distance']
                 objSize  = target['sizemap']
-                data, gradient, distance = Variable(data).float(), Variable(gradient).float(), Variable(distance).float()
+                affinity = torch.clamp(target['affinity'], min=0.05, max =0.95)
+
+                #affinity =affinity*0 +1.0
+
+                data, gradient, distance, affinity \
+                = Variable(data).float(), Variable(gradient).float(), \
+                  Variable(distance).float(), Variable(affinity)
                 
                   
                 if self.use_gpu:
                      data     = data.cuda().float()
                      gradient = gradient.cuda().float()
                      distance = distance.cuda().float()
+                     affinity = affinity.cuda().float()
                 
                 self.optimizer.zero_grad()
                 grad_pred,dist_pred = self.model(data)
                 ang_loss = angularLoss(grad_pred, gradient)
-                dist_loss = self.mse_loss(dist_pred,distance)
-                loss = 0.95*dist_loss+0.05*ang_loss
+                #dist_loss = self.mse_loss(dist_pred,distance)
+                dist_loss =weighted_mse_loss(distance,dist_pred,affinity)
+                loss = 0.9995*dist_loss+0.0005*ang_loss
                 loss.backward()
                 self.optimizer.step()
                 runing_loss += loss.data[0]
@@ -411,7 +418,7 @@ if __name__ =='__main__':
     #model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=None)
     #model, model_file = create_model('DUCHDC',input_size = input_size,pretrained_iter=9999)
 
-    model,model_file = creat_dist_net_from_grad_unet(model_pretrained_iter=76499)
+    model,model_file = creat_dist_net_from_grad_unet(model_pretrained_iter=10249)
     #unet_pretrained_iter = 11999
     TrTs =train_test(model=model, input_size=input_size,pretrained_model= model_file)
     TrTs.train()

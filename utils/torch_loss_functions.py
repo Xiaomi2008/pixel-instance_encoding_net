@@ -22,6 +22,8 @@ def dice_loss(input, target):
 
     return 1.0 - (((2. * intersection + smooth) /
               (iflat.sum() + tflat.sum() + smooth)))
+def weighted_mse_loss(input, target, weight):
+    return torch.sum(weight * (input - target) ** 2)
 
 def angularLoss(pred, gt, weight=0, outputChannels=2):
    

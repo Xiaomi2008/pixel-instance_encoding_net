@@ -62,7 +62,7 @@ class affinity(object):
     def __call__(self,*input):
         for idex,_input in enumerate(input):
             _shape =  _input.shape
-            print _shape
+            #print _shape
             n_dim  =  _input.ndim
             slice1 = [slice(None)]*n_dim
             slice2 = [slice(None)]*n_dim
@@ -73,8 +73,8 @@ class affinity(object):
                 zeros_pad_array = np.zeros([_shape[0], _shape[-2],self.distance])
             elif self.axis ==-2:
                 zeros_pad_array = np.zeros([_shape[0], self.distance, _shape[-1]])
-            print zeros_pad_array.shape
-            print affinityMap.shape
+            #print zeros_pad_array.shape
+            #print affinityMap.shape
             affinityMap = np.concatenate([zeros_pad_array,affinityMap],self.axis)
         return affinityMap
 
