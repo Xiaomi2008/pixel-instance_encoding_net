@@ -15,7 +15,7 @@ class label_transform(object):
     def __call__(self,*input):
         """
         Args:
-         2D numpy arrays whuch must be segmentation labels
+         2D numpy arrays, must be segmentation labels
         """
         output =[]
         dx,dy   = 1,1

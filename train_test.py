@@ -59,6 +59,7 @@ class train_test():
         self.trainDataset = CRIME_Dataset(out_size  = self.input_size, phase = 'train',subtract_mean =True,transform = self.tranform)
         self.validDataset = CRIME_Dataset(out_size  = self.input_size, phase = 'valid',subtract_mean =True, dataset='Set_A')
         if self.model_file:
+            print('Load weights  from {}'.format(self.model_file))
             self.model.load_state_dict(torch.load(self.model_file))
     
     def build_transformer(self):
@@ -418,7 +419,7 @@ if __name__ =='__main__':
     #model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=None)
     #model, model_file = create_model('DUCHDC',input_size = input_size,pretrained_iter=9999)
 
-    model,model_file = creat_dist_net_from_grad_unet(model_pretrained_iter=10249)
+    model,model_file = creat_dist_net_from_grad_unet(model_pretrained_iter=3749)
     #unet_pretrained_iter = 11999
     TrTs =train_test(model=model, input_size=input_size,pretrained_model= model_file)
     TrTs.train()
