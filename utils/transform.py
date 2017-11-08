@@ -169,11 +169,15 @@ class Contrast(object):
     def __call__(self, *inputs):
         outputs = []
         for idx, _input in enumerate(inputs):
-            channel_means = _input.mean(1).mean(2)
-            channel_means = channel_means.expand_as(_input)
-            _input = th.clamp((_input - channel_means) * self.value + channel_means,0,1)
-            outputs.append(_input)
-        return outputs if idx > 1 else outputs[0]
+            if idx == 0:
+                channel_means = np.mean(_input)
+                _input = np.clip(((_input - channel_means) * self.value + channel_means), a_min = 0, a_max = 255)
+                #_input -= np.min(_input)
+                #_input = (_input/np.max(_input)) * 255
+                outputs.append(_input)
+            else:
+                outputs.append(_input)
+        return outputs 
 
 class RandomContrast(object):
 
