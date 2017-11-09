@@ -42,22 +42,22 @@ class train_test():
             self.model.cuda()
         self.use_parallel = False
         self.mse_loss = torch.nn.MSELoss()
-        #self.weight_mes_loss= weighted_mse_loss
-        # x=filter(lambda x: x.requires_grad, model.parameters())
-        # self.optimizer    = optim.Adagrad(self.model.parameters(), 
-        #                                     lr=0.01, 
-        #                                     lr_decay=0, 
-        #                                     weight_decay=0)
-
-
-        self.optimizer    = optim.Adagrad(filter(lambda x: x.requires_grad, self.model.parameters()), 
+        self.optimizer    = optim.Adagrad(filter(lambda x: x.requires_grad, self.model.parameters()),
                                             lr=0.01, 
                                             lr_decay=0, 
                                             weight_decay=0)
         #subtract_mean = False if model.name is 'Unet' else True
         self.tranform = self.build_transformer()
-        self.trainDataset = CRIME_Dataset(out_size  = self.input_size, phase = 'train',subtract_mean =True,transform = self.tranform)
-        self.validDataset = CRIME_Dataset(out_size  = self.input_size, phase = 'valid',subtract_mean =True, dataset='Set_A')
+        
+        self.trainDataset = CRIME_Dataset(out_size      =  self.input_size, 
+                                          phase         =  'train',
+                                          subtract_mean =  True,
+                                          transform     =  self.tranform)
+        
+        self.validDataset = CRIME_Dataset(out_size      =  self.input_size, 
+                                          phase         =  'valid',
+                                          subtract_mean =   True, 
+                                          dataset       =   'Set_A')
         if self.model_file:
             print('Load weights  from {}'.format(self.model_file))
             self.model.load_state_dict(torch.load(self.model_file))
@@ -153,18 +153,14 @@ class train_test():
             runing_loss = 0.0
             start_time = time.time()
             for i, (data,target) in enumerate(train_loader, 0):
-                #target = target[:,0,:,:,:]
                 gradient = target['gradient']
-                #data, gradient = Variable(data).float(), Variable(gradient).float()
                 distance = target['distance']
                 objSize  = target['sizemap']
                 affinity = torch.clamp(target['affinity'], min=0.05, max =0.95)
-
-                #affinity =affinity*0 +1.0
-
+                
                 data, gradient, distance, affinity \
                 = Variable(data).float(), Variable(gradient).float(), \
-                  Variable(distance).float(), Variable(affinity)
+                  Variable(distance).float(), Variable(affinity).float()
                 
                   
                 if self.use_gpu:
@@ -177,6 +173,7 @@ class train_test():
                 grad_pred,dist_pred = self.model(data)
                 ang_loss = angularLoss(grad_pred, gradient)
                 #dist_loss = self.mse_loss(dist_pred,distance)
+                distance = distance * (1-affinity)
                 dist_loss =weighted_mse_loss(distance,dist_pred,affinity)
                 loss = 0.9995*dist_loss+0.0005*ang_loss
                 loss.backward()

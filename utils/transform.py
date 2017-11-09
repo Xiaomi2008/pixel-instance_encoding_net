@@ -5,15 +5,21 @@ from scipy.ndimage.morphology import distance_transform_edt as dis_transform
 import scipy.ndimage as nd
 
 class label_transform(object):
-    def __init__(self, gradient = True, 
-                       distance = True,
-                       objSizeMap =False):
+    def __init__(self, gradient     = True, 
+                       distance     = True,
+                       objSizeMap   = False,
+                       objCenterMap = False):
         self.gradient = gradient
         self.distance = distance
         self.objSizeMap =objSizeMap
+        self.objCenterMap = objCenterMap
 
     def __call__(self,*input):
         """
+        Given input segmentation label of objects(neurons), 
+        Generate 'Distance transform', 'gradient', 'size of object'
+        labels.
+        
         Args:
          2D numpy arrays, must be segmentation labels
         """
@@ -41,6 +47,7 @@ class label_transform(object):
             sum_gx = np.expand_dims(sum_gx,0)
             sum_gy = np.expand_dims(sum_gy,0)
             sum_dt = np.expand_dims(sum_dt,0)
+            
             if self.objSizeMap:
                 sum_sizeMap = np.expand_dims(sum_sizeMap,0)
             out_dict ={}
@@ -50,7 +57,12 @@ class label_transform(object):
             if self.objSizeMap:
                 out_dict['sizemap'] = sum_sizeMap
             output.append(out_dict)
+
         return tuple(output)
+
+class centerMap(Object):
+    def __call__(self, *input, )
+
 class affinity(object):
     """
     Args:
@@ -73,8 +85,6 @@ class affinity(object):
                 zeros_pad_array = np.zeros([_shape[0], _shape[-2],self.distance])
             elif self.axis ==-2:
                 zeros_pad_array = np.zeros([_shape[0], self.distance, _shape[-1]])
-            #print zeros_pad_array.shape
-            #print affinityMap.shape
             affinityMap = np.concatenate([zeros_pad_array,affinityMap],self.axis)
         return affinityMap
 

@@ -19,12 +19,12 @@ class CRIME_Dataset(Dataset):
     """ EM dataset."""
 
     # Initialize EM data
-    def __init__(self, out_size = 224, 
-                 dataset = 'Set_A',
-                 subtract_mean = False,
-                 phase   = 'train',
-                 transform = None,
-                 data_config = 'conf/cremi_datasets_with_tflabels.toml'):
+    def __init__(self, out_size =   224, 
+                 dataset        =   'Set_A',
+                 subtract_mean  =   True,
+                 phase          =   'train',
+                 transform      =   None,
+                 data_config    =   'conf/cremi_datasets_with_tflabels.toml'):
       self.dataset      = dataset
       self.phase        = phase
       self.x_out_size   = out_size
@@ -33,13 +33,14 @@ class CRIME_Dataset(Dataset):
       self.data_config  = data_config
       self.subtract_mean = subtract_mean
       self.transform = transform
+      self.set_phase(phase)
       self.load_hdf()
 
-      dim_shape         = self.im_data.shape
-      self.y_size       = dim_shape[2] -self.x_out_size + 1
-      self.x_size       = dim_shape[1] -self.y_out_size + 1 
-      self.set_phase(phase)
-      self.label_trans_gen = label_transform(objSizeMap =True)
+      dim_shape             = self.im_data.shape
+
+      self.y_size           = dim_shape[2] -self.x_out_size + 1
+      self.x_size           = dim_shape[1] -self.y_out_size + 1 
+      self.label_generator  = label_transform(objSizeMap =True)
       #self.z_size       = dim_shape[0] -self.z_out_size + 1
     def set_phase(self,phase):
       self.phase = phase
@@ -75,16 +76,7 @@ class CRIME_Dataset(Dataset):
      #, which is important when do cut for segmentation 
       affineX=affinity(axis=-1,distance =10)
       affineY=affinity(axis=-2,distance =10)
-
-
-
       affinMap = ((affineX(seg_label) + affineY(seg_label))>0).astype(np.int)
-
-      #target_ch1,target_ch2 =self.gradient_gen(seg_label)
-      #A =self.gradient_gen(seg_label)
-      #print type(A)
-      #target_ch1  =np.array(self.gradX[z_start:z_end,x_start:x_end,y_start:y_end])
-      #target_ch2  =np.array(self.gradY[z_start:z_end,x_start:x_end,y_start:y_end])
 
       if self.transform:
         data,seg_label,affinMap  = self.transform(data,seg_label,affinMap)
@@ -92,9 +84,9 @@ class CRIME_Dataset(Dataset):
       
 
       # compute the runtime obj graidient instead of pre-computed one
-      # to avoid using wrong gradient map after the label augmentation
+      # to avoid using wrong gradient map when performing data augmentation
       # such as flip, rotate etc.
-      trans_data_list = self.label_trans_gen(seg_label)
+      trans_data_list = self.label_generator(seg_label)
       grad_x, grad_y = trans_data_list[0]['gradient']
       grad  = np.concatenate((grad_x,grad_y),0)
       
@@ -299,22 +291,3 @@ def test_transform():
 
 if __name__ == '__main__':
   test_transform()
-  #test_angluar_map()
-  # data_config = '../conf/cremi_datasets_with_tflabels.toml'
-  # dataset = CRIME_Dataset(data_config = data_config)
-  # train_loader = DataLoader(dataset=dataset,
-  #                         batch_size=1,
-  #                         shuffle=True,
-  #                         num_workers=1)
-  # for epoch in range(1):
-  #   #d,l = dataset.__getitem__(1000)
-  #   for i, data in enumerate(train_loader, start=0):
-  #        # get the inputs
-  #        inputs, labels = data
-  #        labels = labels[:,0,:,:,:]
-  #        pdb.set_trace()
-  #        print ('iter = {} shape labels = {}'.format(i,labels.shape))
-  #        saveGradfiguers(i,'grad',labels,)
-  #        #saveRawfiguers(i,'raw',inputs,)
-  #        if i > 3:
-  #         break
