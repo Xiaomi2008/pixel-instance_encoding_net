@@ -61,7 +61,9 @@ class label_transform(object):
         return tuple(output)
 
 class centerMap(Object):
-    def __call__(self, *input, )
+    def __call__(self, *input, input_type = 'BinaryMap'):
+        for idex, _input in enumerate(inputs):
+           pass 
 
 class affinity(object):
     """
