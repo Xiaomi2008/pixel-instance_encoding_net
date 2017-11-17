@@ -13,7 +13,7 @@ from torch_networks.networks import Unet,DUnet
 from torch_networks.duc  import ResNetDUCHDC
 from torch_networks.gcn import GCN
 from torch_networks.unet2 import UNet as Unet2
-from utils.torch_loss_functions import angularLoss,dice_loss,l2_norm,weighted_mse_loss
+from utils.torch_loss_functions import * #angularLoss,dice_loss,l2_norm,weighted_mse_loss
 from utils.printProgressBar import printProgressBar
 from label_transform.volumes import Volume
 from label_transform.volumes import HDF5Volume
@@ -37,7 +37,7 @@ class train_test():
         self.model_saved_dir   = 'models'
         self.model_save_steps  = 250
         self.model             = model.float()
-        self.use_gpu           = torch.cuda.is_available()
+        self.use_gpu           = True and torch.cuda.is_available()
         if self.use_gpu:
             self.model.cuda()
         self.use_parallel = False
@@ -81,8 +81,6 @@ class train_test():
                 distance =distance.cuda().float()
             grad_pred,dist_pred = self.model(data)
             loss += self.mse_loss(dist_pred,distance).data[0]
-            #print('t shape = {}'.format(target.data.shape))
-            #print('p shape = {}'.format(pred.data.shape))
             if i % iters ==0:
                 model_name=self.model.name
                 saveRawfiguers(i,'dist_t_map_'+model_name,distance)
@@ -156,7 +154,8 @@ class train_test():
                 gradient = target['gradient']
                 distance = target['distance']
                 objSize  = target['sizemap']
-                affinity = torch.clamp(target['affinity'], min=0.05, max =0.95)
+                #affinity = torch.clamp(target['affinity'], min=0.05, max =0.95)
+                affinity = target['affinity']
                 
                 data, gradient, distance, affinity \
                 = Variable(data).float(), Variable(gradient).float(), \
@@ -174,7 +173,8 @@ class train_test():
                 ang_loss = angularLoss(grad_pred, gradient)
                 #dist_loss = self.mse_loss(dist_pred,distance)
                 distance = distance * (1-affinity)
-                dist_loss =weighted_mse_loss(distance,dist_pred,affinity)
+                dist_loss = boundary_sensitive_loss(dist_pred,distance,affinity)
+                #dist_loss =weighted_mse_loss(distance,dist_pred,affinity)
                 loss = 0.9995*dist_loss+0.0005*ang_loss
                 loss.backward()
                 self.optimizer.step()
@@ -220,15 +220,15 @@ class train_test():
                 data   = data.cuda().float()
                 gradient = gradient.cuda().float()
 
-            pred = self.model(data)
-            loss = angularLoss(pred, gradient)
+            grad_pred ,dist_pred= self.model(data)
+            loss = angularLoss(grad_pred, gradient)
             print('loss:{}'.format(loss.data[0]))
             ang_t_map=compute_angular(gradient)
-            ang_p_map=compute_angular(pred)
+            ang_p_map=compute_angular(grad_pred)
             saveRawfiguers(i,'ang_t_map_{}'.format(self.model.name),ang_t_map)
             saveRawfiguers(i,'ang_p_map_{}'.format(self.model.name),ang_p_map)
-            pred_x = pred.data[:,0,:,:]
-            pred_y = pred.data[:,1,:,:]
+            pred_x = dist_pred.data[:,0,:,:]
+            pred_y = dist_pred.data[:,1,:,:]
             saveRawfiguers(i,'pred_x_{}'.format(self.model.name),pred_x)
             saveRawfiguers(i,'pred_y_{}'.format(self.model.name),pred_y)
             if i > 5:
@@ -250,13 +250,13 @@ class train_test():
                 data   = data.cuda().float()
                 distance = distance.cuda().float()
 
-            pred = self.model(data)
-            loss = self.mse_loss(pred, distance)
+            gred_pred,dist_pred = self.model(data)
+            loss = self.mse_loss(dist_pred, distance)
             print('loss:{}'.format(loss.data[0]))
             model_name=self.model.name
             saveRawfiguers(i,'dist_t_map_'+model_name,distance)
-            saveRawfiguers(i,'dist_p_map_'+model_name,pred)
-            watershed_d(i,pred)
+            saveRawfiguers(i,'dist_p_map_'+model_name,dist_pred)
+            watershed_d(i,dist_pred)
             if i > 7:
                 break
 
@@ -326,7 +326,7 @@ def watershed_d(i,distance):
     #labels = watershed(-distance, markers)
 
 
-    ccImage = (distance > 2)
+    ccImage = (distance > 3)
     #ccImage=skeletonize(ccImage)
     labels = skimage.morphology.label(ccImage)
     #labels = skimage.morphology.remove_small_objects(labels, min_size=4)
@@ -409,16 +409,16 @@ def creat_dist_net_from_grad_unet(model_pretrained_iter=None, unet_pretrained_it
     return model, model_file
 
 if __name__ =='__main__':
-    input_size =320
+    input_size =512
     # model, model_file = create_model('Unet',input_size=input_size,pretrained_iter=11999)
     #model, model_file = create_model('Unet2',input_size=input_size,pretrained_iter=10999)
     #model, model_file = create_model('Unet2DeformConv',input_size=input_size,pretrained_iter=None)
     #model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=None)
     #model, model_file = create_model('DUCHDC',input_size = input_size,pretrained_iter=9999)
 
-    model,model_file = creat_dist_net_from_grad_unet(model_pretrained_iter=3749)
+    model,model_file = creat_dist_net_from_grad_unet(model_pretrained_iter=90749)
     #unet_pretrained_iter = 11999
     TrTs =train_test(model=model, input_size=input_size,pretrained_model= model_file)
-    TrTs.train()
+    #TrTs.train()
     #TrTs.test()
-    #TrTs.test_dist()
+    TrTs.test_dist()

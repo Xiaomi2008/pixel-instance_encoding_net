@@ -2,7 +2,9 @@ import random
 import torch
 import numpy as np
 from scipy.ndimage.morphology import distance_transform_edt as dis_transform
+from scipy.ndimage.measurements import center_of_mass
 import scipy.ndimage as nd
+import pdb
 
 class label_transform(object):
     def __init__(self, gradient     = True, 
@@ -48,32 +50,65 @@ class label_transform(object):
             sum_gy = np.expand_dims(sum_gy,0)
             sum_dt = np.expand_dims(sum_dt,0)
             
+
+
+            out_dict ={}
             if self.objSizeMap:
                 sum_sizeMap = np.expand_dims(sum_sizeMap,0)
-            out_dict ={}
+                out_dict['sizemap'] = sum_sizeMap
             out_dict['gradient'] = (sum_gx,sum_gy)
             if self.distance:
                 out_dict['distance'] = sum_dt
-            if self.objSizeMap:
-                out_dict['sizemap'] = sum_sizeMap
+            # if self.objSizeMap:
+            #     out_dict['sizemap'] = sum_sizeMap
+
             output.append(out_dict)
 
         return tuple(output)
 
-class centerMap(Object):
-    def __call__(self, *input, input_type='BinaryMap'):
-        for idex, _input in enumerate(inputs):
-           pass 
+class objCenterMap(object):
+    def __call__(self, *input):
+        out_list = []
+        aff_x = affinity(axis = -1,distance =2)
+        aff_y = affinity(axis = -2,distance =2)
+
+        compute_boundary = lambda x: ((aff_x(x)[0]+aff_y(x)[0])==0).astype(np.int)
+        for idex, _input in enumerate(input):
+            _input =np.squeeze(_input)
+            s_ids =np.unique(_input).tolist()
+            x_center =np.zeros_like(_input).astype(np.float)
+            y_center =np.zeros_like(_input).astype(np.float)
+            data = compute_boundary(_input)
+            label,f =nd.label(data)
+            #print np.unique(label)
+            centers = center_of_mass(data, labels=label,index=np.unique(label)[1:])
+            #print centers
+            for i, (cx,cy) in enumerate(centers):
+                obj_arr = (label == i+1)
+                x_center[obj_arr] = cx / obj_arr.shape[0]
+                y_center[obj_arr] = cy / obj_arr.shape[1]
+            x_center = np.expand_dims(x_center,0)
+            y_center = np.expand_dims(y_center,0)
+            out_list.append((x_center,y_center))
+        return tuple(out_list)
+
+def my_center_of_mass(x):
+    pass
+
+
+
+
 
 class affinity(object):
     """
     Args:
         2D numpy arrays whuch must be segmentation labels
     """
-    def __init__(self, axis=3,distance=1):
+    def __init__(self, axis=-1,distance=1):
         self.distance = distance
         self.axis     = axis
     def __call__(self,*input):
+        out_list  =[]
         for idex,_input in enumerate(input):
             _shape =  _input.shape
             #print _shape
@@ -83,12 +118,24 @@ class affinity(object):
             slice1[self.axis] = slice(self.distance,None)
             slice2[self.axis] = slice(None,-self.distance)
             affinityMap= (abs(_input[slice1] - _input[slice2]) > 0 ).astype(np.int32)
-            if self.axis ==-1:
-                zeros_pad_array = np.zeros([_shape[0], _shape[-2],self.distance])
-            elif self.axis ==-2:
-                zeros_pad_array = np.zeros([_shape[0], self.distance, _shape[-1]])
-            affinityMap = np.concatenate([zeros_pad_array,affinityMap],self.axis)
-        return affinityMap
+            zeros_pad_array = np.zeros_like(affinityMap)
+
+            padslice1 = [slice(None)]*n_dim
+            #padslice2 = [slice(None)]*n_dim
+            padslice1[self.axis] = slice(None,self.distance)
+
+            affinityMap = np.concatenate([zeros_pad_array[padslice1],affinityMap],self.axis)
+
+
+            # if self.axis ==-1:
+            #     zeros_pad_array = np.zeros([_shape[0], _shape[-2],self.distance])
+            # elif self.axis ==-2:
+            #     zeros_pad_array = np.zeros([_shape[0], self.distance, _shape[-1]])
+            # print zeros_pad_array.shape, affinityMap.shape,self.axis
+            # affinityMap = np.concatenate([zeros_pad_array,affinityMap],self.axis)
+            out_list.append(affinityMap)
+        return tuple(out_list)
+        #return affinityMap
 
 
 class random_transform(object):

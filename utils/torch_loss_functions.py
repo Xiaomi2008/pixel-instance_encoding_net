@@ -25,6 +25,11 @@ def dice_loss(input, target):
 def weighted_mse_loss(input, target, weight):
     return torch.sum(weight * (input - target) ** 2)
 
+
+def boundary_sensitive_loss(input,target,boudary):
+     return torch.sum(torch.clamp(boudary* (0 - input) ** 2,min=0) + 0.5*(1-boudary)*(torch.abs(input-target)))
+
+
 def angularLoss(pred, gt, weight=0, outputChannels=2):
    
    # pred        = l2_norm(pred)*0.9999999999

@@ -74,13 +74,25 @@ class CRIME_Dataset(Dataset):
      #set distance larget enough to conver the boundary 
      # as to put more weight on bouday areas.
      #, which is important when do cut for segmentation 
-      affineX=affinity(axis=-1,distance =10)
-      affineY=affinity(axis=-2,distance =10)
-      affinMap = ((affineX(seg_label) + affineY(seg_label))>0).astype(np.int)
+      affineX=affinity(axis=-1,distance =2)
+      affineY=affinity(axis=-2,distance =2)
+      affinMap = ((affineX(seg_label)[0] + affineY(seg_label)[0])>0).astype(np.int)
+
+
+      centermap = objCenterMap()
+      [(x_centerMap, y_centerMap)] = centermap(seg_label)
 
       if self.transform:
-        data,seg_label,affinMap  = self.transform(data,seg_label,affinMap)
-        #data, target_ch1, target_ch2 = self.transform(data,target_ch1,target_ch2)
+        data,seg_label,affinMap,x_centerMap,y_centerMap = self.transform(data,seg_label,affinMap,x_centerMap,y_centerMap)
+
+      objCenter_map = np.concatenate((x_centerMap,y_centerMap),0) 
+      
+
+
+      # if self.transform:
+      #   data,seg_label,affinMap = self.transform(data,seg_label,affinMap)
+
+
       
 
       # compute the runtime obj graidient instead of pre-computed one
@@ -91,13 +103,19 @@ class CRIME_Dataset(Dataset):
       grad  = np.concatenate((grad_x,grad_y),0)
       
 
+
+
       tc_label_dict ={}
       for key,value in trans_data_list[0].iteritems():
         tc_label_dict[key] = torch.from_numpy(value).float() \
                                  if key is not 'gradient' \
                                  else torch.from_numpy(grad).float()
 
-      tc_label_dict['affinity'] = torch.from_numpy(affinMap).float()
+      tc_label_dict['affinity']  = torch.from_numpy(affinMap).float()
+
+      tc_label_dict['centermap'] = torch.from_numpy(objCenter_map).float()
+
+      #print ('here is center shape ={}'.format(objCenter_map.shape))
 
       #tc_data, tc_grad, = torch.from_numpy(data).float(), torch.from_numpy(grad).float()
       tc_data = torch.from_numpy(data).float()
@@ -219,18 +237,21 @@ def test_angluar_map():
 
 
 def test_transform():
-  #data_config = '../conf/cremi_datasets_with_tflabels.toml'
-  data_config = '../conf/cremi_datasets.toml'
+  data_config = '../conf/cremi_datasets_with_tflabels.toml'
+  #data_config = '../conf/cremi_datasets.toml'
   trans=random_transform(VFlip(),HFlip(),Rot90())
-  dataset = CRIME_Dataset(data_config = data_config,phase='valid',transform = trans,out_size = 512,dataset='Set_A')
-  train_loader = DataLoader(dataset=dataset,
-                          batch_size=2,
-                          shuffle=True,
-                          num_workers=1)
+  dataset = CRIME_Dataset(data_config   = data_config,phase='valid',transform = trans,out_size = 512,dataset='Set_A')
+  train_loader = DataLoader(dataset     = dataset,
+                            batch_size  = 1,
+                            shuffle     = True,
+                            num_workers = 1)
   for i , (inputs,target) in enumerate(train_loader,start =0):
+  #for i , all in enumerate(train_loader,start =0):
+    
     #labels = labels[:,0,:,:,:]
     #print inputs.shape
     im  = inputs[0,0].numpy()
+    #pdb.set_trace()
     #tg1 = target['gradient'][0,0].numpy()
     #tg2 = target['gradient'][0,1].numpy()
     ang_map=compute_angular(target['gradient'])[0].numpy()
@@ -240,19 +261,23 @@ def test_transform():
 
     #print('ang_mp shape = {}'.format(ang_map.shape))
     #print('dist shape {}'.format(target['distance'].shape))
-    dist    = target['distance'][0].numpy()
+    dist     = target['distance'][0].numpy()
     sizemap  = target['sizemap'][0].numpy()
     affinity = target['affinity'][0].numpy()
-    dist    = np.squeeze(dist)
-    sizemap = np.squeeze(sizemap)
-    affinity =np.squeeze(affinity)
+    centermap = target['centermap'][0].numpy()
+    dist     = np.squeeze(dist)
+    sizemap  = np.squeeze(sizemap)
+    affinity = np.squeeze(affinity)
+    center_x   = np.squeeze(centermap[0])
+    center_y   = np.squeeze(centermap[1])
+    #print('center shape ={}'.format(center.shape))
 
-    fig,axes = plt.subplots(nrows =2, ncols=2,gridspec_kw = {'wspace':0.01, 'hspace':0.01})
+    fig,axes = plt.subplots(nrows =2, ncols=3,gridspec_kw = {'wspace':0.01, 'hspace':0.01})
     axes[0,0].imshow(im,cmap='gray')
     axes[0,0].axis('off')
     axes[0,0].margins(0,0)
     
-    axes[0,1].imshow(ang_map)
+    axes[0,1].imshow(affinity)
     axes[0,1].axis('off')
     axes[0,1].margins(0,0)
     
@@ -260,9 +285,18 @@ def test_transform():
     axes[1,0].axis('off')
     axes[1,0].margins(0,0)
 
-    axes[1,1].imshow(affinity)
+    axes[1,1].imshow(np.log(sizemap))
     axes[1,1].axis('off')
     axes[1,1].margins(0,0)
+
+
+    axes[0,2].imshow(center_x)
+    axes[0,2].axis('off')
+    axes[0,2].margins(0,0)
+
+    axes[1,2].imshow(center_y)
+    axes[1,2].axis('off')
+    axes[1,2].margins(0,0)
 
     # axes[1,1].imshow(np.log(sizemap))
     # axes[1,1].axis('off')
@@ -274,15 +308,7 @@ def test_transform():
 
     plt.margins(x=0.001,y=0.001)
     plt.subplots_adjust(wspace=0, hspace=0)
-
-
-    #fig.tight_layout()
-    # ax1 =fig.add_subplot(121)
-    # ax1.show(im)
-    # ax2 =fig.add_subplot(122)
-    # ax2.show(tg)
-    # cv2.waitKey(3000)
-   
+  
     plt.show()
     #plt.close('all')
     if i >5:
