@@ -298,14 +298,6 @@ def test_transform():
     axes[1,2].axis('off')
     axes[1,2].margins(0,0)
 
-    # axes[1,1].imshow(np.log(sizemap))
-    # axes[1,1].axis('off')
-    # axes[1,1].margins(0,0)
-
-    # axes[2,0].imshow(affinity)
-    # axes[2,0].axis('off')
-    # axes[2,0].margins(0,0)
-
     plt.margins(x=0.001,y=0.001)
     plt.subplots_adjust(wspace=0, hspace=0)
   

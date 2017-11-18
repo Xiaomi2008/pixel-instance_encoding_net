@@ -35,7 +35,7 @@ class train_test():
         self.input_size = input_size 
         self.model_file = pretrained_model
         self.model_saved_dir   = 'models'
-        self.model_save_steps  = 250
+        self.model_save_steps  = 500
         self.model             = model.float()
         self.use_gpu           = True and torch.cuda.is_available()
         if self.use_gpu:
