@@ -82,7 +82,7 @@ class conv_bn_relu(nn.Module):
         self.conv      = nn.Conv2d(self.in_ch,self.out_ch,self.same_padding)
         self.BatchNorm = nn.BatchNorm2d(out_ch)
         self.ReLU      = nn.ReLU()
-    def forward(self.x):
+    def forward(self,x):
         #x1 = self.Conv2d(x)
         #x1 = self.BatchNorm(x)
         #x1 = self.ReLU(x)
