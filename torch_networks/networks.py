@@ -74,11 +74,12 @@ class Upblock(nn.Module):
             layers.append(nn.ReLU())
         return layers
 class conv_bn_relu(nn.Module):
-    def __init__(self,in_ch,out_ch,kernel_size = 3):
+    def __init__(self, in_ch, out_ch, kernel_size = 3):
         super(conv_bn_relu,self).__init__()
         self.in_ch  = in_ch
         self.out_ch = out_ch
-        self.same_padding = (self.kernel_size -1)/2
+        self.kernel_size = kernel_size
+        self.same_padding = (kernel_size -1)/2
         self.conv      = nn.Conv2d(self.in_ch,self.out_ch,self.same_padding)
         self.BatchNorm = nn.BatchNorm2d(out_ch)
         self.ReLU      = nn.ReLU()
@@ -98,7 +99,7 @@ class Unet(nn.Module):
         
         #self.conv_2d_1 = nn.Conv2d(in_ch, first_out_ch, kernel_size=kernel_size, padding=kernel_size //2 )
 
-        self.conv_2d_1 = conv_bn_relu(in_ch, first_out_ch, kernel_size=kernel_size)
+        self.conv_2d_1 = conv_bn_relu(in_ch, first_out_ch, kernel_size = kernel_size)
         
         self.down_block_1 = Downblock(first_out_ch,num_conv_in_block,ch_change_rate,kernel_size)
         
