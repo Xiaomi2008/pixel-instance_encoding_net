@@ -73,6 +73,21 @@ class Upblock(nn.Module):
             layers.append(nn.BatchNorm2d(out_ch))
             layers.append(nn.ReLU())
         return layers
+class conv_bn_relu(nn.Module):
+    def __init__(self,in_ch,out_ch,kernel_size = 3):
+        super(conv_bn_relu,self).__init__()
+        self.in_ch  = in_ch
+        self.out_ch = out_ch
+        self.same_padding = (self.kernel_size -1)/2
+        self.conv      = nn.Conv2d(self.in_ch,self.out_ch,self.same_padding)
+        self.BatchNorm = nn.BatchNorm2d(out_ch)
+        self.ReLU      = nn.ReLU()
+    def forward(self.x):
+        #x1 = self.Conv2d(x)
+        #x1 = self.BatchNorm(x)
+        #x1 = self.ReLU(x)
+        return self.ReLU(self.BatchNorm(self.Conv2d(x)))
+        
 
 class Unet(nn.Module):
     def __init__(self, in_ch =1, first_out_ch=16, out_ch =1, number_bolck=4,num_conv_in_block=2,ch_change_rate=2,kernel_size = 3):
@@ -81,7 +96,9 @@ class Unet(nn.Module):
         self.out_ch = out_ch
         #self.ch_down_rate =ch_down_rate
         
-        self.conv_2d_1 = nn.Conv2d(in_ch, first_out_ch, kernel_size=kernel_size, padding=kernel_size //2 )
+        #self.conv_2d_1 = nn.Conv2d(in_ch, first_out_ch, kernel_size=kernel_size, padding=kernel_size //2 )
+
+        self.conv_2d_1 = conv_bn_relu(in_ch, first_out_ch, kernel_size=kernel_size)
         
         self.down_block_1 = Downblock(first_out_ch,num_conv_in_block,ch_change_rate,kernel_size)
         
@@ -139,22 +156,23 @@ class Unet(nn.Module):
 
 
 class _Unet_encoder(nn.Module):
-    def __init__(self, in_ch =1, first_out_ch=16, out_ch =1, number_bolck=4, num_conv_in_block=2,ch_change_rate=2,kernel_size = 3):
+    def __init__(self, in_ch =1, first_out_ch=16, out_ch =1, number_bolck=4, \
+                 num_conv_in_block=2,ch_change_rate=2,kernel_size = 3):
         self.in_ch  = in_ch
         self.out_ch = out_ch
        
-        self.conv_2d_1 = nn.Conv2d(in_ch, first_out_ch, kernel_size=kernel_size, padding=kernel_size //2 )
+        self.conv_2d_1 = nn.Conv2d(in_ch, first_out_ch, kernel_size=kernel_size, padding=kernel_size // 2)
         
-        self.enc_1 = Downblock(first_out_ch,num_conv_in_block,ch_change_rate,kernel_size)
+        self.enc_1 = Downblock(first_out_ch, num_conv_in_block, ch_change_rate, kernel_size)
         b1_down_ch = first_out_ch * ch_change_rate
         
-        self.enc_2 = Downblock(b1_down_ch,num_conv_in_block,ch_change_rate,kernel_size)
+        self.enc_2 = Downblock(b1_down_ch, num_conv_in_block, ch_change_rate, kernel_size)
         b2_down_ch= b1_down_ch * ch_change_rate
 
-        self.enc_3 = Downblock(b2_down_ch,num_conv_in_block,ch_change_rate,kernel_size)
+        self.enc_3 = Downblock(b2_down_ch, num_conv_in_block, ch_change_rate, kernel_size)
         b3_down_ch = b2_down_ch * ch_change_rate
         
-        self.enc_4 = Downblock(b4_down_ch,num_conv_in_block,ch_change_rate,kernel_size)
+        self.enc_4 = Downblock(b4_down_ch, num_conv_in_block, ch_change_rate, kernel_size)
         self.b4_down_ch =b3_down_ch * ch_change_rate
 
         self.upsample = nn.Upsample(scale_factor=2,mode='bilinear')
@@ -210,8 +228,11 @@ class _Unet_decoder(nn.Module):
 
     
 class MdecoderUnet(nn.Module):
-    def __init__(self, in_ch =1, first_out_ch=16, decoder_out_chs = {'name_less',1}, number_bolck=4,num_conv_in_block=2,ch_change_rate=2,kernel_size = 3):
-        self.encoder = _Unet_encoder(in_ch,first_out_ch,out_ch,num_decoder,num_decoder,num_conv_in_block,ch_change_rate,kernel_size)
+    def __init__(self, in_ch =1, first_out_ch=16, decoder_out_chs = {'nameless',1}, \
+                number_bolck=4,num_conv_in_block=2,ch_change_rate=2,kernel_size = 3):
+        self.encoder = _Unet_encoder(in_ch,first_out_ch,out_ch,num_decoder,\
+                                     num_decoder,num_conv_in_block, \
+                                     ch_change_rate,kernel_size)
         self.decoders = {}
         for name,out_ch in decoder_out_chs.items():
             self.decoders[name]=_Unet_decoder(encoder.last_ch, out_ch)
@@ -221,33 +242,6 @@ class MdecoderUnet(nn.Module):
         for name, decorder in self.decorder.iterms():
             out_puts[name]=decorder(x,encoder_outputs)
         return out_puts
-class MdecoderUnet(nn.Module):
-    def __init__(self, in_ch =1, first_out_ch=16, out_ch =1, num_decoder, number_bolck=4,num_conv_in_block=2,ch_change_rate=2,kernel_size = 3):
-        super(DUnet, self).__init__()
-        self.net1 = grad_unet
-        self.net2 = Unet()
-        self.first_conv_in_net2 = nn.Conv2d(3,16,kernel_size=kernel_size,padding =kernel_size // 2)
-        self.final_conv_in_net2 = nn.Conv2d(48,out_ch,kernel_size=kernel_size,padding =kernel_size // 2) 
-        self.net2.conv_2d_1 = self.first_conv_in_net2
-        self.net2.finnal_conv2d = self.final_conv_in_net2
-        self.out_ch = out_ch
-        if freeze_net1:
-            self.freezeWeight(self.net1)
-    @property
-    def name(self):
-        return 'DUnet' + str(out_ch_) +str(self.out_ch)
-    def freezeWeight(self,net):
-        for child in net.children():
-            for param in child.parameters():
-                param.requires_grad = False
-
-    def forward(self,x):
-        #x=self.finnal_conv2d(x)
-        gradient_out = self.net1(x)
-        x_net2_in  = torch.cat((gradient_out,x),1)
-        distance_out        = self.net2(x_net2_in)
-        return gradient_out,distance_out
-
 
 class DUnet(nn.Module):
     def __init__(self, grad_unet, freeze_net1 =True, in_ch =1, first_out_ch=16, out_ch =1, number_bolck=4,num_conv_in_block=2,ch_change_rate=2,kernel_size = 3):
@@ -290,10 +284,4 @@ def test_angularLoss():
 
 if __name__ == '__main__':
     test_angularLoss()
-    # net = Unet()
-    # print(net)
-
-    # test_x = Variable(torch.FloatTensor(1, 1, 1024, 1024))
-    # out_x = net(test_x)
-
-    # print(out_x.size())
+   

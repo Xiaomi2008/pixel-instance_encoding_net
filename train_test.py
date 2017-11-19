@@ -416,9 +416,9 @@ if __name__ =='__main__':
     #model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=None)
     #model, model_file = create_model('DUCHDC',input_size = input_size,pretrained_iter=9999)
 
-    model,model_file = creat_dist_net_from_grad_unet(model_pretrained_iter=90749)
+    model,model_file = creat_dist_net_from_grad_unet(model_pretrained_iter=None)
     #unet_pretrained_iter = 11999
     TrTs =train_test(model=model, input_size=input_size,pretrained_model= model_file)
-    #TrTs.train()
+    TrTs.train()
     #TrTs.test()
-    TrTs.test_dist()
+    #TrTs.test_dist()
