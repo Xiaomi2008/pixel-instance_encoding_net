@@ -116,7 +116,7 @@ class Unet(nn.Module):
         self.down_block_5 = Downblock(b5_down_ch,num_conv_in_block,1,kernel_size)
 
         b0_up_ch = b5_down_ch * 1
-        self.up_block_1 = Upblock(b0_up_ch+b4_down_ch,num_conv_in_block,1,kernel_size)
+        self.up_block_0 = Upblock(b0_up_ch+b4_down_ch,num_conv_in_block,1,kernel_size)
 
         b1_up_ch = b4_down_ch * ch_change_rate
         self.up_block_1 = Upblock(b1_up_ch+b4_down_ch,num_conv_in_block,ch_change_rate,kernel_size)
