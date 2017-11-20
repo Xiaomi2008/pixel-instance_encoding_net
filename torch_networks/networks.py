@@ -111,7 +111,12 @@ class Unet(nn.Module):
         
         b4_down_ch = b3_down_ch * ch_change_rate
         self.down_block_4 = Downblock(b4_down_ch,num_conv_in_block,ch_change_rate,kernel_size)
-        
+
+        b5_down_ch = b4_down_ch * ch_change_rate
+        self.down_block_5 = Downblock(b5_down_ch,num_conv_in_block,1,kernel_size)
+
+        b0_up_ch = b5_down_ch * 1
+        self.up_block_1 = Upblock(b0_up_ch+b4_down_ch,num_conv_in_block,1,kernel_size)
 
         b1_up_ch = b4_down_ch * ch_change_rate
         self.up_block_1 = Upblock(b1_up_ch+b4_down_ch,num_conv_in_block,ch_change_rate,kernel_size)
@@ -139,7 +144,13 @@ class Unet(nn.Module):
         d_2 = self.down_block_2(d_1)
         d_3 = self.down_block_3(d_2)
         d_4 = self.down_block_4(d_3)
-        c_1 = torch.cat((self.upsample(d_4), d_3), 1)
+        d_5 = self.down_block_5(d_4)
+
+
+        c_0 = torch.cat((self.upsample(d_5), d_4), 1)
+        u_0 = self.up_block_0(c_0)
+
+        c_1 = torch.cat((self.upsample(u_0), d_3), 1)
         u_1 = self.up_block_1(c_1)
 
         c_2 = torch.cat((self.upsample(u_1), d_2), 1)
