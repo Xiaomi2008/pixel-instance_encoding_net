@@ -80,14 +80,14 @@ class conv_bn_relu(nn.Module):
         self.out_ch = out_ch
         self.kernel_size = kernel_size
         self.same_padding = (kernel_size -1)/2
-        self.conv      = nn.Conv2d(self.in_ch,self.out_ch,self.same_padding)
+        self.Conv      = nn.Conv2d(self.in_ch,self.out_ch,self.same_padding)
         self.BatchNorm = nn.BatchNorm2d(out_ch)
-        self.ReLU      = nn.ReLU()
+        self.ReLU      = nn.ReLU(inplace=True)
     def forward(self,x):
         #x1 = self.Conv2d(x)
         #x1 = self.BatchNorm(x)
         #x1 = self.ReLU(x)
-        return self.ReLU(self.BatchNorm(self.Conv2d(x)))
+        return self.ReLU(self.BatchNorm(self.Conv(x)))
         
 
 class Unet(nn.Module):
@@ -258,7 +258,7 @@ class DUnet(nn.Module):
             self.freezeWeight(self.net1)
     @property
     def name(self):
-        return 'DUnet' + str(out_ch_) +str(self.out_ch)
+        return 'DUnet_outch {}'.format(self.out_ch)
     def freezeWeight(self,net):
         for child in net.children():
             for param in child.parameters():
