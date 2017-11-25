@@ -132,9 +132,9 @@ class Unet(nn.Module):
 
         b4_up_ch = (b3_up_ch+b2_down_ch) // ch_change_rate
         #self.up_block_4 = Upblock(96,num_conv_in_block,ch_change_rate,kernel_size)
-        self.up_block_4 = Upblock(b4_up_ch+b1_down_ch,num_conv_in_block,ch_change_rate,kernel_size)
+        self.up_block_4 = Upblock(b4_up_ch+first_out_ch,num_conv_in_block,ch_change_rate,kernel_size)
 
-        last_up_ch = (b4_up_ch+b1_down_ch) // ch_change_rate
+        last_up_ch = (b4_up_ch+first_out_ch) // ch_change_rate
         #self.finnal_conv2d = nn.Conv2d(last_up_ch, out_ch, kernel_size=1, padding=0)
         self.upsample = nn.Upsample(scale_factor=2,mode='bilinear')
         self.finnal_conv2d = nn.Conv2d(last_up_ch, 2, kernel_size=3, padding=1)
