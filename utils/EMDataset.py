@@ -14,9 +14,48 @@ from label_transform.volumes import HDF5Volume
 from label_transform.volumes import bounds_generator
 from label_transform.volumes import SubvolumeGenerator
 
+class exp_Dataset(Dataset):
+  """base dataset"""
+   def __init__(self, 
+                out_patch_size = (224,224,1),
+                in_patch_size  = (224,224,1),
+                sub_dataset    = 'All',
+                subtract_mean  = True,
+                phase          = 'train',
+                transform      = None):
+      
+
+      self.sub_dataset      = sub_dataset
+      self.phase            = phase
+      self.x_out_size       = out_patch_size[0]
+      self.y_out_size       = out_patch_size[1]
+      self.z_out_size       = out_patch_size[2]
+      self.subtract_mean    = subtract_mean
+      self.transform        = transform
+      self.set_phase(phase)
+      self.load_data()
+      
+      dim_shape             = self.im_data.shape
+      self.y_size           = dim_shape[2] -self.x_out_size + 1
+      self.x_size           = dim_shape[1] -self.y_out_size + 1 
+      self.label_generator  = label_transform(objSizeMap =True)
+  
+    def set_phase(self,phase):
+      raise NotImplementedError("Must be implemented in child class !")
+
+    def load_data(self):
+      '''Child class must load data 
+         into. 2 list of numpy array as self.im_data
+         and self.lb_data'''
+      raise NotImplementedError("Must be implemented in child class !")
+
+    @property
+    def subset(self):
+      return {'Set_A','Set_B','Set_C'}
 
 class CRIME_Dataset(Dataset):
     """ EM dataset."""
+
 
     # Initialize EM data
     def __init__(self, out_size =   224, 
@@ -34,7 +73,7 @@ class CRIME_Dataset(Dataset):
       self.subtract_mean = subtract_mean
       self.transform = transform
       self.set_phase(phase)
-      self.load_hdf()
+      self.load_data()
 
       dim_shape             = self.im_data.shape
 
@@ -51,7 +90,7 @@ class CRIME_Dataset(Dataset):
         self.slice_start_z = 100
         self.slice_end_z = 124
 
-      self.z_size = self.slice_end_z - self.slice_end_z +1
+      self.z_size = self.slice_end_z - self.slice_start_z +1
 
 
         
@@ -122,7 +161,7 @@ class CRIME_Dataset(Dataset):
 
       return tc_data, tc_label_dict
 
-      #return tc_data,tc_target
+  
 
 
 
@@ -130,7 +169,7 @@ class CRIME_Dataset(Dataset):
       self.len = self.x_size * self.y_size * self.z_size 
       return self.len
 
-    def load_hdf(self):
+    def load_data(self):
       
       #data_config = 'conf/cremi_datasets.toml'
       volumes = HDF5Volume.from_toml(self.data_config)
