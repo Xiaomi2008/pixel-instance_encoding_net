@@ -35,7 +35,7 @@ class train_test():
         self.input_size = input_size 
         self.model_file = pretrained_model
         self.model_saved_dir   = 'models'
-        self.model_save_steps  = 500
+        self.model_save_steps  = 100
         self.model             = model.float()
         self.use_gpu           = True and torch.cuda.is_available()
         if self.use_gpu:
@@ -144,7 +144,7 @@ class train_test():
         self.model.train()
         dataset  = self.trainDataset
         train_loader = DataLoader(dataset =dataset,
-                                  batch_size=12,
+                                  batch_size=8,
                                   shuffle  =True,
                                   num_workers=num_workers)
         for epoch in range(5):
