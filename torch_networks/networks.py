@@ -114,26 +114,30 @@ class Unet(nn.Module):
 
         b5_down_ch = b4_down_ch * ch_change_rate
         self.down_block_5 = Downblock(b5_down_ch,num_conv_in_block,1,kernel_size)
+        # outout ch = 256
 
         b0_up_ch = b5_down_ch * 1
 
+        # input ch = 512, output ch = 256
         self.up_block_0 = Upblock(b0_up_ch+b5_down_ch,num_conv_in_block,2,kernel_size)
-        b1_up_ch = b5_down_ch // 2
+        b1_up_ch = (b0_up_ch+b5_down_ch)// 2
         self.up_block_1 = Upblock(b1_up_ch+b4_down_ch,num_conv_in_block,ch_change_rate,kernel_size)
 
-        b2_up_ch = b1_up_ch // ch_change_rate
-        self.up_block_2 = Upblock(b2_up_ch+b4_down_ch,num_conv_in_block,ch_change_rate,kernel_size)
+        b2_up_ch = (b1_up_ch+b4_down_ch) // ch_change_rate
+        self.up_block_2 = Upblock(b2_up_ch+b3_down_ch,num_conv_in_block,ch_change_rate,kernel_size)
 
-        b3_up_ch = b2_up_ch // ch_change_rate
-        self.up_block_3 = Upblock(160,num_conv_in_block,ch_change_rate,kernel_size)
+        b3_up_ch = (b2_up_ch + b3_down_ch) // ch_change_rate
+        self.up_block_3 = Upblock(b3_up_ch+b2_down_ch,num_conv_in_block,ch_change_rate,kernel_size)
+        #self.up_block_3 = Upblock(160,num_conv_in_block,ch_change_rate,kernel_size)
 
-        b4_up_ch = b3_up_ch // ch_change_rate
-        self.up_block_4 = Upblock(96,num_conv_in_block,ch_change_rate,kernel_size)
+        b4_up_ch = (b3_up_ch+b2_down_ch) // ch_change_rate
+        #self.up_block_4 = Upblock(96,num_conv_in_block,ch_change_rate,kernel_size)
+        self.up_block_4 = Upblock(b4_up_ch+b1_down_ch,num_conv_in_block,ch_change_rate,kernel_size)
 
-        last_up_ch = b4_up_ch // ch_change_rate
+        last_up_ch = (b4_up_ch+b1_down_ch) // ch_change_rate
         #self.finnal_conv2d = nn.Conv2d(last_up_ch, out_ch, kernel_size=1, padding=0)
         self.upsample = nn.Upsample(scale_factor=2,mode='bilinear')
-        self.finnal_conv2d = nn.Conv2d(48, 2, kernel_size=3, padding=1)
+        self.finnal_conv2d = nn.Conv2d(last_up_ch, 2, kernel_size=3, padding=1)
     @property
     def name(self):
         return 'Unet'
