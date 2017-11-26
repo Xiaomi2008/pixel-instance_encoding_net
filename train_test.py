@@ -189,7 +189,10 @@ class train_test():
                 elaps_time =time.time() - start_time
                 if steps == 0:
                     model_save_file = self.model_saved_dir +'/' \
-                                  +'{}_size{}_iter_{}.model'.format(self.model.name,self.input_size,i)
+                                  +'{}_{}_iter_{}.model'
+                                  .format(self.model.name,
+                                          self.trainDataset.obj_id_string,
+                                          i)
                     torch.save(self.model.state_dict(),model_save_file)
                     loss_str = 'loss : {:.5f}'.format(runing_loss/float(self.model_save_steps))
                     printProgressBar(self.model_save_steps, self.model_save_steps, prefix = iters, suffix = loss_str, length = 50)
@@ -417,7 +420,7 @@ if __name__ =='__main__':
     #model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=None)
     #model, model_file = create_model('DUCHDC',input_size = input_size,pretrained_iter=9999)
 
-    model,model_file = creat_dist_net_from_grad_unet(model_pretrained_iter=None)
+    model,model_file = creat_dist_net_from_grad_unet(model_pretrained_iter=24999)
     #unet_pretrained_iter = 11999
     TrTs =train_test(model=model, input_size=input_size,pretrained_model= model_file)
     TrTs.train()
