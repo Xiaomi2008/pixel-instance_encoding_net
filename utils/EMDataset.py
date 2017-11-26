@@ -31,7 +31,7 @@ class exp_Dataset(Dataset):
       self.x_out_size       = out_patch_size[0]
       self.y_out_size       = out_patch_size[1]
       self.z_out_size       = out_patch_size[2]
-
+      print ('inpatch_size = {}'.format(in_patch_size))
       self.in_patch_size    = in_patch_size if in_patch_size else out_patch_size
       self.x_in_size        = in_patch_size[0]
       self.y_in_size        = in_patch_size[1]

@@ -31,7 +31,7 @@ from scipy import ndimage
 #from scikits.image.morphology import watershed, is_local_maximum
 
 class train_test():
-    def __init__(self, model, pretrained_model = None,input_size = (224,224,1)):
+    def __init__(self, model, pretrained_model = None, input_size = (224,224,1)):
         self.input_size = input_size 
         self.model_file = pretrained_model
         self.model_saved_dir   = 'models'
