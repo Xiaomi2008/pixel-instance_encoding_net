@@ -56,7 +56,7 @@ class exp_Dataset(Dataset):
 
        # random choice one of sub_datasets
       im_data,lb_data=self.random_choice_dataset(self.im_lb_pair)
-      data,seg_label =self.get_random_patch(im_data,lb_data)
+      data,seg_label =self.get_random_patch(index,im_data,lb_data)
 
       ''' set distance large enough to conver the boundary 
          as to put more weight on bouday areas.
@@ -95,7 +95,7 @@ class exp_Dataset(Dataset):
       im_data = self.im_lb_pair[k]['image']
       lb_data = self.im_lb_pair[k]['label']  
       return im_data, lb_data
-    def get_random_patch(self,im_data,lb_data):
+    def get_random_patch(self,index,im_data,lb_data):
       z_start = index // (self.x_size * self.y_size) + self.slice_start_z
       remain  = index % (self.x_size * self.y_size)
       x_start = remain // self.y_size
