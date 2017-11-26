@@ -195,7 +195,7 @@ class train_test():
                     #                                             self.trainDataset.obj_id_string,
                     #                                             i)
                     model_save_file = self.model_save_file + '/' \
-                                      + '{}_iter_{}.model'.format(self.get_experiment_name,
+                                      + '{}_iter_{}.model'.format(self.get_experiment_name(),
                                                                   i)
                     torch.save(self.model.state_dict(),model_save_file)
                     loss_str = 'loss : {:.5f}'.format(runing_loss/float(self.model_save_steps))

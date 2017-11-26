@@ -273,7 +273,7 @@ class DUnet(nn.Module):
             self.freezeWeight(self.net1)
     @property
     def name(self):
-        return 'DUnet_outch {}'.format(self.out_ch)
+        return 'DUnet_outch_{}'.format(self.out_ch)
     def freezeWeight(self,net):
         for child in net.children():
             for param in child.parameters():
