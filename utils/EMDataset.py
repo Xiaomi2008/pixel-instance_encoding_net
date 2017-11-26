@@ -136,12 +136,13 @@ class CRIME_Dataset(exp_Dataset):
 
 
     # Initialize EM data
-    def __init__(self, out_size =   224, 
-                 dataset        =   'Set_A',
-                 subtract_mean  =   True,
-                 phase          =   'train',
-                 transform      =   None,
-                 data_config    =   'conf/cremi_datasets_with_tflabels.toml'):
+    def __init__(self,
+                 out_patch_size       =   (224,224,1), 
+                 sub_dataset          =   'Set_A',
+                 subtract_mean        =   True,
+                 phase                =   'train',
+                 transform            =   None,
+                 data_config          =   'conf/cremi_datasets_with_tflabels.toml'):
       
       super(CRIME_Dataset,self).__init__(sub_dataset=dataset, 
                                          out_patch_size =out_patch_size,
