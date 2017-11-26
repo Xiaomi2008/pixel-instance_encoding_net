@@ -413,7 +413,7 @@ def creat_dist_net_from_grad_unet(model_pretrained_iter=None, unet_pretrained_it
     return model, model_file
 
 if __name__ =='__main__':
-    input_size =320
+    input_size =(320,320,1)
     # model, model_file = create_model('Unet',input_size=input_size,pretrained_iter=11999)
     #model, model_file = create_model('Unet2',input_size=input_size,pretrained_iter=10999)
     #model, model_file = create_model('Unet2DeformConv',input_size=input_size,pretrained_iter=None)
