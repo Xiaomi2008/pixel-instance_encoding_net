@@ -18,7 +18,7 @@ class exp_Dataset(Dataset):
     """base dataset"""
     def __init__(self, 
                 out_patch_size = (224,224,1),
-                in_patch_size  = (224,224,1),
+                in_patch_size  = None,
                 sub_dataset    = 'All',
                 subtract_mean  = True,
                 phase          = 'train',
@@ -32,6 +32,7 @@ class exp_Dataset(Dataset):
       self.y_out_size       = out_patch_size[1]
       self.z_out_size       = out_patch_size[2]
 
+      self.in_patch_size    = in_patch_size if in_patch_size else out_patch_size
       self.x_in_size        = in_patch_size[0]
       self.y_in_size        = in_patch_size[1]
       self.z_in_size        = self.z_out_size
@@ -142,10 +143,11 @@ class CRIME_Dataset(exp_Dataset):
                  transform      =   None,
                  data_config    =   'conf/cremi_datasets_with_tflabels.toml'):
       
-      super(CRIME_Dataset,self).__init__(sub_dataset=dataset, out_size =out_size,
-                                        subtract_mean =subtract_mean,
-                                        phase = phase,
-                                        transform =transform)
+      super(CRIME_Dataset,self).__init__(sub_dataset=dataset, 
+                                         out_patch_size =out_patch_size,
+                                         subtract_mean =subtract_mean,
+                                         phase = phase,
+                                         transform =transform)
       self.data_config = data_config
       # self.dataset      = dataset
       # self.phase        = phase

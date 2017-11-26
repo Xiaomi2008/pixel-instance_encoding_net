@@ -31,7 +31,7 @@ from scipy import ndimage
 #from scikits.image.morphology import watershed, is_local_maximum
 
 class train_test():
-    def __init__(self, model, pretrained_model = None,input_size = 224):
+    def __init__(self, model, pretrained_model = None,input_size = (224,224,1)):
         self.input_size = input_size 
         self.model_file = pretrained_model
         self.model_saved_dir   = 'models'
@@ -49,16 +49,16 @@ class train_test():
         #subtract_mean = False if model.name is 'Unet' else True
         self.tranform = self.build_transformer()
         
-        self.trainDataset = CRIME_Dataset(out_size      =  self.input_size, 
-                                          phase         =  'train',
-                                          subtract_mean =  True,
-                                          transform     =  self.tranform,
-                                          dataset       =  'All')
+        self.trainDataset = CRIME_Dataset(out_patch_size      =  self.input_size, 
+                                          phase               =  'train',
+                                          subtract_mean       =  True,
+                                          transform           =  self.tranform,
+                                          dataset             =  'All')
         
-        self.validDataset = CRIME_Dataset(out_size      =  self.input_size, 
-                                          phase         =  'valid',
-                                          subtract_mean =   True, 
-                                          dataset       =   'All')
+        self.validDataset = CRIME_Dataset(out_patch_size      =  self.input_size, 
+                                          phase               =  'valid',
+                                          subtract_mean       =   True, 
+                                          dataset             =   'All')
         if self.model_file:
             print('Load weights  from {}'.format(self.model_file))
             self.model.load_state_dict(torch.load(self.model_file))
