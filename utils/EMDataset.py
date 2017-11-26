@@ -44,39 +44,13 @@ class exp_Dataset(Dataset):
 
       self.set_phase(phase)
       self.im_lb_pair= self.load_data()
-      
-      dim_shape             = self.im_data.shape
-      self.y_size           = dim_shape[2] -self.x_out_size + 1
-      self.x_size           = dim_shape[1] -self.y_out_size + 1 
       self.label_generator  = label_transform(objSizeMap =True)
 
     def __getitem__(self, index):
-      z_start = index // (self.x_size * self.y_size) + self.slice_start_z
-      remain  = index % (self.x_size * self.y_size)
-      x_start = remain // self.y_size
-      y_start = remain % self.y_size
 
-      z_end   = z_start + self.z_out_size
-      x_end   = x_start + self.x_out_size
-      y_end   = y_start + self.y_out_size
-
-
-      # random choice one of sub_datasets
-      k=np.random.choice(self.im_lb_pair.keys())
-      im_data = self.im_lb_pair[k]['image']
-      lb_data = self.im_lb_pair[k]['label']
-
-      data    = np.array(im_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.float)
-      if self.subtract_mean:
-        data -= 127.0
-      
-      seg_label   =np.array(lb_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.int)
-
-
-      if self.transform:
-        data,seg_label= self.transform(data,seg_label)
-
-
+       # random choice one of sub_datasets
+      im_data,lb_data=self.random_choice_dataset(self.im_lb_pair)
+      data,seg_label =self.get_random_patch(im_data,lb_data)
 
       ''' set distance large enough to conver the boundary 
          as to put more weight on bouday areas.
@@ -108,8 +82,38 @@ class exp_Dataset(Dataset):
       
       tc_data = torch.from_numpy(data).float()
       return tc_data, tc_label_dict
-  
-    
+
+
+    def random_choice_dataset(self,im_lb_pair):
+      k=np.random.choice(im_lb_pair.keys())
+      im_data = self.im_lb_pair[k]['image']
+      lb_data = self.im_lb_pair[k]['label']  
+      dim_shape             = im_data.shape
+      self.y_size           = dim_shape[2] -self.x_out_size + 1
+      self.x_size           = dim_shape[1] -self.y_out_size + 1 
+      return im_data, lb_data
+    def get_random_patch(self,im_data,lb_data):
+      z_start = index // (self.x_size * self.y_size) + self.slice_start_z
+      remain  = index % (self.x_size * self.y_size)
+      x_start = remain // self.y_size
+      y_start = remain % self.y_size
+
+      z_end   = z_start + self.z_out_size
+      x_end   = x_start + self.x_out_size
+      y_end   = y_start + self.y_out_size
+
+      data    = np.array(im_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.float)
+      if self.subtract_mean:
+        data -= 127.0
+      
+      seg_label   =np.array(lb_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.int)
+
+
+      if self.transform:
+        data,seg_label= self.transform(data,seg_label)
+
+      return data, seg_label
+
     def set_phase(self,phase):
       raise NotImplementedError("Must be implemented in subclass !")
 
