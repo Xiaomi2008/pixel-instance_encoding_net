@@ -44,6 +44,12 @@ class exp_Dataset(Dataset):
 
       self.set_phase(phase)
       self.im_lb_pair= self.load_data()
+
+      im_data  = self.im_lb_pair[self.im_lb_pair.keys()[0]]['im_data']
+      dim_shape             = im_data.shape
+      self.y_size           = dim_shape[2] -self.x_out_size + 1
+      self.x_size           = dim_shape[1] -self.y_out_size + 1 
+
       self.label_generator  = label_transform(objSizeMap =True)
 
     def __getitem__(self, index):
@@ -88,9 +94,6 @@ class exp_Dataset(Dataset):
       k=np.random.choice(im_lb_pair.keys())
       im_data = self.im_lb_pair[k]['image']
       lb_data = self.im_lb_pair[k]['label']  
-      dim_shape             = im_data.shape
-      self.y_size           = dim_shape[2] -self.x_out_size + 1
-      self.x_size           = dim_shape[1] -self.y_out_size + 1 
       return im_data, lb_data
     def get_random_patch(self,im_data,lb_data):
       z_start = index // (self.x_size * self.y_size) + self.slice_start_z
