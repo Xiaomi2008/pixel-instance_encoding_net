@@ -189,10 +189,10 @@ class train_test():
                 elaps_time =time.time() - start_time
                 if steps == 0:
                     model_save_file = self.model_saved_dir +'/' \
-                                  +'{}_{}_iter_{}.model'
-                                  .format(self.model.name,
-                                          self.trainDataset.obj_id_string,
-                                          i)
+                                  + '{}_{}_iter_{}.model'.format(
+                                                                self.model.name,
+                                                                self.trainDataset.obj_id_string,
+                                                                i)
                     torch.save(self.model.state_dict(),model_save_file)
                     loss_str = 'loss : {:.5f}'.format(runing_loss/float(self.model_save_steps))
                     printProgressBar(self.model_save_steps, self.model_save_steps, prefix = iters, suffix = loss_str, length = 50)
