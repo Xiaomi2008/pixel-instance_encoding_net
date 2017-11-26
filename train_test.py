@@ -35,7 +35,7 @@ class train_test():
         self.input_size = input_size 
         self.model_file = pretrained_model
         self.model_saved_dir   = 'models'
-        self.model_save_steps  = 100
+        self.model_save_steps  = 300
         self.model             = model.float()
         self.use_gpu           = True and torch.cuda.is_available()
         if self.use_gpu:
@@ -118,13 +118,14 @@ class train_test():
             if i % iters ==0:
                 ang_t_map=compute_angular(gradient)
                 ang_p_map=compute_angular(pred)
-                model_name=self.model.name
-                saveRawfiguers(i,'ang_t_map_'+model_name,ang_t_map)
-                saveRawfiguers(i,'ang_p_map_'+model_name,ang_p_map)
+                #model_name=self.model.name
+                exp_name = self.get_experiment_name()
+                saveRawfiguers(i,'ang_t_map_'+exp_name,ang_t_map)
+                saveRawfiguers(i,'ang_p_map_'+exp_name,ang_p_map)
                 pred_x = pred.data[:,0,:,:]
                 pred_y = pred.data[:,1,:,:]
-                saveRawfiguers(i,'pred_x_'+model_name,pred_x)
-                saveRawfiguers(i,'pred_y_'+model_name,pred_y)
+                saveRawfiguers(i,'pred_x_'+exp_name,pred_x)
+                saveRawfiguers(i,'pred_y_'+exp_name,pred_y)
             if i >= iters-1:
                 break
         print (loss)
@@ -188,11 +189,14 @@ class train_test():
                 loss_str  = 0
                 elaps_time =time.time() - start_time
                 if steps == 0:
-                    model_save_file = self.model_saved_dir +'/' \
-                                  + '{}_{}_iter_{}.model'.format(
-                                                                self.model.name,
-                                                                self.trainDataset.obj_id_string,
-                                                                i)
+                    # model_save_file = self.model_saved_dir +'/' \
+                    #               + '{}_{}_iter_{}.model'.format(
+                    #                                             self.model.name,
+                    #                                             self.trainDataset.obj_id_string,
+                    #                                             i)
+                    model_save_file = self.model_save_file + '/' \
+                                      + '{}_iter_{}.model'.format(self.get_experiment_name,
+                                                                  i)
                     torch.save(self.model.state_dict(),model_save_file)
                     loss_str = 'loss : {:.5f}'.format(runing_loss/float(self.model_save_steps))
                     printProgressBar(self.model_save_steps, self.model_save_steps, prefix = iters, suffix = loss_str, length = 50)
@@ -206,7 +210,8 @@ class train_test():
                 loss_str =  loss_str + ', time : {:.2}s'.format(elaps_time)
                 printProgressBar(steps, self.model_save_steps, prefix = iters, suffix = loss_str, length = 50)
                # print('train iter {}, loss = {:.5f}'.format(i,loss.data[0]))
-    
+    def get_experiment_name(self):
+        return self.model.name +'_'+self.trainDataset.obj_id_string
     def test(self):
         self.model.eval()
         model.load_state_dict(torch.load(self.model_file))

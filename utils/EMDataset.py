@@ -272,7 +272,6 @@ class CRIME_Dataset(exp_Dataset):
       
       #data_config = 'conf/cremi_datasets.toml'
       volumes = HDF5Volume.from_toml(self.data_config)
-      #data_name ={'Set_A':'Sample A','Set_B':'Sample B','Set_C':'Sample C'}
       data_name = {'Set_A':'Sample A with extra transformed labels',
                    'Set_B':'Sample B with extra transformed labels',
                    'Set_C':'Sample C with extra transformed labels'
@@ -281,14 +280,10 @@ class CRIME_Dataset(exp_Dataset):
       #              'Set_B':'Sample B',
       #              'Set_C':'Sample C'
       #             }
-      #self.lb_data = {}
-      #self.im_data = {}
       im_lb_pair ={}
       if self.sub_dataset == 'All':
         for k,v in data_name.iteritems():
           V = volumes[data_name[k]]
-          #self.lb_data[k] = V.data_dict['label_dataset']
-          #self.im_data[k] = V.data_dict['image_dataset']
           im_lb_pair[k] ={'image':V.data_dict['image_dataset'],
                                 'label':V.data_dict['label_dataset']}
       else:
@@ -297,18 +292,6 @@ class CRIME_Dataset(exp_Dataset):
                                 'label':V.data_dict['label_dataset']}
 
       return im_lb_pair
-
-      # self.V = volumes[data_name[self.dataset]]
-      # self.lb_data = self.V.data_dict['label_dataset']
-      # self.im_data = self.V.data_dict['image_dataset']
-      #self.gradX = self.V.data_dict['gradX_dataset']
-      #self.gradY = self.V.data_dict['gradY_dataset']
-     
-      # gradX = np.expand_dims(gradX, 1)
-      # gradY = np.expand_dims(gradY, 1)
-      # self.gd_data = np.concatenate((gradX,gradY),axis=1)
-      # self.lb_data = np.array(self.V.data_dict['label_dataset']).astype(np.int32)
-      # self.im_data = np.array(self.V.data_dict['image_dataset']).astype(np.int32)
 
 def saveGradfiguers(iters,file_prefix,output):
     my_dpi = 96
