@@ -52,12 +52,13 @@ class train_test():
         self.trainDataset = CRIME_Dataset(out_size      =  self.input_size, 
                                           phase         =  'train',
                                           subtract_mean =  True,
-                                          transform     =  self.tranform)
+                                          transform     =  self.tranform,
+                                          dataset       =  'All')
         
         self.validDataset = CRIME_Dataset(out_size      =  self.input_size, 
                                           phase         =  'valid',
                                           subtract_mean =   True, 
-                                          dataset       =   'Set_A')
+                                          dataset       =   'All')
         if self.model_file:
             print('Load weights  from {}'.format(self.model_file))
             self.model.load_state_dict(torch.load(self.model_file))
