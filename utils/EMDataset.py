@@ -142,7 +142,7 @@ class CRIME_Dataset(exp_Dataset):
                  transform      =   None,
                  data_config    =   'conf/cremi_datasets_with_tflabels.toml'):
       
-      super(CRIME_Dataset,self).__init__(dataset=dataset, out_size =out_size,
+      super(CRIME_Dataset,self).__init__(sub_dataset=dataset, out_size =out_size,
                                         subtract_mean =subtract_mean,
                                         phase = phase,
                                         transform =transform)
