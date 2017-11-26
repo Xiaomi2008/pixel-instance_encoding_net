@@ -45,7 +45,7 @@ class exp_Dataset(Dataset):
       self.set_phase(phase)
       self.im_lb_pair= self.load_data()
 
-      im_data  = self.im_lb_pair[self.im_lb_pair.keys()[0]]['im_data']
+      im_data  = self.im_lb_pair[self.im_lb_pair.keys()[0]]['image']
       dim_shape             = im_data.shape
       self.y_size           = dim_shape[2] -self.x_out_size + 1
       self.x_size           = dim_shape[1] -self.y_out_size + 1 
