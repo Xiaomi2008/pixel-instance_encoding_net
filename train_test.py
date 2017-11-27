@@ -32,7 +32,7 @@ from scipy import ndimage
 
 class train_test():
     # def __init__(self, model, pretrained_model = None, input_size = (224,224,1)):
-    def __init__(self, model, pretrained_iter = None, input_size = (224,224,1)):
+    def __init__(self, model, pre_trained_iter = None, input_size = (224,224,1)):
         self.input_size = input_size 
         #self.model_file = pretrained_model
         self.model_saved_dir   = 'models'
@@ -435,7 +435,7 @@ if __name__ =='__main__':
     model,model_file = creat_dist_net_from_grad_unet(model_pretrained_iter=16599)
     #unet_pretrained_iter = 11999
     #TrTs =train_test(model=model, input_size=input_size,pretrained_model= model_file)
-    TrTs =train_test(model=model, input_size=input_size,pretrained_iter=17999)
+    TrTs =train_test(model=model, input_size=input_size,pre_trained_iter=17999)
     TrTs.train()
     #TrTs.test()
     #TrTs.test_dist()
