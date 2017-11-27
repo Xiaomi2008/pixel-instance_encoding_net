@@ -31,7 +31,8 @@ from scipy import ndimage
 #from scikits.image.morphology import watershed, is_local_maximum
 
 class train_test():
-    def __init__(self, model, pretrained_model = None, input_size = (224,224,1)):
+    # def __init__(self, model, pretrained_model = None, input_size = (224,224,1)):
+    def __init__(self, model, pretrained_iter = None, input_size = (224,224,1)):
         self.input_size = input_size 
         self.model_file = pretrained_model
         self.model_saved_dir   = 'models'
@@ -59,8 +60,15 @@ class train_test():
                                           phase               =  'valid',
                                           subtract_mean       =   True, 
                                           sub_dataset         =   'All')
-        if self.model_file:
-            print('Load weights  from {}'.format(self.model_file))
+        
+        # if self.model_file:
+        #     print('Load weights  from {}'.format(self.model_file))
+        #     self.model.load_state_dict(torch.load(self.model_file))
+        if pre_trained_iter:
+            molde_file = self.model_saved_dir + '/' \
+                         + '{}_iter_{}.model'.format(
+                                                     self.get_experiment_name(),
+                                                     pre_trained_iter)
             self.model.load_state_dict(torch.load(self.model_file))
     
     def build_transformer(self):
@@ -83,7 +91,7 @@ class train_test():
             grad_pred,dist_pred = self.model(data)
             loss += self.mse_loss(dist_pred,distance).data[0]
             if i % iters ==0:
-                model_name=self.model.name
+                model_name=self.get_experiment_name()
                 saveRawfiguers(i,'dist_t_map_'+model_name,distance)
                 saveRawfiguers(i,'dist_p_map_'+model_name,dist_pred)
                 saveRawfiguers(i,'dist_raw_img_' + model_name, data)
@@ -194,9 +202,8 @@ class train_test():
                     #                                             self.model.name,
                     #                                             self.trainDataset.obj_id_string,
                     #                                             i)
-                    model_save_file = self.model_save_file + '/' \
-                                      + '{}_iter_{}.model'.format(self.get_experiment_name(),
-                                                                  i)
+                    model_save_file = self.model_saved_dir + '/' \
+                                      + '{}_iter_{}.model'.format(self.get_experiment_name(),i)
                     torch.save(self.model.state_dict(),model_save_file)
                     loss_str = 'loss : {:.5f}'.format(runing_loss/float(self.model_save_steps))
                     printProgressBar(self.model_save_steps, self.model_save_steps, prefix = iters, suffix = loss_str, length = 50)
@@ -425,9 +432,10 @@ if __name__ =='__main__':
     #model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=None)
     #model, model_file = create_model('DUCHDC',input_size = input_size,pretrained_iter=9999)
 
-    model,model_file = creat_dist_net_from_grad_unet(model_pretrained_iter=24999)
+    model,model_file = creat_dist_net_from_grad_unet(model_pretrained_iter=16599)
     #unet_pretrained_iter = 11999
-    TrTs =train_test(model=model, input_size=input_size,pretrained_model= model_file)
+    #TrTs =train_test(model=model, input_size=input_size,pretrained_model= model_file)
+    TrTs =train_test(model=model, input_size=input_size,pretrained_iter=17999)
     TrTs.train()
     #TrTs.test()
     #TrTs.test_dist()
