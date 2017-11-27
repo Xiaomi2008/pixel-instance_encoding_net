@@ -69,6 +69,7 @@ class train_test():
                          + '{}_iter_{}.model'.format(
                                                      self.get_experiment_name(),
                                                      pre_trained_iter)
+            print('Load weights  from {}'.format(self.model_file))
             self.model.load_state_dict(torch.load(self.model_file))
     
     def build_transformer(self):
