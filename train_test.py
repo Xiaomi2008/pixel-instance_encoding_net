@@ -34,7 +34,7 @@ class train_test():
     # def __init__(self, model, pretrained_model = None, input_size = (224,224,1)):
     def __init__(self, model, pretrained_iter = None, input_size = (224,224,1)):
         self.input_size = input_size 
-        self.model_file = pretrained_model
+        #self.model_file = pretrained_model
         self.model_saved_dir   = 'models'
         self.model_save_steps  = 300
         self.model             = model.float()
@@ -65,7 +65,7 @@ class train_test():
         #     print('Load weights  from {}'.format(self.model_file))
         #     self.model.load_state_dict(torch.load(self.model_file))
         if pre_trained_iter:
-            molde_file = self.model_saved_dir + '/' \
+            self.molde_file = self.model_saved_dir + '/' \
                          + '{}_iter_{}.model'.format(
                                                      self.get_experiment_name(),
                                                      pre_trained_iter)
