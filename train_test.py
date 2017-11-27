@@ -65,7 +65,7 @@ class train_test():
         #     print('Load weights  from {}'.format(self.model_file))
         #     self.model.load_state_dict(torch.load(self.model_file))
         if pre_trained_iter:
-            self.molde_file = self.model_saved_dir + '/' \
+            self.model_file = self.model_saved_dir + '/' \
                          + '{}_iter_{}.model'.format(
                                                      self.get_experiment_name(),
                                                      pre_trained_iter)
