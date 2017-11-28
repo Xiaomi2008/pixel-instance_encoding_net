@@ -59,9 +59,6 @@ class label_transform(object):
             out_dict['gradient'] = (sum_gx,sum_gy)
             if self.distance:
                 out_dict['distance'] = sum_dt
-            # if self.objSizeMap:
-            #     out_dict['sizemap'] = sum_sizeMap
-
             output.append(out_dict)
 
         return tuple(output)
@@ -91,13 +88,6 @@ class objCenterMap(object):
             y_center = np.expand_dims(y_center,0)
             out_list.append((x_center,y_center))
         return tuple(out_list)
-
-def my_center_of_mass(x):
-    pass
-
-
-
-
 
 class affinity(object):
     """
@@ -159,6 +149,12 @@ class random_transform(object):
             return input
         else:
             return  self.transform[func_idx](*input)
+    @property
+    def name(self):
+         out= []
+        for trans in self.transform:
+            out.append(trans.name)
+        return '-'.join(out)
 
 class VFlip(object):
     def __call__(self,*input):
@@ -173,6 +169,9 @@ class VFlip(object):
         for idex,_input in enumerate(input):
             output.append(np.flip(_input,1).copy())
         return tuple(output)
+    @property
+    def name(self):
+        return 'VFlip'
 
 
 class HFlip(object):
@@ -188,6 +187,9 @@ class HFlip(object):
         for idex,_input in enumerate(input):
             output.append(np.flip(_input,2).copy())
         return tuple(output)
+    @property
+    def name(self):
+        return 'HFlip'
 
 class Rot90(object):
     def __call__(self,*input):
@@ -202,6 +204,9 @@ class Rot90(object):
         for idex,_input in enumerate(input):
             output.append(np.rot90(_input,2).copy())
         return tuple(output)
+    @property
+    def name(self):
+        return 'Rot90'
 
 
 

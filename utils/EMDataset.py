@@ -22,7 +22,8 @@ class exp_Dataset(Dataset):
                 sub_dataset    = 'All',
                 subtract_mean  = True,
                 phase          = 'train',
-                transform      = None):
+                transform      = None,
+                label_gen      = None):
       
 
       self.sub_dataset      = sub_dataset
@@ -50,51 +51,29 @@ class exp_Dataset(Dataset):
       self.y_size           = dim_shape[2] -self.x_out_size + 1
       self.x_size           = dim_shape[1] -self.y_out_size + 1 
 
-      self.label_generator  = label_transform(objSizeMap =True)
+      #self.label_generator  = label_transform(objSizeMap =True)
+      self.label_generetor = label_generator if label_gen else  labelGeneretor()
+
+    def output_labels(self):
+      return ['gradient','affinity','centermap','sizemap','distance']
 
     def __getitem__(self, index):
 
        # random choice one of sub_datasets
       im_data,lb_data=self.random_choice_dataset(self.im_lb_pair)
       data,seg_label =self.get_random_patch(index,im_data,lb_data)
-
-      ''' set distance large enough to conver the boundary 
-         as to put more weight on bouday areas.
-         which is important when do cut for segmentation '''
-      affineX=affinity(axis=-1,distance =2)
-      affineY=affinity(axis=-2,distance =2)
-      affinMap = ((affineX(seg_label)[0] + affineY(seg_label)[0])>0).astype(np.int)
-
-
-      centermap = objCenterMap()
-      [(x_centerMap, y_centerMap)] = centermap(seg_label)
-      objCenter_map = np.concatenate((x_centerMap,y_centerMap),0) 
-
-      ''' compute the runtime obj graidient instead of pre-computed one
-      to avoid using wrong gradient map when performing data augmentation
-      such as flip, rotate etc.'''
-      trans_data_list = self.label_generator(seg_label)
-      grad_x, grad_y = trans_data_list[0]['gradient']
-      grad  = np.concatenate((grad_x,grad_y),0)
       
-      tc_label_dict ={}
-      for key,value in trans_data_list[0].iteritems():
-        tc_label_dict[key] = torch.from_numpy(value).float() \
-                                 if key is not 'gradient' \
-                                 else torch.from_numpy(grad).float()
 
-      tc_label_dict['affinity']  = torch.from_numpy(affinMap).float()
-      tc_label_dict['centermap'] = torch.from_numpy(objCenter_map).float()
-      
-      tc_data = torch.from_numpy(data).float()
+      tc_data        = torch.from_numpy(data).float()
+      tc_label_dict  = self.label_generetor(seg_label)[0]
       return tc_data, tc_label_dict
-
 
     def random_choice_dataset(self,im_lb_pair):
       k=np.random.choice(im_lb_pair.keys())
       im_data = self.im_lb_pair[k]['image']
       lb_data = self.im_lb_pair[k]['label']  
       return im_data, lb_data
+    
     def get_random_patch(self,index,im_data,lb_data):
       z_start = index // (self.x_size * self.y_size) + self.slice_start_z
       remain  = index % (self.x_size * self.y_size)
@@ -130,7 +109,7 @@ class exp_Dataset(Dataset):
     def subset(self):
       return {'Set_A','Set_B','Set_C'}
     @property
-    def obj_id_string(self):
+    def name(self):
       return 'Dataset-CRIME-' + self.sub_dataset
 
     def __len__(self):
@@ -156,23 +135,7 @@ class CRIME_Dataset(exp_Dataset):
                                          subtract_mean =subtract_mean,
                                          phase = phase,
                                          transform =transform)
-      # self.dataset      = dataset
-      # self.phase        = phase
-      # self.x_out_size   = out_size
-      # self.y_out_size   = out_size
-      # self.z_out_size   = 1
-      # self.data_config  = data_config
-      # self.subtract_mean = subtract_mean
-      # self.transform = transform
-      # self.set_phase(phase)
-      # self.load_data()
-
-      # dim_shape             = self.im_data.shape
-
-      # self.y_size           = dim_shape[2] -self.x_out_size + 1
-      # self.x_size           = dim_shape[1] -self.y_out_size + 1 
-      # self.label_generator  = label_transform(objSizeMap =True)
-      #self.z_size       = dim_shape[0] -self.z_out_size + 1
+    
     def set_phase(self,phase):
       self.phase = phase
       if phase == 'train':
@@ -292,6 +255,61 @@ class CRIME_Dataset(exp_Dataset):
                                 'label':V.data_dict['label_dataset']}
 
       return im_lb_pair
+
+
+class labelGeneretor(object):
+  def __init__(self):
+     self.label_generator  = label_transform(objSizeMap =True)
+  def __call__(self,*input):
+    ''' set distance large enough to conver the boundary 
+         as to put more weight on bouday areas.
+         which is important when do cut for segmentation '''
+    ''' compute the runtime obj graidient instead of pre-computed one
+        to avoid using wrong gradient map when performing data augmentation
+        such as flip, rotate etc.'''
+
+      """ Input: segmentation label """
+
+          """ Ouput: list of transformed labels dict:  
+                     d{'gradient','affinity','centermap','sizemap','distance'}):
+                     """ 
+
+      output  = []
+      for idex,seg_label in enumerate(input):
+        affinMap        =  self.affinityFunc(seg_label)
+        objCenterMap    =  self.objCenterFunc(seg_label)
+        
+        trans_data_list =  self.label_generator(seg_label)
+        grad_x, grad_y  =  trans_data_list[0]['gradient']
+        grad  = np.concatenate((grad_x,grad_y),0)
+
+        tc_label_dict ={}
+        for key,value in trans_data_list[0].iteritems():
+          tc_label_dict[key] = torch.from_numpy(value).float() \
+                                 if key is not 'gradient' \
+                                 else torch.from_numpy(grad).float()
+        tc_label_dict['affinity']  = torch.from_numpy(affinMap).float()
+        tc_label_dict['centermap'] = torch.from_numpy(objCenterMap).float()
+        
+        output.append(tc_label_dict)
+      return ouput
+  def output_labels(self)p
+       ''' output: diction, Key = name of label, value = channel of output '''
+       return {'gradient':2,'affinity':1,'centermap':2,'sizemap':1,'distance':1}
+
+  def affinityFunc(self,seg_label):
+       affineX=affinity(axis=-1,distance =2)
+       affineY=affinity(axis=-2,distance =2)
+       affinMap = ((affineX(seg_label)[0] + affineY(seg_label)[0])>0).astype(np.int)
+       return affinMap
+  
+  def objCenterFunc(self,seg_label):
+      centermap = objCenterMap()
+      [(x_centerMap, y_centerMap)] = centermap(seg_label)
+      objCenter_map = np.concatenate((x_centerMap,y_centerMap),0)
+      return objCenter_map
+
+
 
 def saveGradfiguers(iters,file_prefix,output):
     my_dpi = 96

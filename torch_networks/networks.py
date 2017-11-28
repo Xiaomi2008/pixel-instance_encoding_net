@@ -244,20 +244,20 @@ class _Unet_decoder(nn.Module):
 
     
 class MdecoderUnet(nn.Module):
-    def __init__(self, in_ch =1, first_out_ch=16, decoder_out_chs = {'nameless',1}, \
+    def __init__(self, in_ch =1, first_out_ch=16, targe_label = {'nameless',1}, \
                 number_bolck=4,num_conv_in_block=2,ch_change_rate=2,kernel_size = 3):
         self.encoder = _Unet_encoder(in_ch,first_out_ch,out_ch,num_decoder,\
                                      num_decoder,num_conv_in_block, \
                                      ch_change_rate,kernel_size)
         self.decoders = {}
-        for name,out_ch in decoder_out_chs.items():
-            self.decoders[name]=_Unet_decoder(encoder.last_ch, out_ch)
+        for name,out_ch in label_inputs.items():
+            self.decoders[name]=_Unet_decoder(self.encoder.last_ch, out_ch)
     def forward(x):
         encoder_outputs= encoder(x)
-        out_puts = {}
+        outputs = {}
         for name, decorder in self.decorder.iterms():
-            out_puts[name]=decorder(x,encoder_outputs)
-        return out_puts
+            outputs[name]=decorder(x,encoder_outputs)
+        return outputs
 
 class DUnet(nn.Module):
     def __init__(self, grad_unet, freeze_net1 =True, in_ch =1, first_out_ch=16, out_ch =1, number_bolck=4,num_conv_in_block=2,ch_change_rate=2,kernel_size = 3):
@@ -281,10 +281,12 @@ class DUnet(nn.Module):
 
     def forward(self,x):
         #x=self.finnal_conv2d(x)
-        gradient_out = self.net1(x)
-        x_net2_in  = torch.cat((gradient_out,x),1)
-        distance_out        = self.net2(x_net2_in)
-        return gradient_out,distance_out
+        outputs ={}
+        outputs['gradient']   = self.net1(x)
+        x_net2_in         = torch.cat((gradient_out,x),1)
+        outputs['distance']   = self.net2(x_net2_in)
+        return outputs
+        #return gradient_out,distance_out
 
 
 

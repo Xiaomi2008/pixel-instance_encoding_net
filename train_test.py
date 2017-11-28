@@ -31,7 +31,6 @@ from scipy import ndimage
 #from scikits.image.morphology import watershed, is_local_maximum
 
 class train_test():
-    # def __init__(self, model, pretrained_model = None, input_size = (224,224,1)):
     def __init__(self, model, pre_trained_iter = None, input_size = (224,224,1)):
         self.input_size = input_size 
         #self.model_file = pretrained_model
@@ -61,9 +60,6 @@ class train_test():
                                           subtract_mean       =   True, 
                                           sub_dataset         =   'All')
         
-        # if self.model_file:
-        #     print('Load weights  from {}'.format(self.model_file))
-        #     self.model.load_state_dict(torch.load(self.model_file))
         if pre_trained_iter:
             self.model_file = self.model_saved_dir + '/' \
                          + '{}_iter_{}.model'.format(
@@ -74,6 +70,7 @@ class train_test():
     
     def build_transformer(self):
         return random_transform(VFlip(),HFlip(),Rot90())
+    
     def valid_dist(self):
         dataset = self.validDataset
         self.model.eval()
@@ -122,8 +119,7 @@ class train_test():
                 gradient =gradient.cuda().float()
             pred = self.model(data)
             loss += angularLoss(pred, gradient).data[0]
-            #print('t shape = {}'.format(target.data.shape))
-            #print('p shape = {}'.format(pred.data.shape))
+            
             if i % iters ==0:
                 ang_t_map=compute_angular(gradient)
                 ang_p_map=compute_angular(pred)
@@ -198,11 +194,7 @@ class train_test():
                 loss_str  = 0
                 elaps_time =time.time() - start_time
                 if steps == 0:
-                    # model_save_file = self.model_saved_dir +'/' \
-                    #               + '{}_{}_iter_{}.model'.format(
-                    #                                             self.model.name,
-                    #                                             self.trainDataset.obj_id_string,
-                    #                                             i)
+                    
                     model_save_file = self.model_saved_dir + '/' \
                                       + '{}_iter_{}.model'.format(self.get_experiment_name(),i)
                     torch.save(self.model.state_dict(),model_save_file)
@@ -433,7 +425,7 @@ if __name__ =='__main__':
     #model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=None)
     #model, model_file = create_model('DUCHDC',input_size = input_size,pretrained_iter=9999)
 
-    model,model_file = creat_dist_net_from_grad_unet(model_pretrained_iter=16599)
+    model,model_file = creat_dist_net_from_grad_unet(model_pretrained_iter=17999)
     #unet_pretrained_iter = 11999
     #TrTs =train_test(model=model, input_size=input_size,pretrained_model= model_file)
     TrTs =train_test(model=model, input_size=input_size,pre_trained_iter=17999)
