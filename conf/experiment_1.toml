@@ -1,0 +1,20 @@
+[network]
+model = 'DUnet'
+model_save_dir = 'model'
+load_train_iter = 25999
+model_save_step = 300
+batch_size      = 8
+patch_size = [320,320,1]
+[target_labels]
+  labels = ['affinity',
+           'sizemap',
+           'centermap',
+           'distance',
+           'gradient']
+[dataset]
+sub_dataset = 'All'
+
+[data_augmentation]
+ transform =['vflip',
+            'hflip',
+            'rot90']
