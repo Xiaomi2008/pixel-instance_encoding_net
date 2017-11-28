@@ -9,6 +9,8 @@ from transform import *
 from utils.EMDataset import CRIME_Dataset,labelGeneretor
 from utils.transform import VFlip, HFlip, Rot90, random_transform
 from utils.torch_loss_functions import *
+import torchvision.utils as vutils
+from matplotlib import pyplot as plt
 
 
 class experiment_config():
@@ -130,15 +132,15 @@ class experiment():
                                 shuffle     = True,
                                 num_workers = 4)
       
-      def show_iter_info(iter,runing_loss, iter_str, time_elaps, next_iter = False):
-        if next_step:
+      def show_iter_info(iters,runing_loss, iter_str, time_elaps, end_of_iter = False):
+        if ned_of_iter:
            loss_str    = 'loss : {:.5f}'.format(runing_loss/float(self.model_save_steps))
            printProgressBar(self.model_save_steps, self.model_save_steps, prefix = iter_str, suffix = loss_str, length = 50)
            self.valid_dist() 
         else:
            loss_str = 'loss : {:.5f}'.format(general_loss.data[0])
            loss_str =  loss_str + ', time : {:.2}s'.format(time_elaps)
-           printProgressBar(iter, self.model_save_steps, prefix = iter_str, suffix = loss_str, length = 50)
+           printProgressBar(iters, self.model_save_steps, prefix = iter_str, suffix = loss_str, length = 50)
       
       def get_iter_info(iters):
           iter_range  = (iters+1) // self.model_save_steps
@@ -157,12 +159,12 @@ class experiment():
             for i, (data,targets) in enumerate(train_loader, 0):
               target = self.make_variable(targets)
               if self.use_gpu:
-                  data     = data.cuda().float()
+                  data      = data.cuda().float()
                   targets   = self.make_cuda_data(targets)
                 
               self.optimizer.zero_grad()
               preds        = self.model(data)
-              losses       = self.training_loss(preds,targets)
+              losses       = self.compute_loss(preds,targets)
               general_loss = losses['general_loss']
               self.optimizer.step()
               
@@ -173,11 +175,11 @@ class experiment():
 
               if steps == 0:
                   self.save_model(i)
-                  show_iter_info(steps,runing_loss, iter_str, time_elaps, next_iter = True)
+                  show_iter_info(steps,runing_loss, iter_str, time_elaps, end_of_iter = True)
                   start_time = time.time()
                   runing_loss = 0.0
               else:
-                  show_iter_info(steps,runing_loss, iter_str, time_elaps, next_iter = False)
+                  show_iter_info(steps,runing_loss, iter_str, time_elaps, end_of_iter = False)
                   # loss_str = 'loss : {:.5f}'.format(general_loss.data[0])
                   # loss_str =  loss_str + ', time : {:.2}s'.format(elaps_time)
                   # printProgressBar(steps, self.model_save_steps, prefix = iters, suffix = loss_str, length = 50)
@@ -196,19 +198,22 @@ class experiment():
             if self.use_gpu:
                 data     = data.cuda().float()
                 targets  = self.make_cuda_data(targets)
-            preds = self.model(data)
-            loss += self.mse_loss(dist_pred,distance).data[0]
+            preds  = self.model(data)
+            losses = self.compute_loss(dist_pred,distance)
+            loss + = losses['distance'].data[0]
+            # loss += self.mse_loss(dist_pred,distance).data[0]
             if i % iters ==0:
-                model_name=self.get_experiment_name()
-                saveRawfiguers(i,'dist_t_map_'+model_name,distance)
-                saveRawfiguers(i,'dist_p_map_'+model_name,dist_pred)
-                saveRawfiguers(i,'dist_raw_img_' + model_name, data)
+                exp_config_name = self.exp_cfg.name()
+                save2figuer(i,'dist_t_map_'+ exp_config_name,targets['distance'])
+                save2figuer(i,'dist_p_map_'+ exp_config_name,preds['distance'])
+                save2figuer(i,'dist_raw_img_' + exp_config_name, data)
             if i >= iters-1:
                 break
         loss = loss / iters
         self.model.train()
         print (' valid loss : {:.3f}'.format(loss))
-	def predict(self):
+	
+  def predict(self):
 		pass
 	def net_load_weight(self, iters):
 		self.model_file = self.model_saved_dir + '/' \
@@ -233,7 +238,7 @@ class experiment():
       if use_parallel:
           self.model = torch.nn.DataParallel(self.model, device_ids=gpus)
     
-    def training_loss(self,preds,targets):
+    def compute_loss(self,preds,targets, train = True):
         outputs ={}
         ang_loss  = angularLoss(preds['gradient'], targets['gradient'])
 
@@ -244,7 +249,9 @@ class experiment():
 
         ''' As the final output is distance map, we mainly put weights on distance loss''' 
         loss      = 0.9995*dist_loss+0.0005*ang_loss
-        loss.backward()
+        
+        if train:
+          loss.backward()
 
         outputs['dist_loss']   = dist_loss
         outputs['ang_loss']    = ang_loss
@@ -261,4 +268,20 @@ class experiment():
                                       + '{}_iter_{}.model'.format(self.get_experiment_name(),iters)
 
 
+def save2figuer(iters,file_prefix,output):
+    from torchvision.utils import save_image
+    my_dpi = 96
+    plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
+    if isinstance(output,Variable):
+        output = output.data
+    data = output.cpu().numpy()
+    if data.ndim ==4:
+         I = data[0,0]
+    elif data.ndim==3:
+         I = data[0]
+    else:
+         I = data
+    plt.imshow(I)
+    plt.savefig(file_prefix+'{}.png'.format(iters))
+    plt.close('all')
 
