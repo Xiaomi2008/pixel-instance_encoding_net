@@ -2,8 +2,8 @@
 model = 'MDUnet'
 model_save_dir = 'model'
 load_train_iter = 0
-model_save_step = 300
-batch_size      = 5
+model_save_step = 100
+batch_size      = 3
 patch_size = [320,320,1]
 use_gpu    = true
 [target_labels]

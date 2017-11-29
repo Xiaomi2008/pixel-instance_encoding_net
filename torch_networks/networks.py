@@ -271,6 +271,9 @@ class MdecoderUnet(nn.Module):
         for name, decoder in self.decoders.iteritems():
             outputs[name]=decoder(encoder_outputs)
         return outputs
+    @property
+    def name(self):
+        return 'MdecoderUnet'
 
 class DUnet(nn.Module):
     def __init__(self, grad_unet, freeze_net1 =True, in_ch =1, first_out_ch=16, out_ch =1, number_bolck=4,num_conv_in_block=2,ch_change_rate=2,kernel_size = 3):
