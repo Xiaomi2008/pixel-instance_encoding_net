@@ -27,9 +27,9 @@ def weighted_mse_loss(input, target, weight):
 
 
 def boundary_sensitive_loss(input,target,boudary):
-    ''' boudary exist when == 1, else none-boundary 0'''
+    ''' boudary exist when == 1, else  0 for none-boundary '''
     ''' we want the boudary to be more important (more loss) then none-dounary area'''
-     return torch.sum(boudary* (0-input) ** 2 + 0.5*(1-boudary)*(torch.abs(input-target)))
+    return torch.sum(boudary* (0-input) ** 2 + 0.5*(1-boudary)*(torch.abs(input-target)))
 
 
 def angularLoss(pred, gt, weight=0, outputChannels=2):

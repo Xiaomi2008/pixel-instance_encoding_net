@@ -4,7 +4,7 @@ import pdb
 import torch
 import numpy as np
 from transform import *
-import cv2
+#import cv2
 import torch.nn.functional as F
 from matplotlib import pyplot as plt
 #import matplotlib.gridspec as gridspec
@@ -52,10 +52,11 @@ class exp_Dataset(Dataset):
       self.x_size           = dim_shape[1] -self.y_out_size + 1 
 
       #self.label_generator  = label_transform(objSizeMap =True)
-      self.label_generetor = label_generator if label_gen else  labelGeneretor()
+      self.label_generator = label_generator if label_gen else  labelGenerator()
 
     def output_labels(self):
-      return ['gradient','affinity','centermap','sizemap','distance']
+      return self.label_generator.output_labels()
+      #return ['gradient','affinity','centermap','sizemap','distance']
 
     def __getitem__(self, index):
 
@@ -65,7 +66,7 @@ class exp_Dataset(Dataset):
       
 
       tc_data        = torch.from_numpy(data).float()
-      tc_label_dict  = self.label_generetor(seg_label)[0]
+      tc_label_dict  = self.label_generator(seg_label)[0]
       return tc_data, tc_label_dict
 
     def random_choice_dataset(self,im_lb_pair):
@@ -257,20 +258,20 @@ class CRIME_Dataset(exp_Dataset):
       return im_lb_pair
 
 
-class labelGeneretor(object):
+class labelGenerator(object):
   def __init__(self):
      self.label_generator  = label_transform(objSizeMap =True)
   def __call__(self,*input):
-    ''' set distance large enough to conver the boundary 
+      ''' set distance large enough to conver the boundary 
          as to put more weight on bouday areas.
          which is important when do cut for segmentation '''
-    ''' compute the runtime obj graidient instead of pre-computed one
+      ''' compute the runtime obj graidient instead of pre-computed one
         to avoid using wrong gradient map when performing data augmentation
         such as flip, rotate etc.'''
 
       """ Input: segmentation label """
 
-          """ Ouput: list of transformed labels dict:  
+      """ Ouput: list of transformed labels dict:  
                      d{'gradient','affinity','centermap','sizemap','distance'}):
                      """ 
 
@@ -292,8 +293,8 @@ class labelGeneretor(object):
         tc_label_dict['centermap'] = torch.from_numpy(objCenterMap).float()
         
         output.append(tc_label_dict)
-      return ouput
-  def output_labels(self)p
+      return output
+  def output_labels(self):
        ''' output: diction, Key = name of label, value = channel of output '''
        return {'gradient':2,'affinity':1,'centermap':2,'sizemap':1,'distance':1}
 

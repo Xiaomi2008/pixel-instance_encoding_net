@@ -3,41 +3,46 @@ from matplotlib import pyplot as plt
 
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
-from torch_networks.networks import Unet,DUnet, 
-from transform import *
+from torch_networks.networks import Unet,DUnet,MdecoderUnet 
+# from transform import *
+from utils.transform import VFlip, HFlip, Rot90, random_transform
 
-from utils.EMDataset import CRIME_Dataset,labelGeneretor
+from utils.EMDataset import CRIME_Dataset,labelGenerator
 from utils.transform import VFlip, HFlip, Rot90, random_transform
 from utils.torch_loss_functions import *
 import torchvision.utils as vutils
 from matplotlib import pyplot as plt
+import pytoml as toml
+import torch.optim as optim
+import time
 
 
 class experiment_config():
-	def __init__(self, config_file):
+  def __init__(self, config_file):
     self.parse_toml(config_file)
-		networks = \
-		          {'Unet'  : Unet,'DUnet' : DUnet,'MDUnet': MdecoderUnet}
-		network_create_func     = networks(self.net_conf['model'])
-		self.data_transform     = self.data_Transform(self.data_aug_conf['tranform'])
-		self.label_generetor    = self.label_Generatetor()
-		
-		self.train_dataset, self.valid_dataset 
-		                        = self.dataset(out_patch_size,self.data_transform)
+    networks = \
+              {'Unet' : Unet,'DUnet' : DUnet,'MDUnet': MdecoderUnet}
+    network_model           = networks[self.net_conf['model']]
+    self.data_transform     = self.data_Transform(self.data_aug_conf['transform'])
+    self.label_generator    = self.label_Generator()
+    
+    self.train_dataset, self.valid_dataset \
+    = self.dataset(self.net_conf['patch_size'],self.data_transform)
 
-		#labels_in_use = ['gradient','sizemap','affinity','centermap','distance']
-    label_ch_in_use = self.label_conf['labels']
+    #labels_in_use = ['gradient','sizemap','affinity','centermap','distance']
+    label_in_use = self.label_conf['labels']
 
-		label_ch_in_use ={}
+    label_ch_pair ={}
 
     # data_out_labels is a dict that stores "label name" as key and "# of channel for that label" as value
-		data_out_labels = self.train_dataset.output_labels()
+    data_out_labels = self.train_dataset.output_labels()
  
-		for lb in labels_in_use:
-			label_ch_in_use[lb] =  data_out_labels[lb]
-		self.network = network_create_func(target_label = label_ch_in_use) 
+    for lb in label_in_use:
+      label_ch_pair[lb] =  data_out_labels[lb]
+    print network_model
+    self.network = network_model(target_label = label_ch_pair) 
 
-  def parse_toml(sef,file):
+  def parse_toml(self,file):
       with open(file, 'rb') as fi:
             conf = toml.load(fi)
             net_conf  = conf['network']
@@ -50,11 +55,14 @@ class experiment_config():
 
             label_conf =conf['target_labels']
 
+            #print label_conf
+
             label_conf['labels']=label_conf.get('labels',['gradient','sizemap','affinity','centermap','distance'])
 
             data_aug_conf = conf['data_augmentation']
 
-            data_aug_conf['transform'] = data_aug_conf['transform'].get('transform',['vflip','hflip','rot90'])
+            #print data_aug_conf
+            data_aug_conf['transform'] = data_aug_conf.get('transform',['vflip','hflip','rot90'])
 
             self.label_conf        = label_conf
             self.data_aug_conf     = data_aug_conf
@@ -63,13 +71,13 @@ class experiment_config():
 
 
 
-	def dataset(self,out_patch_size,transform):
+  def dataset(self,out_patch_size,transform):
       sub_dataset = self.dataset_conf['sub_dataset']
       out_patch_size = self.net_conf['patch_size']
-  		train_dataset = CRIME_Dataset(out_patch_size   =  out_patch_size, 
+      train_dataset = CRIME_Dataset(out_patch_size   =  out_patch_size, 
                                     phase            =  'train',
                                     subtract_mean    =  True,
-                                    transform        =  self.tranform,
+                                    transform        =  self.data_transform,
                                     sub_dataset      =  sub_dataset)
           
       valid_dataset = CRIME_Dataset(out_patch_size   =  out_patch_size, 
@@ -77,35 +85,35 @@ class experiment_config():
                                     subtract_mean    =  True, 
                                     sub_dataset      =  sub_dataset) 
       return train_dataset, valid_dataset
-		
-	def data_Transform(self,op_list):
+    
+  def data_Transform(self,op_list):
       op_list = []
-      ops = {'vflip':vflip(),'hflip':hflip(),'rot90':Rot90()}
+      ops = {'vflip':VFlip(),'hflip':HFlip(),'rot90':Rot90()}
       for op_str in op_list:
         op_list.appent(ops[op_str])
       return random_transform(* op_list)
-	
-  def label_Generetor(self):
-		  return labelGeneretor()
+  
+  def label_Generator(self):
+      return labelGenerator()
 
-	def optimizer(self,model):
-		  return optim.Adagrad(filter(lambda x: x.requires_grad, model.parameters()),
+  def optimizer(self,model):
+      return optim.Adagrad(filter(lambda x: x.requires_grad, model.parameters()),
                                            lr=0.01, 
                                            lr_decay=0, 
                                            weight_decay=0)
-	@property
-	def name(self):
-		  return self.network.name + '_' \
-		       + self.train_dataset.name + '_' \
-		       + self.data_transform.name
+  @property
+  def name(self):
+      return self.network.name + '_' \
+           + self.train_dataset.name + '_' \
+           + self.data_transform.name
 
 
 class experiment():
-	def __init__(self,experiment_config):
-  		self.exp_cfg           = experiment_config
+  def __init__(self,experiment_config):
+      self.exp_cfg           = experiment_config
       
-      self.model_saved_dir   = self.exp_cfg.net_conf['model_saved_dir']
-      self.model_save_steps  = self.exp_cfg.net_conf['model_saved_step']
+      self.model_saved_dir   = self.exp_cfg.net_conf['model_save_dir']
+      self.model_save_steps  = self.exp_cfg.net_conf['model_save_step']
       self.model             = self.exp_cfg.network.float()
       
       self.use_gpu           = True and torch.cuda.is_available()
@@ -113,8 +121,10 @@ class experiment():
               self.model.cuda()
       self.use_parallel = False
       
-          
-      if pre_trained_iter:
+      
+
+      pre_trained_iter =  self.exp_cfg.net_conf['load_train_iter']
+      if pre_trained_iter > 0:
         self.net_load_weights(pre_trained_iter)
 
       if not os.path.exists(self.model_saved_dir):
@@ -123,7 +133,7 @@ class experiment():
       self.mse_loss   = torch.nn.MSELoss()
       self.optimizer  = self.exp_cfg.optimizer(self.model)
 
-	def train(self):
+  def train(self):
       # set model to the train mode
       self.model.train()
       self.set_parallel_model()
@@ -183,7 +193,7 @@ class experiment():
                   # loss_str = 'loss : {:.5f}'.format(general_loss.data[0])
                   # loss_str =  loss_str + ', time : {:.2}s'.format(elaps_time)
                   # printProgressBar(steps, self.model_save_steps, prefix = iters, suffix = loss_str, length = 50)
-	
+  
   def valid(self):
         dataset = self.exp_cfg.valid_dataset,
         self.model.eval()
@@ -200,7 +210,7 @@ class experiment():
                 targets  = self.make_cuda_data(targets)
             preds  = self.model(data)
             losses = self.compute_loss(dist_pred,distance)
-            loss + = losses['distance'].data[0]
+            loss += losses['distance'].data[0]
             # loss += self.mse_loss(dist_pred,distance).data[0]
             if i % iters ==0:
                 exp_config_name = self.exp_cfg.name()
@@ -212,33 +222,34 @@ class experiment():
         loss = loss / iters
         self.model.train()
         print (' valid loss : {:.3f}'.format(loss))
-	
+  
   def predict(self):
-		pass
-	def net_load_weight(self, iters):
-		self.model_file = self.model_saved_dir + '/' \
+    pass
+  def net_load_weight(self, iters):
+      self.model_file = self.model_saved_dir + '/' \
                          + '{}_iter_{}.model'.format(
                                                      self.experiment_config.name,
                                                      pre_trained_iter)
-        print('Load weights  from {}'.format(self.model_file))
-        self.model.load_state_dict(torch.load(self.model_file))
-    def make_variable(self,label_dict):
-    	for key,value in label_dict.iteritems():
-    		label_dict[key] = Variable(value).float()
-    	return label_dict
+      print('Load weights  from {}'.format(self.model_file))
+      self.model.load_state_dict(torch.load(self.model_file))
     
-    def make_cuda_data(self,label_dict):
-    	for key,value in label_dict.iteritems():
-    		label_dict[key] = value.cuda().float()
-    	return label_dict
+  def make_variable(self,label_dict):
+      for key,value in label_dict.iteritems():
+        label_dict[key] = Variable(value).float()
+      return label_dict
     
-    def set_parallel_model(self):
+  def make_cuda_data(self,label_dict):
+      for key,value in label_dict.iteritems():
+        label_dict[key] = value.cuda().float()
+      return label_dict
+    
+  def set_parallel_model(self):
       gpus = [0]
       use_parallel = True if len(gpus) >1 else False
       if use_parallel:
           self.model = torch.nn.DataParallel(self.model, device_ids=gpus)
     
-    def compute_loss(self,preds,targets, train = True):
+  def compute_loss(self,preds,targets, train = True):
         outputs ={}
         ang_loss  = angularLoss(preds['gradient'], targets['gradient'])
 
@@ -257,15 +268,16 @@ class experiment():
         outputs['ang_loss']    = ang_loss
         outputs['merged_loss'] = loss
         return outputs
-    def save_model(self,iters):
-        model_save_file = get_model_save_filename(iters):
+  def save_model(self,iters):
+        model_save_file = get_model_save_filename(iters)
         torch.save(self.model.state_dict(),model_save_file)
         print(' saved {}'.format(model_save_file))
 
 
-    def get_model_save_filename(self,iters):
-        return model_save_file = self.model_saved_dir + '/' \
-                                      + '{}_iter_{}.model'.format(self.get_experiment_name(),iters)
+  def get_model_save_filename(self,iters):
+        model_save_file = self.model_saved_dir + '/' \
+                      + '{}_iter_{}.model'.format(self.get_experiment_name(),iters)
+        return model_save_file
 
 
 def save2figuer(iters,file_prefix,output):
@@ -284,4 +296,3 @@ def save2figuer(iters,file_prefix,output):
     plt.imshow(I)
     plt.savefig(file_prefix+'{}.png'.format(iters))
     plt.close('all')
-
