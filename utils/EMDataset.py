@@ -16,136 +16,177 @@ from label_transform.volumes import SubvolumeGenerator
 
 
 class CRIME_Dataset(Dataset):
-    """ EM dataset."""
+  """ EM dataset."""
+  # Initialize EM data
+  def __init__(self, out_size =   224, 
+               dataset        =   'Set_A',
+               subtract_mean  =   True,
+               phase          =   'train',
+               transform      =   None,
+               data_config    =   'conf/cremi_datasets.toml'):
+    self.dataset      = dataset
+    self.phase        = phase
+    # self.x_out_size   = out_size
+    # self.y_out_size   = out_size
+    self.z_out_size   = 1
+    self.data_config  = data_config
+    self.subtract_mean = subtract_mean
+    self.transform = transform
+    self.set_phase(phase)
+    self.load_data()
 
-    # Initialize EM data
-    def __init__(self, out_size = 224, 
-                 dataset = 'Set_A',
-                 subtract_mean = False,
-                 phase   = 'train',
-                 transform = None,
-                 data_config = 'conf/cremi_datasets_with_tflabels.toml'):
-      self.dataset      = dataset
-      self.phase        = phase
-      self.x_out_size   = out_size
-      self.y_out_size   = out_size
-      self.z_out_size   = 1
-      self.data_config  = data_config
-      self.subtract_mean = subtract_mean
-      self.transform = transform
-      self.load_hdf()
+    self.out_size   = out_size
 
-      dim_shape         = self.im_data.shape
-      self.y_size       = dim_shape[2] -self.x_out_size + 1
-      self.x_size       = dim_shape[1] -self.y_out_size + 1 
-      self.set_phase(phase)
-      self.label_trans_gen = label_transform(objSizeMap =True)
-      #self.z_size       = dim_shape[0] -self.z_out_size + 1
-    def set_phase(self,phase):
-      self.phase = phase
-      if phase == 'train':
-        self.slice_start_z= 0
-        self.slice_end_z   = 99
-      elif phase == 'valid':
-        self.slice_start_z = 100
-        self.slice_end_z = 124
+    dim_shape             = self.im_data.shape
+    self.y_size1           = dim_shape[2] -self.out_size + 1
+    self.x_size1           = dim_shape[1] -self.out_size + 1 
+    self.y_size2           = dim_shape[2] -self.out_size*2 + 1
+    self.x_size2           = dim_shape[1] -self.out_size*2 + 1 
 
-      self.z_size = self.slice_end_z - self.slice_end_z +1
+    self.label_generator  = label_transform(objSizeMap =True)
+    #self.z_size       = dim_shape[0] -self.z_out_size + 1
+  def set_phase(self,phase):
+    self.phase = phase
+    if phase == 'train':
+      self.slice_start_z= 0
+      self.slice_end_z   = 99
+    elif phase == 'valid':
+      self.slice_start_z = 100
+      self.slice_end_z = 124
 
+    self.z_size = self.slice_end_z - self.slice_start_z +1
+    
 
-        
-    def __getitem__(self, index):
-      z_start = index // (self.x_size * self.y_size) + self.slice_start_z
-      remain  = index % (self.x_size * self.y_size)
-      x_start = remain // self.y_size
-      y_start = remain % self.y_size
-
-      z_end   = z_start + self.z_out_size
-      x_end   = x_start + self.x_out_size
-      y_end   = y_start + self.y_out_size
-
-      data    = np.array(self.im_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.float)
-      if self.subtract_mean:
-        data -= 127.0
-      seg_label   =np.array(self.lb_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.int)
-
-     
-     #set distance larget enough to conver the boundary 
-     # as to put more weight on bouday areas.
-     #, which is important when do cut for segmentation 
-      affineX=affinity(axis=-1,distance =10)
-      affineY=affinity(axis=-2,distance =10)
-
-
-
-      affinMap = ((affineX(seg_label) + affineY(seg_label))>0).astype(np.int)
-
-      #target_ch1,target_ch2 =self.gradient_gen(seg_label)
-      #A =self.gradient_gen(seg_label)
-      #print type(A)
-      #target_ch1  =np.array(self.gradX[z_start:z_end,x_start:x_end,y_start:y_end])
-      #target_ch2  =np.array(self.gradY[z_start:z_end,x_start:x_end,y_start:y_end])
-
-      if self.transform:
-        data,seg_label,affinMap  = self.transform(data,seg_label,affinMap)
-        #data, target_ch1, target_ch2 = self.transform(data,target_ch1,target_ch2)
       
+  def __getitem__(self, index):
 
-      # compute the runtime obj graidient instead of pre-computed one
-      # to avoid using wrong gradient map after the label augmentation
-      # such as flip, rotate etc.
-      trans_data_list = self.label_trans_gen(seg_label)
-      grad_x, grad_y = trans_data_list[0]['gradient']
-      grad  = np.concatenate((grad_x,grad_y),0)
-      
+    self.transform_call = self.transform() 
+    len2 = self.z_size * self.x_size2 * self.y_size2 
+    if self.transform_call[1] == 'affine':
+      idx = random.randint(0,len2-1)
+      x_out_size   = self.out_size*2
+      y_out_size   = self.out_size*2
+      x_size = self.x_size2
+      y_size = self.y_size2 
+    else:
+      idx = index
+      x_out_size   = self.out_size
+      y_out_size   = self.out_size
+      x_size = self.x_size1
+      y_size = self.y_size1
 
-      tc_label_dict ={}
-      for key,value in trans_data_list[0].iteritems():
-        tc_label_dict[key] = torch.from_numpy(value).float() \
-                                 if key is not 'gradient' \
-                                 else torch.from_numpy(grad).float()
+    z_start = idx// (x_size * y_size) + self.slice_start_z
+    remain  = idx % (x_size * y_size)
+    x_start = remain // y_size
+    y_start = remain % y_size
 
-      tc_label_dict['affinity'] = torch.from_numpy(affinMap).float()
+    z_end   = z_start + self.z_out_size
+    x_end   = x_start + x_out_size
+    y_end   = y_start + y_out_size
 
-      #tc_data, tc_grad, = torch.from_numpy(data).float(), torch.from_numpy(grad).float()
-      tc_data = torch.from_numpy(data).float()
+    data    = np.array(self.im_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.float)
+    if self.subtract_mean:
+      data -= 127.0
+    seg_label   =np.array(self.lb_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.int)
+#     print('data[0,:10,:10] is {}').format(data[0,:10,:10])
+#     print('lable[0,:10,:10] is {} ').format(seg_label[0,:10,:10])
+    if self.transform_call:
+      data, seg_label = self.transform_call[0](data,seg_label)
+    
+    ## for affine transformations, we need to substract a final center output
+    if self.transform_call[1] == 'affine':
+      x_center_start = x_out_size/2 - self.out_size/2
+      x_center_end = x_out_size - x_center_start
+      y_center_start = y_out_size/2 - self.out_size/2
+      y_center_end = y_out_size - y_center_start
+      data = data[:,x_center_start:x_center_end,y_center_start:y_center_end]
 
-      return tc_data, tc_label_dict
+      seg_label = seg_label[:,x_center_start:x_center_end, y_center_start:y_center_end]
+    
+    print('data[0,:10,:10] is {}').format(data[0,:10,:10])
+    print('lable[0,:10,:10] is {} ').format(seg_label[0,:10,:10])
+   
+   #set distance large enough to conver the boundary 
+   # as to put more weight on bouday areas.
+   #, which is important when do cut for segmentation 
+    affineX=affinity(axis=-1,distance =2)
+    affineY=affinity(axis=-2,distance =2)
+    affinMap = ((affineX(seg_label)[0] + affineY(seg_label)[0])>0).astype(np.int)
 
-      #return tc_data,tc_target
+
+    centermap = objCenterMap()
+    [(x_centerMap, y_centerMap)] = centermap(seg_label)
+
+    # if self.transform:
+      # data,seg_label,affinMap,x_centerMap,y_centerMap = self.transform(data,seg_label,affinMap,x_centerMap,y_centerMap)
+
+    objCenter_map = np.concatenate((x_centerMap,y_centerMap),0) 
+    
+
+
+    # if self.transform:
+    #   data,seg_label,affinMap = self.transform(data,seg_label,affinMap)
+
+
+    
+
+    # compute the runtime obj graidient instead of pre-computed one
+    # to avoid using wrong gradient map when performing data augmentation
+    # such as flip, rotate etc.
+    trans_data_list = self.label_generator(seg_label)
+    grad_x, grad_y = trans_data_list[0]['gradient']
+    grad  = np.concatenate((grad_x,grad_y),0)
+    
 
 
 
-    def __len__(self):
-      self.len = self.x_size * self.y_size * self.z_size 
-      return self.len
+    tc_label_dict ={}
+    for key,value in trans_data_list[0].iteritems():
+      tc_label_dict[key] = torch.from_numpy(value).float() \
+                               if key is not 'gradient' \
+                               else torch.from_numpy(grad).float()
 
-    def load_hdf(self):
-      
-      #data_config = 'conf/cremi_datasets.toml'
-      volumes = HDF5Volume.from_toml(self.data_config)
-      #data_name ={'Set_A':'Sample A','Set_B':'Sample B','Set_C':'Sample C'}
-      data_name = {'Set_A':'Sample A with extra transformed labels',
-                   'Set_B':'Sample B with extra transformed labels',
-                   'Set_C':'Sample C with extra transformed labels'
-                  }
-      # data_name = {'Set_A':'Sample A',
-      #              'Set_B':'Sample B',
-      #              'Set_C':'Sample C'
-      #             }
-      self.V = volumes[data_name[self.dataset]]
-      
-      self.lb_data = self.V.data_dict['label_dataset']
-      self.im_data = self.V.data_dict['image_dataset']
-      #self.gradX = self.V.data_dict['gradX_dataset']
-      #self.gradY = self.V.data_dict['gradY_dataset']
-     
-      # gradX = np.expand_dims(gradX, 1)
-      # gradY = np.expand_dims(gradY, 1)
-      # self.gd_data = np.concatenate((gradX,gradY),axis=1)
-      # self.lb_data = np.array(self.V.data_dict['label_dataset']).astype(np.int32)
-      # self.im_data = np.array(self.V.data_dict['image_dataset']).astype(np.int32)
+    tc_label_dict['affinity']  = torch.from_numpy(affinMap).float()
 
+    tc_label_dict['centermap'] = torch.from_numpy(objCenter_map).float()
+
+    #print ('here is center shape ={}'.format(objCenter_map.shape))
+
+    #tc_data, tc_grad, = torch.from_numpy(data).float(), torch.from_numpy(grad).float()
+    tc_data = torch.from_numpy(data).float()
+
+    return tc_data, tc_label_dict
+
+  def __len__(self):
+    self.len = self.x_size1 * self.y_size1 * self.z_size
+    return self.len
+
+  def load_data(self):
+    
+    #data_config = 'conf/cremi_datasets.toml'
+    volumes = HDF5Volume.from_toml(self.data_config)
+    #data_name ={'Set_A':'Sample A','Set_B':'Sample B','Set_C':'Sample C'}
+    # data_name = {'Set_A':'Sample A with extra transformed labels',
+    #              'Set_B':'Sample B with extra transformed labels',
+    #              'Set_C':'Sample C with extra transformed labels'
+    #             }
+    data_name = {'Set_A':'Sample A',
+                 'Set_B':'Sample B',
+                 'Set_C':'Sample C'
+                }
+    self.V = volumes[data_name[self.dataset]]
+    
+    self.lb_data = self.V.data_dict['label_dataset']
+    self.im_data = self.V.data_dict['image_dataset']
+    #self.gradX = self.V.data_dict['gradX_dataset']
+    #self.gradY = self.V.data_dict['gradY_dataset']
+   
+    # gradX = np.expand_dims(gradX, 1)
+    # gradY = np.expand_dims(gradY, 1)
+    # self.gd_data = np.concatenate((gradX,gradY),axis=1)
+    # self.lb_data = np.array(self.V.data_dict['label_dataset']).astype(np.int32)
+    # self.im_data = np.array(self.V.data_dict['image_dataset']).astype(np.int32)
+    
 def saveGradfiguers(iters,file_prefix,output):
     my_dpi = 96
     plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
@@ -227,18 +268,33 @@ def test_angluar_map():
 
 
 def test_transform():
-  #data_config = '../conf/cremi_datasets_with_tflabels.toml'
   data_config = '../conf/cremi_datasets.toml'
-  trans=random_transform(VFlip(),HFlip(),Rot90())
-  dataset = CRIME_Dataset(data_config = data_config,phase='valid',transform = trans,out_size = 512,dataset='Set_A')
-  train_loader = DataLoader(dataset=dataset,
-                          batch_size=2,
-                          shuffle=True,
-                          num_workers=1)
-  for i , (inputs,target) in enumerate(train_loader,start =0):
+  #data_config = '../conf/cremi_datasets.toml'
+  trans=random_transform(VFlip(), 
+                        Shear(value = 30, interp = ('bilinear', 'nearest')), 
+                        Zoom(value = 0.8, interp = ('bilinear', 'nearest')),
+                        Blur(32),
+                        RandomBlur())
+  dataset = CRIME_Dataset(data_config   = data_config,
+                          subtract_mean  =   True,
+                          phase='valid',
+                          transform = trans,
+                          out_size = 224,
+                          dataset='Set_A')
+  
+  train_loader = DataLoader(dataset     = dataset,
+                            batch_size  = 1,
+                            shuffle     = True,
+                            num_workers = 1)
+  for i , (inputs,target,trans_type, idx) in enumerate(train_loader,start =0):
+  #for i , all in enumerate(train_loader,start =0):
+    
     #labels = labels[:,0,:,:,:]
     #print inputs.shape
+    print(trans_type)
+    print('index is {}').format(idx)
     im  = inputs[0,0].numpy()
+    #pdb.set_trace()
     #tg1 = target['gradient'][0,0].numpy()
     #tg2 = target['gradient'][0,1].numpy()
     ang_map=compute_angular(target['gradient'])[0].numpy()
@@ -248,19 +304,23 @@ def test_transform():
 
     #print('ang_mp shape = {}'.format(ang_map.shape))
     #print('dist shape {}'.format(target['distance'].shape))
-    dist    = target['distance'][0].numpy()
+    dist     = target['distance'][0].numpy()
     sizemap  = target['sizemap'][0].numpy()
     affinity = target['affinity'][0].numpy()
-    dist    = np.squeeze(dist)
-    sizemap = np.squeeze(sizemap)
-    affinity =np.squeeze(affinity)
+    centermap = target['centermap'][0].numpy()
+    dist     = np.squeeze(dist)
+    sizemap  = np.squeeze(sizemap)
+    affinity = np.squeeze(affinity)
+    center_x   = np.squeeze(centermap[0])
+    center_y   = np.squeeze(centermap[1])
+    #print('center shape ={}'.format(center.shape))
 
-    fig,axes = plt.subplots(nrows =2, ncols=2,gridspec_kw = {'wspace':0.01, 'hspace':0.01})
-    axes[0,0].imshow(im,cmap='gray')
+    fig,axes = plt.subplots(nrows =2, ncols=3,gridspec_kw = {'wspace':0.01, 'hspace':0.01})
+    axes[0,0].imshow(im,cmap='gray', vmin = -127.5, vmax = 127.5)
     axes[0,0].axis('off')
     axes[0,0].margins(0,0)
     
-    axes[0,1].imshow(ang_map)
+    axes[0,1].imshow(affinity)
     axes[0,1].axis('off')
     axes[0,1].margins(0,0)
     
@@ -268,29 +328,22 @@ def test_transform():
     axes[1,0].axis('off')
     axes[1,0].margins(0,0)
 
-    axes[1,1].imshow(affinity)
+    axes[1,1].imshow(np.log(sizemap))
     axes[1,1].axis('off')
     axes[1,1].margins(0,0)
 
-    # axes[1,1].imshow(np.log(sizemap))
-    # axes[1,1].axis('off')
-    # axes[1,1].margins(0,0)
 
-    # axes[2,0].imshow(affinity)
-    # axes[2,0].axis('off')
-    # axes[2,0].margins(0,0)
+    axes[0,2].imshow(center_x)
+    axes[0,2].axis('off')
+    axes[0,2].margins(0,0)
+
+    axes[1,2].imshow(center_y)
+    axes[1,2].axis('off')
+    axes[1,2].margins(0,0)
 
     plt.margins(x=0.001,y=0.001)
     plt.subplots_adjust(wspace=0, hspace=0)
-
-
-    #fig.tight_layout()
-    # ax1 =fig.add_subplot(121)
-    # ax1.show(im)
-    # ax2 =fig.add_subplot(122)
-    # ax2.show(tg)
-    # cv2.waitKey(3000)
-   
+  
     plt.show()
     #plt.close('all')
     if i >5:
