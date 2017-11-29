@@ -5,16 +5,17 @@ from torch.utils.data import DataLoader
 from torch.autograd import Variable
 from torch_networks.networks import Unet,DUnet,MdecoderUnet 
 # from transform import *
-from utils.transform import VFlip, HFlip, Rot90, random_transform
 
 from utils.EMDataset import CRIME_Dataset,labelGenerator
 from utils.transform import VFlip, HFlip, Rot90, random_transform
 from utils.torch_loss_functions import *
+from utils.printProgressBar import printProgressBar
 import torchvision.utils as vutils
 from matplotlib import pyplot as plt
 import pytoml as toml
 import torch.optim as optim
 import time
+import pdb
 
 
 class experiment_config():
@@ -116,9 +117,10 @@ class experiment():
       self.model_save_steps  = self.exp_cfg.net_conf['model_save_step']
       self.model             = self.exp_cfg.network.float()
       
-      self.use_gpu           = True and torch.cuda.is_available()
+      self.use_gpu           = self.exp_cfg.net_conf['use_gpu'] and torch.cuda.is_available()
       if self.use_gpu:
-              self.model.cuda()
+            print ('model_set_cuda')
+            self.model = self.model.cuda()
       self.use_parallel = False
       
       
@@ -143,12 +145,12 @@ class experiment():
                                 num_workers = 4)
       
       def show_iter_info(iters,runing_loss, iter_str, time_elaps, end_of_iter = False):
-        if ned_of_iter:
+        if end_of_iter:
            loss_str    = 'loss : {:.5f}'.format(runing_loss/float(self.model_save_steps))
            printProgressBar(self.model_save_steps, self.model_save_steps, prefix = iter_str, suffix = loss_str, length = 50)
            self.valid_dist() 
         else:
-           loss_str = 'loss : {:.5f}'.format(general_loss.data[0])
+           loss_str = 'loss : {:.5f}'.format(merged_loss.data[0])
            loss_str =  loss_str + ', time : {:.2}s'.format(time_elaps)
            printProgressBar(iters, self.model_save_steps, prefix = iter_str, suffix = loss_str, length = 50)
       
@@ -167,18 +169,20 @@ class experiment():
             runing_loss = 0.0
             start_time  = time.time()
             for i, (data,targets) in enumerate(train_loader, 0):
+              data   = Variable(data).float()
               target = self.make_variable(targets)
               if self.use_gpu:
                   data      = data.cuda().float()
                   targets   = self.make_cuda_data(targets)
                 
-              self.optimizer.zero_grad()
+              
               preds        = self.model(data)
               losses       = self.compute_loss(preds,targets)
-              general_loss = losses['general_loss']
+              merged_loss = losses['merged_loss']
+              self.optimizer.zero_grad()
               self.optimizer.step()
               
-              runing_loss += general_loss.data[0]
+              runing_loss += merged_loss.data[0]
               time_elaps   = time.time() - start_time
 
               steps,iter_str=get_iter_info(i)
@@ -254,7 +258,7 @@ class experiment():
         ang_loss  = angularLoss(preds['gradient'], targets['gradient'])
 
         ''' We want the location of boundary(affinity) in distance map  to be zeros '''
-        distance  = target['distance'] * (1-targets['affinity'])
+        distance  = targets['distance'] * (1-targets['affinity'])
 
         dist_loss = boundary_sensitive_loss(preds['distance'],distance, targets['affinity'])
 
@@ -269,14 +273,14 @@ class experiment():
         outputs['merged_loss'] = loss
         return outputs
   def save_model(self,iters):
-        model_save_file = get_model_save_filename(iters)
+        model_save_file = self.get_model_save_filename(iters)
         torch.save(self.model.state_dict(),model_save_file)
         print(' saved {}'.format(model_save_file))
 
 
   def get_model_save_filename(self,iters):
         model_save_file = self.model_saved_dir + '/' \
-                      + '{}_iter_{}.model'.format(self.get_experiment_name(),iters)
+                      + '{}_iter_{}.model'.format(self.exp_cfg.name,iters)
         return model_save_file
 
 

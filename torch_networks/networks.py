@@ -178,7 +178,7 @@ class _Unet_encoder(nn.Module):
         self.in_ch  = in_ch
         #self.out_ch = out_ch
        
-        self.conv_2d_1 = nn.Conv2d(in_ch, first_out_ch, kernel_size=kernel_size, padding=(kernel_size // 2))
+        self.conv_2d_1 = nn.Conv2d(in_ch, first_out_ch, kernel_size=kernel_size, padding=kernel_size // 2)
         
         self.enc_1 = Downblock(first_out_ch, num_conv_in_block, ch_change_rate, kernel_size)
         b1_down_ch = first_out_ch * ch_change_rate
@@ -190,55 +190,65 @@ class _Unet_encoder(nn.Module):
         b3_down_ch = b2_down_ch * ch_change_rate
         
         self.enc_4 = Downblock(b3_down_ch, num_conv_in_block, ch_change_rate, kernel_size)
-        self.b4_down_ch =b3_down_ch * ch_change_rate
+        b4_down_ch =b3_down_ch * ch_change_rate
+
+        self.enc_5 = Downblock(b4_down_ch, num_conv_in_block, 1, kernel_size)
+        self.b5_down_ch =b4_down_ch * 1
         self.upsample = nn.Upsample(scale_factor=2,mode='bilinear')
 
     @property
     def last_ch(self):
-        return self.b4_down_ch
+        return self.b5_down_ch
     def forward(self,x):
         x1  = self.conv_2d_1(x)
         d_1 = self.enc_1(x1)
         d_2 = self.enc_2(d_1)
         d_3 = self.enc_3(d_2)
         d_4 = self.enc_4(d_3)
-        enc3_out = torch.cat((self.upsample(d_4), d_3), 1)
-        return [enc3_out, d_2, d1, x1]
+        d_5 = self.enc_5(d_4)
+        enc4_out = torch.cat((self.upsample(d_5), d_4), 1)
+        return [enc4_out,d_3, d_2, d_1, x1]
 
 
 class _Unet_decoder(nn.Module):
     def __init__(self,bottom_input_ch, out_ch =2, num_conv_in_block =2 , ch_change_rate =2 ,kernel_size =3):
         super(_Unet_decoder,self).__init__()
-        b1_in_up_ch = bottom_input_ch + bottom_input_ch / 2 
-        self.up_block_1 = Upblock(b1_in_up_ch,num_conv_in_block,ch_change_rate,kernel_size)
+        b1_in_up_ch = bottom_input_ch + bottom_input_ch / 1 
+        self.dec_1 = Upblock(b1_in_up_ch,num_conv_in_block,ch_change_rate,kernel_size)
 
-        b2_in_up_ch = b1_in_up_ch // ch_change_rate + bottom_input_ch / (2*2)
-        self.up_block_2 = Upblock(b2_in_up_ch,num_conv_in_block,ch_change_rate,kernel_size)
+        b2_in_up_ch = b1_in_up_ch // ch_change_rate + bottom_input_ch // (2**1)
+        self.dec_2 = Upblock(b2_in_up_ch,num_conv_in_block,ch_change_rate,kernel_size)
 
-        b3_in_up_ch = b2_in_up_ch // ch_change_rate + bottom_input_ch / (2*2*2)
-        self.up_block_3 = Upblock(b3_in_up_ch,num_conv_in_block,ch_change_rate,kernel_size)
+        b3_in_up_ch = b2_in_up_ch // ch_change_rate + bottom_input_ch // (2**2)
+        self.dec_3 = Upblock(b3_in_up_ch,num_conv_in_block,ch_change_rate,kernel_size)
 
-        b4_in_up_ch = b3_in_up_ch // ch_change_rate + bottom_input_ch / (2*2*2*2)
-        self.up_block_4 = Upblock(b4_in_up_ch,num_conv_in_block,ch_change_rate,kernel_size)
+        b4_in_up_ch = b3_in_up_ch // ch_change_rate + bottom_input_ch // (2**3)
+        self.dec_4 = Upblock(b4_in_up_ch,num_conv_in_block,ch_change_rate,kernel_size)
 
-        last_up_ch = b4_in_up_ch // ch_change_rate
-        self.finnal_conv2d = nn.Conv2d(last_up_ch, 2, kernel_size=3, padding=(kernel_size-1)/2)
+        b5_in_up_ch = b4_in_up_ch // ch_change_rate + bottom_input_ch // (2**4)
+        self.dec_5 = Upblock(b5_in_up_ch,num_conv_in_block,ch_change_rate,kernel_size)
+
+        last_up_ch = b5_in_up_ch // ch_change_rate
+        self.finnal_conv2d = nn.Conv2d(last_up_ch, out_ch, kernel_size=3, padding=(kernel_size-1)/2)
 
         self.upsample = nn.Upsample(scale_factor=2,mode='bilinear')
         # return self.finnal_conv2d
-    def forward(self,x,ecoder_layers):
-         u_1 = self.up_block_1(ecoder_layers[0])
+    def forward(self, encoder_outputs):
+         u_1 = self.dec_1(encoder_outputs[0])
 
-         c_2 = torch.cat((self.upsample(u_2), encoder_layer[1]), 1)
-         u_2 = self.up_block_2(c_2)
+         c_2 = torch.cat((self.upsample(u_1), encoder_outputs[1]), 1)
+         u_2 = self.dec_2(c_2)
 
-         c_3 = torch.cat((self.upsample(u_2), encoder_layer[2]), 1)
-         u_3 = self.up_block_3(c_3)
+         c_3 = torch.cat((self.upsample(u_2), encoder_outputs[2]), 1)
+         u_3 = self.dec_3(c_3)
 
-         c_4 = torch.cat((self.upsample(u_3), encoder_layer[3]), 1)
-         u_4 = self.up_block_4(c_4)
+         c_4 = torch.cat((self.upsample(u_3), encoder_outputs[3]), 1)
+         u_4 = self.dec_4(c_4)
 
-         out = self.finnal_conv2d(u_4)
+         c_5 = torch.cat((self.upsample(u_4), encoder_outputs[4]), 1)
+         u_5 = self.dec_5(c_5)
+
+         out = self.finnal_conv2d(u_5)
          return out
 
 
@@ -248,16 +258,18 @@ class MdecoderUnet(nn.Module):
                 number_bolck=4, num_conv_in_block=2, ch_change_rate=2,kernel_size = 3):
         super(MdecoderUnet,self).__init__()
         self.encoder = _Unet_encoder(in_ch,first_out_ch,number_bolck, num_conv_in_block,ch_change_rate,kernel_size)
+        #self.add_module('encoder',self.encoder)
         
         self.decoders = {}
-        for name,out_ch in target_label.items():
+        for name,out_ch in target_label.iteritems():
             self.decoders[name]=_Unet_decoder(bottom_input_ch=self.encoder.last_ch, out_ch=out_ch,num_conv_in_block = num_conv_in_block)
+            self.add_module('decoder_'+ name, self.decoders[name])
 
-    def forward(x):
-        encoder_outputs= encoder(x)
+    def forward(self,x):
+        encoder_outputs= self.encoder(x)
         outputs = {}
-        for name, decorder in self.decorder.iterms():
-            outputs[name]=decorder(x,encoder_outputs)
+        for name, decoder in self.decoders.iteritems():
+            outputs[name]=decoder(encoder_outputs)
         return outputs
 
 class DUnet(nn.Module):
@@ -284,7 +296,7 @@ class DUnet(nn.Module):
         #x=self.finnal_conv2d(x)
         outputs ={}
         outputs['gradient']   = self.net1(x)
-        x_net2_in         = torch.cat((gradient_out,x),1)
+        x_net2_in             = torch.cat((outputs['gradient'],x),1)
         outputs['distance']   = self.net2(x_net2_in)
         return outputs
         #return gradient_out,distance_out

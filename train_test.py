@@ -176,7 +176,10 @@ class train_test():
                      affinity = affinity.cuda().float()
                 
                 self.optimizer.zero_grad()
-                grad_pred,dist_pred = self.model(data)
+                preds=self.model(data)
+                grad_pred = preds['gradient']
+                dist_pred = preds['distance']
+                #grad_pred,dist_pred = self.model(data)
                 ang_loss = angularLoss(grad_pred, gradient)
                 #dist_loss = self.mse_loss(dist_pred,distance)
                 distance = distance * (1-affinity)
@@ -211,7 +214,7 @@ class train_test():
                 printProgressBar(steps, self.model_save_steps, prefix = iters, suffix = loss_str, length = 50)
                # print('train iter {}, loss = {:.5f}'.format(i,loss.data[0]))
     def get_experiment_name(self):
-        return self.model.name +'_'+self.trainDataset.obj_id_string
+        return self.model.name +'_'+self.trainDataset.name
     def test(self):
         self.model.eval()
         model.load_state_dict(torch.load(self.model_file))
