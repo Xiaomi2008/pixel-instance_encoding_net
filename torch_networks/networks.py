@@ -91,7 +91,8 @@ class conv_bn_relu(nn.Module):
         
 
 class Unet(nn.Module):
-    def __init__(self, in_ch =1, first_out_ch=16, out_ch =1, number_bolck=4,num_conv_in_block=2,ch_change_rate=2,kernel_size = 3):
+    def __init__(self, in_ch =1, first_out_ch=16, out_ch =1, number_bolck=4,
+             num_conv_in_block=2,ch_change_rate=2,kernel_size = 3,target_label = {'gradient':2}):
         super(Unet, self).__init__()
         self.in_ch  = in_ch
         self.out_ch = out_ch
@@ -137,12 +138,19 @@ class Unet(nn.Module):
         last_up_ch = (b4_up_ch+first_out_ch) // ch_change_rate
         #self.finnal_conv2d = nn.Conv2d(last_up_ch, out_ch, kernel_size=1, padding=0)
         self.upsample = nn.Upsample(scale_factor=2,mode='bilinear')
-        self.finnal_conv2d = nn.Conv2d(last_up_ch, 2, kernel_size=3, padding=1)
+        if target_label:
+            if 'gradient'in target_label:
+                out_ch = target_label['gradient']
+            elif 'distance' in target_label:
+                out_ch = target_label['distance']
+        self.finnal_conv2d = nn.Conv2d(last_up_ch, out_ch, kernel_size=3, padding=1)
+
     @property
     def name(self):
         return 'Unet'
     def forward(self,x):
         #x=self.finnal_conv2d(x)
+        outputs ={}
         x1  = self.conv_2d_1(x)
         d_1 = self.down_block_1(x1)
         d_2 = self.down_block_2(d_1)
@@ -167,7 +175,8 @@ class Unet(nn.Module):
         u_4 = self.up_block_4(c_4)
 
         out = self.finnal_conv2d(u_4)
-        return out
+        outputs['gradient'] = out
+        return outputs
 
 
 
@@ -178,7 +187,9 @@ class _Unet_encoder(nn.Module):
         self.in_ch  = in_ch
         #self.out_ch = out_ch
        
-        self.conv_2d_1 = nn.Conv2d(in_ch, first_out_ch, kernel_size=kernel_size, padding=kernel_size // 2)
+        #self.conv_2d_1 = nn.Conv2d(in_ch, first_out_ch, kernel_size=kernel_size, padding=kernel_size // 2)
+
+        self.conv_2d_1 = conv_bn_relu(in_ch, first_out_ch, kernel_size = kernel_size)
         
         self.enc_1 = Downblock(first_out_ch, num_conv_in_block, ch_change_rate, kernel_size)
         b1_down_ch = first_out_ch * ch_change_rate

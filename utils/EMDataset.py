@@ -252,6 +252,7 @@ class CRIME_Dataset(exp_Dataset):
                                 'label':V.data_dict['label_dataset']}
       else:
         k = self.sub_dataset
+        V = volumes[data_name[k]]
         im_lb_pair[k] ={'image':V.data_dict['image_dataset'],
                                 'label':V.data_dict['label_dataset']}
 

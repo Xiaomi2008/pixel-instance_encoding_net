@@ -80,19 +80,36 @@ class train_test():
                                   num_workers=1)
         loss = 0.0
         iters = 120
-        for i, (data,target) in enumerate(valid_loader, 0):
-            distance = target['distance']
-            data, distance = Variable(data).float(), Variable(distance).float()
+        for i, (data,targets) in enumerate(valid_loader, 0):
+            distance = targets['distance']
+            gradient = targets['gradient']
+            data, distance, gradient = Variable(data).float(), Variable(distance).float(), Variable(gradient).float()
             if self.use_gpu:
                 data = data.cuda().float()
                 distance =distance.cuda().float()
-            grad_pred,dist_pred = self.model(data)
-            loss += self.mse_loss(dist_pred,distance).data[0]
+                gradient = gradient.cuda().float()
+            preds = self.model(data)
+            if 'gradient' in preds:
+                grad_pred = preds['gradient']
+            if 'distance' in preds:
+                dist_pred = preds['distance']
+            #grad_pred,dist_pred = self.model(data)
+
+            if 'distance' in preds:
+                loss += self.mse_loss(dist_pred,distance).data[0]
+            if 'gradient' in preds:
+                loss += angularLoss(grad_pred, gradient).data[0]
             if i % iters ==0:
                 model_name=self.get_experiment_name()
-                saveRawfiguers(i,'dist_t_map_'+model_name,distance)
-                saveRawfiguers(i,'dist_p_map_'+model_name,dist_pred)
-                saveRawfiguers(i,'dist_raw_img_' + model_name, data)
+                if 'distance' in preds:
+                    saveRawfiguers(i,'dist_t_map_'+model_name,distance)
+                    saveRawfiguers(i,'dist_p_map_'+model_name,dist_pred)
+                    saveRawfiguers(i,'dist_raw_img_' + model_name, data)
+                if 'gradient' in preds:
+                    ang_t_map=compute_angular(gradient)
+                    ang_p_map=compute_angular(grad_pred)
+                    saveRawfiguers(i,'ang_t_map_'+model_name,ang_t_map)
+                    saveRawfiguers(i,'ang_p_map_'+model_name,ang_p_map)
             if i >= iters-1:
                 break
         loss = loss / iters
@@ -117,8 +134,10 @@ class train_test():
             if self.use_gpu:
                 data = data.cuda().float()
                 gradient =gradient.cuda().float()
-            pred = self.model(data)
-            loss += angularLoss(pred, gradient).data[0]
+            preds = self.model(data)
+            grad_pred = preds['gradient']
+            dist_pred = preds['distance']
+            loss += angularLoss(grad_pred, gradient).data[0]
             
             if i % iters ==0:
                 ang_t_map=compute_angular(gradient)
@@ -177,15 +196,23 @@ class train_test():
                 
                 self.optimizer.zero_grad()
                 preds=self.model(data)
-                grad_pred = preds['gradient']
-                dist_pred = preds['distance']
-                #grad_pred,dist_pred = self.model(data)
-                ang_loss = angularLoss(grad_pred, gradient)
-                #dist_loss = self.mse_loss(dist_pred,distance)
-                distance = distance * (1-affinity)
-                dist_loss = boundary_sensitive_loss(dist_pred,distance,affinity)
+                if 'gradient' in preds:
+                    grad_pred = preds['gradient'] 
+                    ang_loss = angularLoss(grad_pred, gradient)
+                if 'distance' in preds:
+                    dist_pred = preds['distance']
+                    distance = distance * (1-affinity)
+                    dist_loss = boundary_sensitive_loss(dist_pred,distance,affinity)
                 #dist_loss =weighted_mse_loss(distance,dist_pred,affinity)
-                loss = 0.9995*dist_loss+0.0005*ang_loss
+                if 'gradient' in preds and 'distance' in preds:
+                    loss = 0.9995*dist_loss+0.0005*ang_loss
+                elif 'gradient' in preds and not 'distance' in preds:
+                    loss = ang_loss
+                elif not 'gradient' in preds and 'distance' in preds:
+                    loss = dist_loss
+                else:
+                    raise ValueError('network output must be "distance" or "gradient"')
+                
                 loss.backward()
                 self.optimizer.step()
                 runing_loss += loss.data[0]
@@ -290,6 +317,8 @@ def compute_angular(x):
 
 def saveRawfiguers(iters,file_prefix,output):
     from torchvision.utils import save_image
+    #data = output.cpu()
+    #save_image(data,file_prefix+'{}.png'.format(iters))
     my_dpi = 96
     plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
     if isinstance(output,Variable):
@@ -422,16 +451,17 @@ def creat_dist_net_from_grad_unet(model_pretrained_iter=None, unet_pretrained_it
 
 if __name__ =='__main__':
     input_size =(320,320,1)
+    model, model_file = create_model('Unet',input_size=input_size)
     # model, model_file = create_model('Unet',input_size=input_size,pretrained_iter=11999)
     #model, model_file = create_model('Unet2',input_size=input_size,pretrained_iter=10999)
     #model, model_file = create_model('Unet2DeformConv',input_size=input_size,pretrained_iter=None)
     #model, model_file = create_model('GCN',input_size=input_size,pretrained_iter=None)
     #model, model_file = create_model('DUCHDC',input_size = input_size,pretrained_iter=9999)
 
-    model,model_file = creat_dist_net_from_grad_unet(model_pretrained_iter=17999)
+    #model,model_file = creat_dist_net_from_grad_unet(model_pretrained_iter=96299)
     #unet_pretrained_iter = 11999
     #TrTs =train_test(model=model, input_size=input_size,pretrained_model= model_file)
-    TrTs =train_test(model=model, input_size=input_size,pre_trained_iter=17999)
+    TrTs =train_test(model=model, input_size=input_size,pre_trained_iter=None)
     TrTs.train()
     #TrTs.test()
     #TrTs.test_dist()

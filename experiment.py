@@ -1,3 +1,5 @@
+
+import torch
 from torch_networks.networks import Unet,DUnet, MdecoderUnet
 from matplotlib import pyplot as plt
 
@@ -11,6 +13,9 @@ from utils.transform import VFlip, HFlip, Rot90, random_transform
 from utils.torch_loss_functions import *
 from utils.printProgressBar import printProgressBar
 import torchvision.utils as vutils
+#from matplotlib import pyplot as plt
+import matplotlib
+matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 import pytoml as toml
 import torch.optim as optim
@@ -52,6 +57,8 @@ class experiment_config():
             net_conf['load_train_iter']  = net_conf.get('load_train_iter', None)
             net_conf['model_save_steps'] = net_conf.get('model_save_steps',500)
             net_conf['patch_size']       = net_conf.get('patch_size',[320,320,1])
+            net_conf['learning_rate']    = net_conf.get('learning_rate',0.01)
+            net_conf['load_train_file']  = net_conf.get('load_train_file','')
            
 
             label_conf =conf['target_labels']
@@ -99,7 +106,7 @@ class experiment_config():
 
   def optimizer(self,model):
       return optim.Adagrad(filter(lambda x: x.requires_grad, model.parameters()),
-                                           lr=0.01, 
+                                           lr=self.net_conf['learning_rate'], 
                                            lr_decay=0, 
                                            weight_decay=0)
   @property
@@ -129,10 +136,16 @@ class experiment():
       if pre_trained_iter > 0:
         self.net_load_weights(pre_trained_iter)
 
+      pre_trained_file = self.exp_cfg.net_conf['load_train_file']
+      if pre_trained_file is not '' or len(pre_trained_file) > 5:
+        print('load weights form {}'.format(pre_trained_file))
+        self.model.load_state_dict(torch.load(pre_trained_file))
+
       if not os.path.exists(self.model_saved_dir):
         os.mkdir(self.model_saved_dir)
 
       self.mse_loss   = torch.nn.MSELoss()
+      self.bce_loss   = torch.nn.BCELoss() 
       self.optimizer  = self.exp_cfg.optimizer(self.model)
 
   def train(self):
@@ -146,11 +159,11 @@ class experiment():
       
       def show_iter_info(iters,runing_loss, iter_str, time_elaps, end_of_iter = False):
         if end_of_iter:
-           loss_str    = 'loss : {:.5f}'.format(runing_loss/float(self.model_save_steps))
+           loss_str    = 'loss : {:.2f}'.format(runing_loss/float(self.model_save_steps))
            printProgressBar(self.model_save_steps, self.model_save_steps, prefix = iter_str, suffix = loss_str, length = 50)
-           self.valid_dist() 
+           
         else:
-           loss_str = 'loss : {:.5f}'.format(merged_loss.data[0])
+           loss_str = 'loss : {:.2f}'.format(merged_loss.data[0])
            loss_str =  loss_str + ', time : {:.2}s'.format(time_elaps)
            printProgressBar(iters, self.model_save_steps, prefix = iter_str, suffix = loss_str, length = 50)
       
@@ -175,11 +188,12 @@ class experiment():
                   data      = data.cuda().float()
                   targets   = self.make_cuda_data(targets)
                 
-              
+              self.optimizer.zero_grad()
               preds        = self.model(data)
               losses       = self.compute_loss(preds,targets)
               merged_loss = losses['merged_loss']
-              self.optimizer.zero_grad()
+              
+              merged_loss.backward()
               self.optimizer.step()
               
               runing_loss += merged_loss.data[0]
@@ -190,6 +204,7 @@ class experiment():
               if steps == 0:
                   self.save_model(i)
                   show_iter_info(steps,runing_loss, iter_str, time_elaps, end_of_iter = True)
+                  self.valid()
                   start_time = time.time()
                   runing_loss = 0.0
               else:
@@ -199,7 +214,8 @@ class experiment():
                   # printProgressBar(steps, self.model_save_steps, prefix = iters, suffix = loss_str, length = 50)
   
   def valid(self):
-        dataset = self.exp_cfg.valid_dataset,
+        #from torchvision.utils import save_image
+        dataset = self.exp_cfg.valid_dataset
         self.model.eval()
         valid_loader = DataLoader(dataset =dataset,
                                   batch_size=1,
@@ -207,25 +223,54 @@ class experiment():
                                   num_workers=1)
         loss = 0.0
         iters = 120
-        for i, (data,target) in enumerate(valid_loader, 0):
-            target = self.make_variable(targets)
+        for i, (data,targets) in enumerate(valid_loader, 0):
+            data    = Variable(data).float()
+            targets = self.make_variable(targets)
             if self.use_gpu:
                 data     = data.cuda().float()
                 targets  = self.make_cuda_data(targets)
             preds  = self.model(data)
-            losses = self.compute_loss(dist_pred,distance)
-            loss += losses['distance'].data[0]
+            losses = self.compute_loss(preds,targets)
+            loss += losses['merged_loss'].data[0]
+
             # loss += self.mse_loss(dist_pred,distance).data[0]
+            # label_conf['labels']=label_conf.get('labels',['gradient','sizemap','affinity','centermap','distance'])
             if i % iters ==0:
-                exp_config_name = self.exp_cfg.name()
-                save2figuer(i,'dist_t_map_'+ exp_config_name,targets['distance'])
-                save2figuer(i,'dist_p_map_'+ exp_config_name,preds['distance'])
-                save2figuer(i,'dist_raw_img_' + exp_config_name, data)
+                exp_config_name = self.exp_cfg.name
+                save2figuer(i,'raw_img_'   + exp_config_name, data)
+                
+                if 'distance' in preds:
+                  save2figuer(i,'dist_t_map_'+ exp_config_name,targets['distance'])
+                  save2figuer(i,'dist_p_map_'+ exp_config_name,preds['distance'])
+                
+                if 'sizemap' in preds:
+                  save2figuer(i,'size_p_img_' + exp_config_name, torch.log(preds['sizemap']))
+                  save2figuer(i,'size_t_img_' + exp_config_name, torch.log(targets['sizemap']))
+
+                if 'affinity' in preds:
+                  save2figuer(i,'affin_t_img_' + exp_config_name, targets['affinity'])
+                  save2figuer(i,'affin_p_img_' + exp_config_name, preds['affinity'])
+
+                if 'gradient' in preds:
+                  ang_t_map=compute_angular(targets['gradient'])
+                  ang_p_map=compute_angular(preds['gradient'])
+                  save2figuer(i,'ang_t_img_' + exp_config_name, ang_t_map)
+                  save2figuer(i,'ang_p_img_' + exp_config_name, ang_p_map)
+
+                #save_image([data.data.cpu(), preds['distance'].data.cpu()], \
+                #           exp_config_name +' _valid.png')
+                # save_image([data, \
+                #            targets['distance'],preds['distance'], \
+                #            targets['sizemap'], preds['sizemap'],\
+                #            targets['affinity'],preds['affinity'], \
+                #            ang_t_map,ang_p_map ], \
+                #            exp_config_name +' _valid.png')
+                
             if i >= iters-1:
                 break
         loss = loss / iters
         self.model.train()
-        print (' valid loss : {:.3f}'.format(loss))
+        print (' valid loss : {:.2f}'.format(loss))
   
   def predict(self):
     pass
@@ -253,23 +298,45 @@ class experiment():
       if use_parallel:
           self.model = torch.nn.DataParallel(self.model, device_ids=gpus)
     
-  def compute_loss(self,preds,targets, train = True):
+  def compute_loss(self,preds,targets):
         outputs ={}
-        ang_loss  = angularLoss(preds['gradient'], targets['gradient'])
+        if 'gradient' in preds:
+          ang_loss  = angularLoss(preds['gradient'], targets['gradient'])
+          outputs['ang_loss'] =ang_loss
 
         ''' We want the location of boundary(affinity) in distance map  to be zeros '''
-        distance  = targets['distance'] * (1-targets['affinity'])
+        if 'distance' in preds:
+          distance  = targets['distance'] * (1-targets['affinity'])
+          dist_loss = boundary_sensitive_loss(preds['distance'],distance, targets['affinity'])
+          outputs['dist_loss']   = dist_loss
 
-        dist_loss = boundary_sensitive_loss(preds['distance'],distance, targets['affinity'])
+        # 'labels',['gradient','sizemap','affinity','centermap','distance']
+        #if 'affinity' in self.exp_cfg.label_conf:
+        if 'affinity' in preds:
+          affin_loss=self.bce_loss(torch.sigmoid(preds['affinity']),targets['affinity'])
+          outputs['affinty_loss'] = affin_loss
 
+        if 'sizemap' in preds:
+          size_loss = self.mse_loss(preds['sizemap'],targets['sizemap'])
+          outputs['size_loss'] =size_loss 
+
+        if 'centermap' in preds:
+          center_loss = self.mse_loss(preds['centermap'],targets['centermap'])
+          outputs['center_loss'] =center_loss
+
+
+        loss = sum(outputs.values())
         ''' As the final output is distance map, we mainly put weights on distance loss''' 
-        loss      = 0.9995*dist_loss+0.0005*ang_loss
-        
-        if train:
-          loss.backward()
+        #loss    = dist_loss + ang_loss + size_loss + center_loss
+        # total_loss = 0
+        # for loss in outputs:
+        #   tota
 
-        outputs['dist_loss']   = dist_loss
-        outputs['ang_loss']    = ang_loss
+        #loss      = 0.9995*dist_loss+0.0005*ang_loss
+        
+        #if train:
+        #  loss.backward()
+
         outputs['merged_loss'] = loss
         return outputs
   def save_model(self,iters):
@@ -286,17 +353,50 @@ class experiment():
 
 def save2figuer(iters,file_prefix,output):
     from torchvision.utils import save_image
-    my_dpi = 96
-    plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
     if isinstance(output,Variable):
-        output = output.data
-    data = output.cpu().numpy()
-    if data.ndim ==4:
-         I = data[0,0]
-    elif data.ndim==3:
-         I = data[0]
-    else:
-         I = data
-    plt.imshow(I)
-    plt.savefig(file_prefix+'{}.png'.format(iters))
-    plt.close('all')
+         output = output.data
+    data = output.cpu()
+    save_image(data,file_prefix+'{}.png'.format(iters),normalize =True)
+    # my_dpi = 96
+    # fig.plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
+    # if isinstance(output,Variable):
+    #     output = output.data
+    # data = output.cpu().numpy()
+    # if data.ndim ==4:
+    #      I = data[0,0]
+    # elif data.ndim==3:
+    #      I = data[0]
+    # else:
+    #      I = data
+    # plt.imshow(I)
+    # fig.savefig(file_prefix+'{}.png'.format(iters))
+    # plt.close()
+
+def compute_angular(x):
+    # input x must be a 4D data [n,c,h,w]
+    if isinstance(x,Variable):
+        x = x.data
+    x = F.normalize(x)*0.99999
+    #print(x.shape)
+    x_aix = x[:,0,:,:]/torch.sqrt(torch.sum(x**2,1))
+    angle_map   = torch.acos(x_aix)
+    return angle_map
+
+def save_image(tensor, filename, nrow=8, padding=2,
+               normalize=False, range=None, scale_each=False, pad_value=0):
+    
+    """Save a given Tensor into an image file.
+    Args:
+        tensor (Tensor or list): Image to be saved. If given a mini-batch tensor,
+            saves the tensor as a grid of images by calling ``make_grid``.
+        **kwargs: Other arguments are documented in ``make_grid``.
+    """
+
+    from torchvision.utils import make_grid
+    from PIL import Image
+    #tensor = tensor.cpu()
+    grid = make_grid(tensor, nrow=nrow, padding=padding, pad_value=pad_value,
+                     normalize=normalize, range=range, scale_each=scale_each)
+    ndarr = grid.mul(255).clamp(0, 255).byte().permute(1, 2, 0).numpy()
+    im = Image.fromarray(ndarr)
+    im.save(filename)
