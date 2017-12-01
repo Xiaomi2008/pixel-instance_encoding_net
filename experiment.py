@@ -257,6 +257,12 @@ class experiment():
                   save2figuer(i,'ang_t_img_' + exp_config_name, ang_t_map)
                   save2figuer(i,'ang_p_img_' + exp_config_name, ang_p_map)
 
+                if 'centermap' in preds:
+                  save2figuer(i,'cent_t_img_x_' + exp_config_name, targets['centermap'][:,0,:,:])
+                  save2figuer(i,'cent_p_img_x_' + exp_config_name, preds['centermap'][:,0,:,:])
+                  save2figuer(i,'cent_t_img_y_' + exp_config_name, targets['centermap'][:,1,:,:])
+                  save2figuer(i,'cent_p_img_y_' + exp_config_name, preds['centermap'][:,1,:,:])
+
                 #save_image([data.data.cpu(), preds['distance'].data.cpu()], \
                 #           exp_config_name +' _valid.png')
                 # save_image([data, \
@@ -272,8 +278,8 @@ class experiment():
         self.model.train()
         print (' valid loss : {:.2f}'.format(loss))
   
-  def predict(self):
-    pass
+  #def predict(self):
+  #  pass
   def net_load_weight(self, iters):
       self.model_file = self.model_saved_dir + '/' \
                          + '{}_iter_{}.model'.format(
@@ -349,28 +355,49 @@ class experiment():
         model_save_file = self.model_saved_dir + '/' \
                       + '{}_iter_{}.model'.format(self.exp_cfg.name,iters)
         return model_save_file
+  
+  def predict(self):
+    data_config = 'conf/cremi_datasets_with_tflabels.toml'
+    volumes = HDF5Volume.from_toml(data_config)
+    V_1 = volumes[volumes.keys()[0]]
+    model_file = model_saved_dir +'/' +'GCN_instance_grad_iter_{}.model'.format(499)
+    netmodel.load_state_dict(torch.load(model_file))
+    netmodel.eval()
+    im_size =1024
+    bounds_gen=bounds_generator(V_1.shape,[1,im_size,im_size])
+    sub_vol_gen =SubvolumeGenerator(V_1,bounds_gen)
+    for i in xrange(25):
+        I = np.zeros([1,1,im_size,im_size])
+        C = six.next(sub_vol_gen);
+        I[0,0,:,:] = C['image_dataset'].astype(np.int32)
+        images = torch.from_numpy(I)
+        data = Variable(images).float()
+        if use_gpu:
+            data=data.cuda().float()
+        output = netmodel(data)
+        savefiguers(i,output)
 
 
 def save2figuer(iters,file_prefix,output):
-    from torchvision.utils import save_image
-    if isinstance(output,Variable):
-         output = output.data
-    data = output.cpu()
-    save_image(data,file_prefix+'{}.png'.format(iters),normalize =True)
-    # my_dpi = 96
-    # fig.plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
+    # from torchvision.utils import save_image
     # if isinstance(output,Variable):
-    #     output = output.data
-    # data = output.cpu().numpy()
-    # if data.ndim ==4:
-    #      I = data[0,0]
-    # elif data.ndim==3:
-    #      I = data[0]
-    # else:
-    #      I = data
-    # plt.imshow(I)
-    # fig.savefig(file_prefix+'{}.png'.format(iters))
-    # plt.close()
+    #      output = output.data
+    # data = output.cpu()
+    # save_image(data,file_prefix+'{}.png'.format(iters),normalize =True)
+    my_dpi = 96
+    plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
+    if isinstance(output,Variable):
+        output = output.data
+    data = output.cpu().numpy()
+    if data.ndim ==4:
+         I = data[0,0]
+    elif data.ndim==3:
+         I = data[0]
+    else:
+         I = data
+    plt.imshow(I)
+    plt.savefig(file_prefix+'{}.png'.format(iters))
+    plt.close()
 
 def compute_angular(x):
     # input x must be a 4D data [n,c,h,w]

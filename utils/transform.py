@@ -44,7 +44,7 @@ class label_transform(object):
                 sum_dt+=dt
                 if self.objSizeMap:
                     obj_idx = obj_arr==1
-                    sum_sizeMap[obj_idx]=(float(_input.size)/300.0)/float(np.sum(obj_arr))
+                    sum_sizeMap[obj_idx]=(float(np.sum(obj_arr))/float(_input.size))*100.0
             # make it to 3D data (c,h,w)
             sum_gx = np.expand_dims(sum_gx,0)
             sum_gy = np.expand_dims(sum_gy,0)

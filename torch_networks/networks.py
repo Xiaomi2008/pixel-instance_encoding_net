@@ -240,7 +240,7 @@ class _Unet_decoder(nn.Module):
         self.dec_5 = Upblock(b5_in_up_ch,num_conv_in_block,ch_change_rate,kernel_size)
 
         last_up_ch = b5_in_up_ch // ch_change_rate
-        self.finnal_conv2d = nn.Conv2d(last_up_ch, out_ch, kernel_size=3, padding=(kernel_size-1)/2)
+        self.finnal_conv2d = nn.BatchNorm2d(nn.Conv2d(last_up_ch, out_ch, kernel_size=3, padding=(kernel_size-1)/2))
 
         self.upsample = nn.Upsample(scale_factor=2,mode='bilinear')
         # return self.finnal_conv2d

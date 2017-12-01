@@ -2,7 +2,7 @@
 model = 'MDUnet'
 model_save_dir = 'model'
 load_train_iter = 0
-#load_train_file  = 'model/MdecoderUnet_Dataset-CRIME-Set_A__iter_2499.model'
+load_train_file  = 'model/MdecoderUnet_Dataset-CRIME-All__iter_13749.model'
 model_save_step = 250
 batch_size      = 10
 patch_size      = [320,320,1]
