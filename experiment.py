@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
-from torch_networks.networks import Unet,DUnet,MdecoderUnet 
+from torch_networks.networks import Unet,DUnet,MdecoderUnet,Mdecoder2Unet
 # from transform import *
 
 from utils.EMDataset import CRIME_Dataset,labelGenerator
@@ -21,14 +21,18 @@ import pytoml as toml
 import torch.optim as optim
 import time
 import pdb
+import os
 
 
 class experiment_config():
   def __init__(self, config_file):
     self.parse_toml(config_file)
+
+    print self.label_conf['labels']
+    print '_'.join(self.label_conf['labels'])
     networks = \
-              {'Unet' : Unet,'DUnet' : DUnet,'MDUnet': MdecoderUnet}
-    network_model           = networks[self.net_conf['model']]
+              {'Unet' : Unet,'DUnet' : DUnet,'MDUnet': MdecoderUnet,'M2DUnet':Mdecoder2Unet}
+   
     self.data_transform     = self.data_Transform(self.data_aug_conf['transform'])
     self.label_generator    = self.label_Generator()
     
@@ -42,11 +46,22 @@ class experiment_config():
 
     # data_out_labels is a dict that stores "label name" as key and "# of channel for that label" as value
     data_out_labels = self.train_dataset.output_labels()
- 
+
+
     for lb in label_in_use:
       label_ch_pair[lb] =  data_out_labels[lb]
-    print network_model
-    self.network = network_model(target_label = label_ch_pair) 
+   
+
+    if 'sub_net' in self.conf:
+      subnet_model = networks[self.conf['sub_net']['model']]
+      self.sub_network = subnet_model(target_label = label_ch_pair)
+
+      
+      net_model    = networks[self.net_conf['model']]
+      self.network = net_model(self.sub_network, freeze_net1 = self.conf['sub_net']['freeze_weight'])
+    else:
+      net_model= networks[self.net_conf['model']]
+      self.network = net_model(target_label = label_ch_pair)
 
   def parse_toml(self,file):
       with open(file, 'rb') as fi:
@@ -58,12 +73,11 @@ class experiment_config():
             net_conf['model_save_steps'] = net_conf.get('model_save_steps',500)
             net_conf['patch_size']       = net_conf.get('patch_size',[320,320,1])
             net_conf['learning_rate']    = net_conf.get('learning_rate',0.01)
-            net_conf['load_train_file']  = net_conf.get('load_train_file','')
+            #net_conf['trained_file']     = net_conf.get('trained_file','')
            
 
             label_conf =conf['target_labels']
 
-            #print label_conf
 
             label_conf['labels']=label_conf.get('labels',['gradient','sizemap','affinity','centermap','distance'])
 
@@ -76,6 +90,7 @@ class experiment_config():
             self.data_aug_conf     = data_aug_conf
             self.net_conf          = net_conf
             self.dataset_conf      = conf['dataset']
+            self.conf              = conf
 
 
 
@@ -111,9 +126,13 @@ class experiment_config():
                                            weight_decay=0)
   @property
   def name(self):
-      return self.network.name + '_' \
+        nstr=self.network.name + '_' \
            + self.train_dataset.name + '_' \
+           + '-'.join(self.label_conf['labels']) +'_' \
            + self.data_transform.name
+        if 'sub_net' in self.conf:
+          nstr = nstr+'_'+'freeze_net1={}'.format(self.conf['sub_net']['freeze_weight'])
+        return nstr
 
 
 class experiment():
@@ -132,13 +151,19 @@ class experiment():
       
       
 
-      pre_trained_iter =  self.exp_cfg.net_conf['load_train_iter']
-      if pre_trained_iter > 0:
-        self.net_load_weights(pre_trained_iter)
+      #pre_trained_iter =  self.exp_cfg.net_conf['load_train_iter']
+      # if pre_trained_iter > 0:
+      #   self.net_load_weights(pre_trained_iter)
 
-      pre_trained_file = self.exp_cfg.net_conf['load_train_file']
-      if pre_trained_file is not '' or len(pre_trained_file) > 5:
-        print('load weights form {}'.format(pre_trained_file))
+      if 'sub_net' in self.exp_cfg.conf and 'trained_file' in self.exp_cfg.conf['sub_net']:
+        pre_trained_file = self.exp_cfg.conf['sub_net']['trained_file']
+        print('load weights for subnet  from {}'.format(pre_trained_file))
+        print ('file exists = {}'.format(os.path.exists(pre_trained_file)))
+        self.exp_cfg.sub_network.load_state_dict(torch.load(pre_trained_file))
+
+      if 'trained_file' in self.exp_cfg.net_conf:
+        pre_trained_file = self.exp_cfg.net_conf['trained_file']
+        print('load weights from {}'.format(pre_trained_file))
         self.model.load_state_dict(torch.load(pre_trained_file))
 
       if not os.path.exists(self.model_saved_dir):
@@ -175,8 +200,6 @@ class experiment():
           iter_str    = 'iters : {} to {}:'.format(start_iters,end_iters)
 
           return steps,iter_str
-
-
 
       for epoch in range(5):
             runing_loss = 0.0
@@ -240,12 +263,12 @@ class experiment():
                 save2figuer(i,'raw_img_'   + exp_config_name, data)
                 
                 if 'distance' in preds:
-                  save2figuer(i,'dist_t_map_'+ exp_config_name,targets['distance'])
+                  save2figuer(i,'dist_t_map_'+ exp_config_name,targets['distance'],)
                   save2figuer(i,'dist_p_map_'+ exp_config_name,preds['distance'])
                 
                 if 'sizemap' in preds:
-                  save2figuer(i,'size_p_img_' + exp_config_name, torch.log(preds['sizemap']))
-                  save2figuer(i,'size_t_img_' + exp_config_name, torch.log(targets['sizemap']))
+                  save2figuer(i,'size_p_img_' + exp_config_name, torch.log(preds['sizemap']),use_pyplot=True)
+                  save2figuer(i,'size_t_img_' + exp_config_name, torch.log(targets['sizemap']),use_pyplot=True)
 
                 if 'affinity' in preds:
                   save2figuer(i,'affin_t_img_' + exp_config_name, targets['affinity'])
@@ -254,14 +277,21 @@ class experiment():
                 if 'gradient' in preds:
                   ang_t_map=compute_angular(targets['gradient'])
                   ang_p_map=compute_angular(preds['gradient'])
-                  save2figuer(i,'ang_t_img_' + exp_config_name, ang_t_map)
-                  save2figuer(i,'ang_p_img_' + exp_config_name, ang_p_map)
+                  save2figuer(i,'ang_t_img_' + exp_config_name, ang_t_map,use_pyplot =True)
+                  save2figuer(i,'ang_p_img_' + exp_config_name, ang_p_map,use_pyplot =True)
 
                 if 'centermap' in preds:
                   save2figuer(i,'cent_t_img_x_' + exp_config_name, targets['centermap'][:,0,:,:])
                   save2figuer(i,'cent_p_img_x_' + exp_config_name, preds['centermap'][:,0,:,:])
                   save2figuer(i,'cent_t_img_y_' + exp_config_name, targets['centermap'][:,1,:,:])
                   save2figuer(i,'cent_p_img_y_' + exp_config_name, preds['centermap'][:,1,:,:])
+
+                if 'final' in preds:
+                  save2figuer(i,'final_dist_t_map_'+ exp_config_name,targets['distance'],)
+                  save2figuer(i,'final_dist_p_map_'+ exp_config_name,preds['final'])
+
+                #if 'final' in preds:
+
 
                 #save_image([data.data.cpu(), preds['distance'].data.cpu()], \
                 #           exp_config_name +' _valid.png')
@@ -312,6 +342,7 @@ class experiment():
 
         ''' We want the location of boundary(affinity) in distance map  to be zeros '''
         if 'distance' in preds:
+          #print type(preds['distance'])
           distance  = targets['distance'] * (1-targets['affinity'])
           dist_loss = boundary_sensitive_loss(preds['distance'],distance, targets['affinity'])
           outputs['dist_loss']   = dist_loss
@@ -330,7 +361,14 @@ class experiment():
           center_loss = self.mse_loss(preds['centermap'],targets['centermap'])
           outputs['center_loss'] =center_loss
 
-
+        if 'final' in preds:
+          distance  = targets['distance'] * (1-targets['affinity'])
+          #print preds['final']
+          # print type(preds['final'])
+          # print type(distance)
+          # print type(targets['affinity'])
+          fin_loss = boundary_sensitive_loss(preds['final'], distance, targets['affinity'])
+          outputs['final_dist_loss']   = fin_loss
         loss = sum(outputs.values())
         ''' As the final output is distance map, we mainly put weights on distance loss''' 
         #loss    = dist_loss + ang_loss + size_loss + center_loss
@@ -378,26 +416,28 @@ class experiment():
         savefiguers(i,output)
 
 
-def save2figuer(iters,file_prefix,output):
-    # from torchvision.utils import save_image
-    # if isinstance(output,Variable):
-    #      output = output.data
-    # data = output.cpu()
-    # save_image(data,file_prefix+'{}.png'.format(iters),normalize =True)
-    my_dpi = 96
-    plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
-    if isinstance(output,Variable):
-        output = output.data
-    data = output.cpu().numpy()
-    if data.ndim ==4:
-         I = data[0,0]
-    elif data.ndim==3:
-         I = data[0]
+def save2figuer(iters,file_prefix,output, use_pyplot =False):
+    from torchvision.utils import save_image
+    if not use_pyplot:
+      if isinstance(output,Variable):
+           output = output.data
+      data = output.cpu()
+      save_image(data,file_prefix+'{}.png'.format(iters),normalize =True)
     else:
-         I = data
-    plt.imshow(I)
-    plt.savefig(file_prefix+'{}.png'.format(iters))
-    plt.close()
+      my_dpi = 96
+      plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
+      if isinstance(output,Variable):
+          output = output.data
+      data = output.cpu().numpy()
+      if data.ndim ==4:
+           I = data[0,0]
+      elif data.ndim==3:
+           I = data[0]
+      else:
+           I = data
+      plt.imshow(I)
+      plt.savefig(file_prefix+'{}.png'.format(iters))
+      plt.close()
 
 def compute_angular(x):
     # input x must be a 4D data [n,c,h,w]
