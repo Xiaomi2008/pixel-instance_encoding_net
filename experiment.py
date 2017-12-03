@@ -395,25 +395,32 @@ class experiment():
         return model_save_file
   
   def predict(self):
-    data_config = 'conf/cremi_datasets_with_tflabels.toml'
-    volumes = HDF5Volume.from_toml(data_config)
-    V_1 = volumes[volumes.keys()[0]]
-    model_file = model_saved_dir +'/' +'GCN_instance_grad_iter_{}.model'.format(499)
-    netmodel.load_state_dict(torch.load(model_file))
-    netmodel.eval()
-    im_size =1024
-    bounds_gen=bounds_generator(V_1.shape,[1,im_size,im_size])
-    sub_vol_gen =SubvolumeGenerator(V_1,bounds_gen)
-    for i in xrange(25):
-        I = np.zeros([1,1,im_size,im_size])
-        C = six.next(sub_vol_gen);
-        I[0,0,:,:] = C['image_dataset'].astype(np.int32)
-        images = torch.from_numpy(I)
-        data = Variable(images).float()
-        if use_gpu:
-            data=data.cuda().float()
-        output = netmodel(data)
-        savefiguers(i,output)
+        self.model.eval()
+        #model.load_state_dict(torch.load(self.model_file))
+        # dataset = CRIME_Dataset(out_size  = self.input_size, phase ='valid')
+        dataset = self.validDataset
+        train_loader = DataLoader(dataset =dataset,
+                                  batch_size=1,
+                                  shuffle  =True,
+                                  num_workers=1)
+        for i , (data,target)in enumerate(train_loader,start =0):
+            #data, target = Variable(data).float(), Variable(target).float()
+            distance = target['final']
+            data, distance = Variable(data).float(), Variable(distance).float()
+            if self.use_gpu:
+                data   = data.cuda().float()
+                distance = distance.cuda().float()
+
+            preds = self.model(data)
+            dist_pred = preds['final']
+            #loss = self.mse_loss(dist_pred, distance)
+            #print('loss:{}'.format(loss.data[0]))
+            model_name=self.model.name
+            save2figuer(i,'dist_t_map_'+self.exp_cfg.name+'_predict',dist_pred)
+            save2figuer(i,'dist_p_map_'+self.exp_cfg.named+'_predict',distance)
+            watershed_d(i,dist_pred)
+            if i > 7:
+                break
 
 
 def save2figuer(iters,file_prefix,output, use_pyplot =False):
@@ -467,3 +474,34 @@ def save_image(tensor, filename, nrow=8, padding=2,
     ndarr = grid.mul(255).clamp(0, 255).byte().permute(1, 2, 0).numpy()
     im = Image.fromarray(ndarr)
     im.save(filename)
+def watershed_d(i,distance):
+    from skimage.feature import peak_local_max
+    from skimage.segmentation import watershed
+    from skimage.color import label2rgb
+    from skimage.morphology import disk,skeletonize
+    import skimage
+   # from skimage.morphology.skeletonize
+    from skimage.filters import gaussian
+
+    if isinstance(distance,Variable):
+        distance = distance.data
+    my_dpi = 96
+    plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
+    distance = distance.cpu().numpy()
+    distance =np.squeeze(distance)
+    #local_maxi = peak_local_max(distance, footprint=np.ones((3, 3)),indices=False)
+    from skimage.filters.rank import mean_bilateral
+    #distance = mean_bilateral(distance.astype(np.uint16), disk(20), s0=10, s1=10) 
+    #distance = gaussian((distance-np.mean(distance))/np.max(np.abs(distance)))   
+    #local_maxi = peak_local_max(distance, indices=False, min_distance=5)
+    #markers = ndimage.label(local_maxi)[0]
+    #markers = ndimage.label(local_maxi, structure=np.ones((3, 3)))[0]
+    #labels = watershed(-distance, markers)
+    ccImage = (distance > 3)
+    #ccImage=skeletonize(ccImage)
+    labels = skimage.morphology.label(ccImage)
+    #labels = skimage.morphology.remove_small_objects(labels, min_size=4)
+    #labels = skimage.morphology.remove_small_holes(labels)
+    plt.imshow(label2rgb(labels), cmap=plt.cm.spectral, interpolation='nearest')
+    plt.savefig('seg_{}.png'.format(i))
+    plt.close('all')
