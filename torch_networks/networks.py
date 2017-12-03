@@ -296,8 +296,8 @@ class Mdecoder2Unet(nn.Module):
         total_input_ch =  sum(self.net1.target_label.values())+1
         print total_input_ch 
         self.net2 = Unet()
-        self.first_conv_in_net2 = conv_bn_relu(total_input_ch,first_out_ch)
-        #self.first_conv_in_net2 = nn.Conv2d(total_input_ch,first_out_ch,kernel_size=kernel_size,padding =kernel_size // 2)
+        #self.first_conv_in_net2 = conv_bn_relu(total_input_ch,first_out_ch)
+        self.first_conv_in_net2 = nn.Conv2d(total_input_ch,first_out_ch,kernel_size=kernel_size,padding =kernel_size // 2)
         self.final_conv_in_net2 = nn.Conv2d(48,out_ch,kernel_size=kernel_size,padding =kernel_size // 2) 
         self.net2.conv_2d_1     = self.first_conv_in_net2
         self.net2.finnal_conv2d = self.final_conv_in_net2
