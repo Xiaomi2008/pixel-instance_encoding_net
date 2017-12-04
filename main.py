@@ -14,6 +14,7 @@ def main():
 	if args.action == 'train':
 		exp_obj.train()
 	elif args.action == 'predict':
+		print ('predicting')
 		exp_obj.predict()
 
 if __name__ == '__main__':

@@ -289,7 +289,7 @@ class MdecoderUnet(nn.Module):
         return 'MdecoderUnet'
 
 class Mdecoder2Unet(nn.Module):
-    def __init__(self, mnet, freeze_net1 = True, in_ch =1, out_ch=1, first_out_ch=16, \
+    def __init__(self, mnet=None, freeze_net1 = True, in_ch =1, out_ch=1, first_out_ch=16, \
                 number_bolck=4, num_conv_in_block=2, ch_change_rate=2,kernel_size = 3):
         super(Mdecoder2Unet, self).__init__()
         self.net1 = mnet
@@ -327,9 +327,13 @@ class Mdecoder2Unet(nn.Module):
 
 
 class DUnet(nn.Module):
-    def __init__(self, grad_unet, freeze_net1 =True, in_ch =1, first_out_ch=16, out_ch =1, number_bolck=4,num_conv_in_block=2,ch_change_rate=2,kernel_size = 3):
+    def __init__(self, grad_unet=None, freeze_net1 =True, in_ch =1, first_out_ch=16, out_ch =1, number_bolck=4,\
+                 target_label=None, num_conv_in_block=2,ch_change_rate=2,kernel_size = 3):
         super(DUnet, self).__init__()
-        self.net1 = grad_unet
+        if grad_unet:
+            self.net1 = grad_unet
+        else:
+            self.net1 =Unet(out_ch=2)
         self.net2 = Unet()
         self.first_conv_in_net2 = nn.Conv2d(3,16,kernel_size=kernel_size,padding =kernel_size // 2)
         self.final_conv_in_net2 = nn.Conv2d(48,out_ch,kernel_size=kernel_size,padding =kernel_size // 2) 
@@ -351,7 +355,7 @@ class DUnet(nn.Module):
         outputs ={}
         outputs['gradient']   = self.net1(x)
         x_net2_in             = torch.cat((outputs['gradient'],x),1)
-        outputs['distance']   = self.net2(x_net2_in)
+        outputs['final']   = self.net2(x_net2_in)
         return outputs
         #return gradient_out,distance_out
 

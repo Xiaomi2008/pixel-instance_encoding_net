@@ -13,6 +13,8 @@ from utils.transform import VFlip, HFlip, Rot90, random_transform
 from utils.torch_loss_functions import *
 from utils.printProgressBar import printProgressBar
 import torchvision.utils as vutils
+
+import numpy as np
 #from matplotlib import pyplot as plt
 import matplotlib
 matplotlib.use('Agg')
@@ -398,14 +400,14 @@ class experiment():
         self.model.eval()
         #model.load_state_dict(torch.load(self.model_file))
         # dataset = CRIME_Dataset(out_size  = self.input_size, phase ='valid')
-        dataset = self.validDataset
+        dataset = self.exp_cfg.valid_dataset
         train_loader = DataLoader(dataset =dataset,
                                   batch_size=1,
                                   shuffle  =True,
                                   num_workers=1)
         for i , (data,target)in enumerate(train_loader,start =0):
             #data, target = Variable(data).float(), Variable(target).float()
-            distance = target['final']
+            distance = target['distance']
             data, distance = Variable(data).float(), Variable(distance).float()
             if self.use_gpu:
                 data   = data.cuda().float()
@@ -416,8 +418,8 @@ class experiment():
             #loss = self.mse_loss(dist_pred, distance)
             #print('loss:{}'.format(loss.data[0]))
             model_name=self.model.name
-            save2figuer(i,'dist_t_map_'+self.exp_cfg.name+'_predict',dist_pred)
-            save2figuer(i,'dist_p_map_'+self.exp_cfg.named+'_predict',distance)
+            save2figuer(i,'dist_p_map_'+self.exp_cfg.name+'_predict',dist_pred,use_pyplot=True)
+            save2figuer(i,'dist_t_map_'+self.exp_cfg.name+'_predict',distance,use_pyplot=True)
             watershed_d(i,dist_pred)
             if i > 7:
                 break
@@ -475,6 +477,7 @@ def save_image(tensor, filename, nrow=8, padding=2,
     im = Image.fromarray(ndarr)
     im.save(filename)
 def watershed_d(i,distance):
+    from scipy import ndimage
     from skimage.feature import peak_local_max
     from skimage.segmentation import watershed
     from skimage.color import label2rgb
@@ -489,19 +492,39 @@ def watershed_d(i,distance):
     plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
     distance = distance.cpu().numpy()
     distance =np.squeeze(distance)
+
+    hat = ndimage.black_tophat(distance, 14)
+    # Combine with denoised image
+    hat -= 0.3 * distance
+    # Morphological dilation to try to remove some holes in hat image
+    hat = skimage.morphology.dilation(hat)
+
+
     #local_maxi = peak_local_max(distance, footprint=np.ones((3, 3)),indices=False)
-    from skimage.filters.rank import mean_bilateral
+    #from skimage.filters.rank import mean_bilateral
+    markers = distance > 3.5
+    markers = skimage.morphology.label(markers)
     #distance = mean_bilateral(distance.astype(np.uint16), disk(20), s0=10, s1=10) 
     #distance = gaussian((distance-np.mean(distance))/np.max(np.abs(distance)))   
     #local_maxi = peak_local_max(distance, indices=False, min_distance=5)
-    #markers = ndimage.label(local_maxi)[0]
+   # markers = skimage.morphology.label(local_maxi)[0]
     #markers = ndimage.label(local_maxi, structure=np.ones((3, 3)))[0]
-    #labels = watershed(-distance, markers)
-    ccImage = (distance > 3)
-    #ccImage=skeletonize(ccImage)
-    labels = skimage.morphology.label(ccImage)
+    labels = watershed(-distance, markers)
+    
+
+
+
+    #ccImage = (distance > 4)
+    #labels = skimage.morphology.label(ccImage)
     #labels = skimage.morphology.remove_small_objects(labels, min_size=4)
     #labels = skimage.morphology.remove_small_holes(labels)
-    plt.imshow(label2rgb(labels), cmap=plt.cm.spectral, interpolation='nearest')
+    plt.imshow(label2rgb(labels), interpolation='nearest')
+    #plt.imshow(labels)
     plt.savefig('seg_{}.png'.format(i))
+    plt.imshow(labels, cmap=plt.cm.spectral)
+    #plt.imshow(labels)
+    plt.savefig('seg_{}_no.png'.format(i))
+
+    plt.imshow(markers)
+    plt.savefig('marker_{}.png'.format(i))
     plt.close('all')
