@@ -297,7 +297,7 @@ class _Unet_decoder(nn.Module):
 class MdecoderUnet3D(nn.Module):
     def __init__(self, in_ch =1, first_out_ch=16, z_shape = 3, target_label = {'nameless':1}, \
                 number_bolck=4, num_conv_in_block=2, ch_change_rate=2,kernel_size = 3):
-        super(MdecoderUnet,self).__init__()
+        super(MdecoderUnet3D,self).__init__()
         self.encoder = _Unet_encoder3D(in_ch, first_out_ch, z_shape, number_bolck, num_conv_in_block, ch_change_rate, kernel_size)
         #self.add_module('encoder',self.encoder)
         
@@ -314,12 +314,12 @@ class MdecoderUnet3D(nn.Module):
         return outputs
     @property
     def name(self):
-        return 'MdecoderUnet'
+        return 'MdecoderUnet3D'
 
 
 class DUnet3D(nn.Module):
     def __init__(self, grad_unet, freeze_net1 =True, in_ch =1, first_out_ch=16, out_ch =1, number_bolck=4,num_conv_in_block=2,ch_change_rate=2,z_shape=3,kernel_size = 3):
-        super(DUnet, self).__init__()
+        super(DUnet3D, self).__init__()
         self.net1 = grad_unet
         self.net2 = Unet()
         self.first_conv_in_net2 = nn.Conv2d(3,16,kernel_size=kernel_size,padding =kernel_size // 2)
