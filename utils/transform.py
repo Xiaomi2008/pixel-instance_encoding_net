@@ -68,6 +68,63 @@ class label_transform(object):
 
         return tuple(output)
 
+class label_transform3D(object):
+    def __init__(self, gradient     = True, 
+                       distance     = True,
+                       objSizeMap   = False,
+                       objCenterMap = False):
+        self.gradient = gradient
+        self.distance = distance
+        self.objSizeMap =objSizeMap
+        self.objCenterMap = objCenterMap
+
+    def __call__(self,*input):
+        """
+        Given input segmentation label of objects(neurons), 
+        Generate 'Distance transform', 'gradient', 'size of object'
+        labels.
+        
+        Args:
+         2D numpy arrays, must be segmentation labels
+        """
+        output =[]
+        dx,dy   = 1,1
+        for idex,_input in enumerate(input):
+            sum_gx =np.zeros_like(_input).astype(np.float)
+            sum_gy =np.zeros_like(_input).astype(np.float)
+            sum_dt =np.zeros_like(_input).astype(np.float)
+            if self.objSizeMap:
+                sum_sizeMap =np.zeros_like(_input).astype(np.float)
+            for i in range(_input.shape[0]):    
+                __input = _input[i]
+                __input =np.squeeze(__input)
+                s_ids =np.unique(__input).tolist()
+                        
+                for obj_id in s_ids:
+                    obj_arr =  (__input == obj_id).astype(int)
+                    dt      =  dis_transform(obj_arr)
+                    gx,gy   =  np.gradient(dt,dx,dy,edge_order =1)
+                    sum_gx[i] +=gx
+                    sum_gy[i] +=gy
+                    sum_dt[i] +=dt
+                    if self.objSizeMap:
+                        obj_idx = obj_arr==1
+                        sum_sizeMap[i,obj_idx]=(float(np.sum(obj_arr))/float(__input.size))*100.0
+                # make it to 3D data (c,h,w)
+                # sum_gx = np.expand_dims(sum_gx,0)
+                # sum_gy = np.expand_dims(sum_gy,0)
+                # sum_dt = np.expand_dims(sum_dt,0)
+            out_dict ={}
+            if self.objSizeMap:
+                # sum_sizeMap = np.expand_dims(sum_sizeMap,0)
+                out_dict['sizemap'] = sum_sizeMap
+            out_dict['gradient'] = (sum_gx,sum_gy)
+            if self.distance:
+                out_dict['distance'] = sum_dt
+            output.append(out_dict)
+
+        return tuple(output)
+    
 class objCenterMap(object):
     def __call__(self, *input):
         out_list = []
@@ -94,6 +151,35 @@ class objCenterMap(object):
             out_list.append((x_center,y_center))
         return tuple(out_list)
 
+class objCenterMap3D(object):
+    def __call__(self, *input):
+        out_list = []
+        aff_x = affinity(axis = -1,distance =2)
+        aff_y = affinity(axis = -2,distance =2)
+
+        compute_boundary = lambda x: ((aff_x(x)[0]+aff_y(x)[0])==0).astype(np.int)
+        for idex, _input in enumerate(input):
+            x_center =np.zeros_like(_input).astype(np.float)
+            y_center =np.zeros_like(_input).astype(np.float)
+            for j in range(_input.shape[0]):
+                __input = _input[j]
+                __input =np.squeeze(__input)
+                s_ids =np.unique(__input).tolist()
+                
+                data = compute_boundary(__input)
+                label,f =nd.label(data)
+                #print np.unique(label)
+                centers = center_of_mass(data, labels=label,index=np.unique(label)[1:])
+                #print centers
+                for i, (cx,cy) in enumerate(centers):
+                    obj_arr = (label == i+1)
+                    x_center[j,obj_arr] = cx / obj_arr.shape[0]
+                    y_center[j,obj_arr] = cy / obj_arr.shape[1]
+                #x_center = np.expand_dims(x_center,0)
+                #y_center = np.expand_dims(y_center,0)
+            out_list.append((x_center,y_center))
+        return tuple(out_list)
+    
 def my_center_of_mass(x):
     pass
 
