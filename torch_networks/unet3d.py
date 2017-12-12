@@ -294,7 +294,7 @@ class _Unet_decoder(nn.Module):
 
 
     
-class MdecoderUnet(nn.Module):
+class MdecoderUnet3D(nn.Module):
     def __init__(self, in_ch =1, first_out_ch=16, z_shape = 3, target_label = {'nameless':1}, \
                 number_bolck=4, num_conv_in_block=2, ch_change_rate=2,kernel_size = 3):
         super(MdecoderUnet,self).__init__()
@@ -317,7 +317,7 @@ class MdecoderUnet(nn.Module):
         return 'MdecoderUnet'
 
 
-class DUnet(nn.Module):
+class DUnet3D(nn.Module):
     def __init__(self, grad_unet, freeze_net1 =True, in_ch =1, first_out_ch=16, out_ch =1, number_bolck=4,num_conv_in_block=2,ch_change_rate=2,z_shape=3,kernel_size = 3):
         super(DUnet, self).__init__()
         self.net1 = grad_unet
@@ -332,7 +332,7 @@ class DUnet(nn.Module):
             self.freezeWeight(self.net1)
     @property
     def name(self):
-        return 'DUnet_outch_{}'.format(self.out_ch)
+        return 'DUnet3D_outch_{}'.format(self.out_ch)
     def freezeWeight(self,net):
         for child in net.children():
             for param in child.parameters():
@@ -352,8 +352,8 @@ class DUnet(nn.Module):
 if __name__ == '__main__':
     # net = DownBlock3D(in_ch=16, z_shape=3, ch_growth_rate=2)
     # net = nn.Conv3d(16, 32, kernel_size = 3)
-    net1 = MdecoderUnet(z_shape = 3, target_label = {'gradient':2})
-    net = DUnet(net1,freeze_net1=False)
+    net1 = MdecoderUnet3D(z_shape = 3, target_label = {'gradient':2})
+    net = DUnet3D(net1,freeze_net1=False)
     inputs = Variable(torch.randn(3,1,3,320,320))
     outputs = net(inputs)
     # outputs = torch.squeeze(outputs)
