@@ -289,10 +289,12 @@ class MdecoderUnet(nn.Module):
         return 'MdecoderUnet'
 
 class Mdecoder2Unet(nn.Module):
-    def __init__(self, mnet=None, freeze_net1 = True, in_ch =1, out_ch=1, first_out_ch=16, \
+    def __init__(self, mnet=None, freeze_net1 = True, target_label= {'unassigned',1},in_ch =1, out_ch=1, first_out_ch=16, \
                 number_bolck=4, num_conv_in_block=2, ch_change_rate=2,kernel_size = 3):
         super(Mdecoder2Unet, self).__init__()
-        self.net1 = mnet
+        if not mnet:
+            mnet =  MdecoderUnet(target_label =  target_label)
+        self.net1=mnet
         total_input_ch =  sum(self.net1.target_label.values())+1
         print total_input_ch 
         self.net2 = Unet()

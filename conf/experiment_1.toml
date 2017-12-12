@@ -2,17 +2,16 @@
 model = 'M2DUnet'
 model_save_dir = 'model'
 load_train_iter = 0
-#load_train_file  = 'model/MdecoderUnet_Dataset-CRIME-All__iter_16999.model'
-trained_file  = 'model/Mdecoder2Unet_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient__iter_999.model'
+trained_file  = 'model/Mdecoder2Unet_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient__freeze_net1=False_iter_126999.model'
 model_save_step = 250
 batch_size      = 10
 patch_size      = [320,320,1]
 use_gpu         = true
 learning_rate   = 0.01
 
-[sub_net]
-model = 'MDUnet'
-freeze_weight = false
+#[sub_net]
+#model = 'MDUnet'
+#freeze_weight = false
 #trained_file  = 'model/MdecoderUnet_Dataset-CRIME-All__iter_29999.model'
 
 
