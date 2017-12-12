@@ -44,7 +44,6 @@ class Downblock(nn.Module):
         layers.append(nn.MaxPool2d(kernel_size=2, stride=2, return_indices=False, ceil_mode=False))
         return layers
 
-
 class Upblock(nn.Module):
     def __init__(self, in_ch, num_conv,ch_down_rate,kernel_size = 3):
         super(Upblock, self).__init__()
@@ -286,7 +285,7 @@ class MdecoderUnet(nn.Module):
         return outputs
     @property
     def name(self):
-        return 'MdecoderUnet'
+        return 'MdecoderUnet'+ '_in_{}_chs'.format(in_ch)
 
 class Mdecoder2Unet(nn.Module):
     def __init__(self, mnet=None, freeze_net1 = True, target_label= {'unassigned',1},in_ch =1, out_ch=1, first_out_ch=16, \
@@ -310,7 +309,7 @@ class Mdecoder2Unet(nn.Module):
             self.freezeWeight(self.net1)
     @property
     def name(self):
-        return 'Mdecoder2Unet'
+        return 'Mdecoder2Unet' + '_in_{}_chs'.format(in_ch)
     def freezeWeight(self,net):
         for child in net.children():
             for param in child.parameters():

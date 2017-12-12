@@ -52,7 +52,7 @@ class exp_Dataset(Dataset):
       self.x_size           = dim_shape[1] -self.y_out_size + 1 
 
       #self.label_generator  = label_transform(objSizeMap =True)
-      self.label_generator = label_generator if label_gen else  labelGenerator()
+      self.label_generator = label_gen if label_gen else  labelGenerator()
 
     def output_labels(self):
       return self.label_generator.output_labels()
@@ -70,9 +70,9 @@ class exp_Dataset(Dataset):
       return tc_data, tc_label_dict
 
     def random_choice_dataset(self,im_lb_pair):
-      k=np.random.choice(im_lb_pair.keys())
-      im_data = self.im_lb_pair[k]['image']
-      lb_data = self.im_lb_pair[k]['label']  
+      data_setid=np.random.choice(im_lb_pair.keys())
+      im_data = self.im_lb_pair[dataset_id]['image']
+      lb_data = self.im_lb_pair[dataset_id]['label']  
       return im_data, lb_data
     
     def get_random_patch(self,index,im_data,lb_data):
@@ -149,89 +149,7 @@ class CRIME_Dataset(exp_Dataset):
       self.z_size = self.slice_end_z - self.slice_start_z +1
 
 
-        
-    # def __getitem__(self, index):
-    #   z_start = index // (self.x_size * self.y_size) + self.slice_start_z
-    #   remain  = index % (self.x_size * self.y_size)
-    #   x_start = remain // self.y_size
-    #   y_start = remain % self.y_size
-
-    #   z_end   = z_start + self.z_out_size
-    #   x_end   = x_start + self.x_out_size
-    #   y_end   = y_start + self.y_out_size
-
-
-    #   # random choice from one of sub_dataset
-    #   k=np.random.choice(self.im_lb_pair.keys())
-    #   im_data = self.im_lb_pair[k]['image']
-    #   lb_data = self.im_lb_pair[k]['label']
-
-    #   data    = np.array(im_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.float)
-    #   if self.subtract_mean:
-    #     data -= 127.0
-    #   seg_label   =np.array(lb_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.int)
-
-     
-    #   '''set distance larg enough to conver the boundary 
-    #      as to put more weight on bouday areas.
-    #      which is important when cut distance map for segmentation '''
-    #   affineX=affinity(axis=-1,distance =2)
-    #   affineY=affinity(axis=-2,distance =2)
-    #   affinMap = ((affineX(seg_label)[0] + affineY(seg_label)[0])>0).astype(np.int)
-
-
-    #   centermap = objCenterMap()
-    #   [(x_centerMap, y_centerMap)] = centermap(seg_label)
-
-    #   if self.transform:
-    #     data,seg_label,affinMap,x_centerMap,y_centerMap = self.transform(data,seg_label,affinMap,x_centerMap,y_centerMap)
-
-    #   objCenter_map = np.concatenate((x_centerMap,y_centerMap),0) 
       
-
-
-    #   # if self.transform:
-    #   #   data,seg_label,affinMap = self.transform(data,seg_label,affinMap)
-
-
-      
-
-    #   ''' We compute the runtime obj graidient instead of pre-computed one
-    #       to avoid using wrong gradient map when performing data augmentation
-    #       such as flip, rotate etc.'''
-    #   trans_data_list = self.label_generator(seg_label)
-    #   grad_x, grad_y = trans_data_list[0]['gradient']
-    #   grad  = np.concatenate((grad_x,grad_y),0)
-      
-
-
-
-    #   tc_label_dict ={}
-    #   for key,value in trans_data_list[0].iteritems():
-    #     tc_label_dict[key] = torch.from_numpy(value).float() \
-    #                              if key is not 'gradient' \
-    #                              else torch.from_numpy(grad).float()
-
-    #   tc_label_dict['affinity']  = torch.from_numpy(affinMap).float()
-
-    #   tc_label_dict['centermap'] = torch.from_numpy(objCenter_map).float()
-
-
-    #   ''' 
-    #   output of tc_label_dict  will have for labels transformed form ground truth 
-    #   of segmentatio label:
-    #   "affinity", "gradient", "centermap", "dist"
-    #   '''
-    #   tc_data = torch.from_numpy(data).float()
-
-    #   return tc_data, tc_label_dict
-
-  
-
-
-
-    
-
     def load_data(self):
       
       #data_config = 'conf/cremi_datasets.toml'
@@ -257,6 +175,32 @@ class CRIME_Dataset(exp_Dataset):
                                 'label':V.data_dict['label_dataset']}
 
       return im_lb_pair
+
+class CRIME_Dataset_with_3dData_2dLabel(CRIME_Dataset):
+  def __init__(self,
+                 out_patch_size       =   (224,224,1), 
+                 sub_dataset          =   'Set_A',
+                 subtract_mean        =   True,
+                 phase                =   'train',
+                 transform            =   None,
+                 data_config          =   'conf/cremi_datasets_with_tflabels.toml'):
+    
+      super(CRIME_Dataset_with_3Ddata_2dLabel,self).__init__(sub_dataset=sub_dataset, 
+                                         out_patch_size = out_patch_size,
+                                         subtract_mean  = subtract_mean,
+                                         phase          = phase,
+                                         transform      = transform,
+                                         data_config    = data_config)
+      def __getitem__(self, index):
+        im_data,lb_data= self.random_choice_dataset(self.im_lb_pair)
+        data,seg_label = self.get_random_patch(index,im_data,lb_data)
+        z_dim          = seg_label.shape[0]
+        m_slice_idx    = z_dim // 2
+        seg_lable      = seg_lable[m_slice_idx,:,:]
+        tc_data        = torch.from_numpy(data).float()
+        tc_label_dict  = self.label_generator(seg_label)[0]
+        return tc_data, tc_label_dict
+
 
 
 class labelGenerator(object):
@@ -355,27 +299,7 @@ def compute_angular(x):
     #print('angle_map shape {}'.format(angle_map.shape))
     return angle_map
 
-    # print ('x shape {}'.format(x.shape))
-    # x    = l2_norm(x)*0.9999
     
-    # x_aix = x[:,0]/torch.sqrt(torch.sum(x**2,1))
-    # angle_map   = torch.acos(x_aix)
-    # #pdb.set_trace()
-    # return angle_map
-
-
-     # pred        = pred.transpose(1,2).transpose(2,3).contiguous()
-    # gt          = gt.transpose(1,2).transpose(2,3).contiguous()
-    # pred        = pred.view(-1, outputChannels)
-    # gt          = gt.view(-1, outputChannels)
-    # # print(pred[0,:].shape)
-    # # s = torch.sqrt(torch.sum((pred*pred),1))
-    # # print(s.shape)
-    # p_xy        = pred[:,0]/torch.sqrt(torch.sum((pred*pred),1))
-    # gt_xy       = gt[:,0]/torch.sqrt(torch.sum((gt*gt),1))
-    # err_angle   = torch.acos(p_xy) - torch.acos(gt_xy)
-    # loss        = torch.sum(err_angle*err_angle)
-    # return loss
 def test_angluar_map():
   data_config = '../conf/cremi_datasets_with_tflabels.toml'
   dataset = CRIME_Dataset(data_config = data_config,phase='valid')
