@@ -54,16 +54,18 @@ class experiment_config():
       label_ch_pair[lb] =  data_out_labels[lb]
    
 
+    in_ch =self.net_conf['patch_size'][2]
+
     if 'sub_net' in self.conf:
       subnet_model = networks[self.conf['sub_net']['model']]
-      self.sub_network = subnet_model(target_label = label_ch_pair)
+      self.sub_network = subnet_model(target_label = label_ch_pair, in_ch = in_ch)
 
       
       net_model    = networks[self.net_conf['model']]
       self.network = net_model(self.sub_network, freeze_net1 = self.conf['sub_net']['freeze_weight'])
     else:
       net_model= networks[self.net_conf['model']]
-      self.network = net_model(target_label = label_ch_pair)
+      self.network = net_model(target_label = label_ch_pair,in_ch = in_ch)
 
   def parse_toml(self,file):
       with open(file, 'rb') as fi:
@@ -74,15 +76,19 @@ class experiment_config():
             net_conf['load_train_iter']  = net_conf.get('load_train_iter', None)
             net_conf['model_save_steps'] = net_conf.get('model_save_steps',500)
             net_conf['patch_size']       = net_conf.get('patch_size',[320,320,1])
-            net_conf['learning_rate']    = net_conf.get('learning_rate',0.01)
+            #net_conf['learning_rate']    = net_conf.get('learning_rate',0.01)
+
+
+            train_conf = conf['train']
+            train_conf['final_loss_only']  = train_conf.get('final_loss_only',False)
+            train_conf['learning_rate']    = train_conf.get('learning_rate',0.01)
             #net_conf['trained_file']     = net_conf.get('trained_file','')
            
-
             label_conf =conf['target_labels']
 
 
             label_conf['labels']=label_conf.get('labels',['gradient','sizemap','affinity','centermap','distance'])
-
+            label_conf['final_label']=label_conf.get('final_labels','distance')
             data_aug_conf = conf['data_augmentation']
 
             #print data_aug_conf
@@ -92,6 +98,7 @@ class experiment_config():
             self.data_aug_conf     = data_aug_conf
             self.net_conf          = net_conf
             self.dataset_conf      = conf['dataset']
+            self.train_conf        = train_conf
             self.conf              = conf
 
 
@@ -99,6 +106,7 @@ class experiment_config():
   def dataset(self,out_patch_size,transform):
       sub_dataset = self.dataset_conf['sub_dataset']
       out_patch_size = self.net_conf['patch_size']
+      print 'this out {}'.format(out_patch_size)
       train_dataset = CRIME_Dataset(out_patch_size   =  out_patch_size, 
                                     phase            =  'train',
                                     subtract_mean    =  True,
@@ -123,7 +131,7 @@ class experiment_config():
 
   def optimizer(self,model):
       return optim.Adagrad(filter(lambda x: x.requires_grad, model.parameters()),
-                                           lr=self.net_conf['learning_rate'], 
+                                           lr=self.train_conf['learning_rate'], 
                                            lr_decay=0, 
                                            weight_decay=0)
   @property
@@ -249,11 +257,13 @@ class experiment():
         loss = 0.0
         iters = 120
         for i, (data,targets) in enumerate(valid_loader, 0):
+            #print data.shape
             data    = Variable(data).float()
             targets = self.make_variable(targets)
             if self.use_gpu:
                 data     = data.cuda().float()
                 targets  = self.make_cuda_data(targets)
+            
             preds  = self.model(data)
             losses = self.compute_loss(preds,targets)
             loss += losses['merged_loss'].data[0]
@@ -337,41 +347,56 @@ class experiment():
           self.model = torch.nn.DataParallel(self.model, device_ids=gpus)
     
   def compute_loss(self,preds,targets):
-        outputs ={}
-        if 'gradient' in preds:
-          ang_loss  = angularLoss(preds['gradient'], targets['gradient'])
-          outputs['ang_loss'] =ang_loss
+        def loss_each_label(preds,targets):
+            outputs ={}
+            #print 'key = {}'.format(preds.keys())
+            if 'gradient' in preds:
+              ang_loss  = angularLoss(preds['gradient'], targets['gradient'])
+              outputs['ang_loss'] =ang_loss
 
-        ''' We want the location of boundary(affinity) in distance map  to be zeros '''
-        if 'distance' in preds:
-          #print type(preds['distance'])
-          distance  = targets['distance'] * (1-targets['affinity'])
-          dist_loss = boundary_sensitive_loss(preds['distance'],distance, targets['affinity'])
-          outputs['dist_loss']   = dist_loss
+            ''' We want the location of boundary(affinity) in distance map  to be zeros '''
+            if 'distance' in preds:
+              #print ('distance in  preds')
+              distance  = targets['distance'] * (1-targets['affinity'])
+              dist_loss = boundary_sensitive_loss(preds['distance'],distance, targets['affinity'])
+              outputs['dist_loss']   = dist_loss
 
-        # 'labels',['gradient','sizemap','affinity','centermap','distance']
-        #if 'affinity' in self.exp_cfg.label_conf:
-        if 'affinity' in preds:
-          affin_loss=self.bce_loss(torch.sigmoid(preds['affinity']),targets['affinity'])
-          outputs['affinty_loss'] = affin_loss
+            # 'labels',['gradient','sizemap','affinity','centermap','distance']
+            #if 'affinity' in self.exp_cfg.label_conf:
+            if 'affinity' in preds:
+              affin_loss=self.bce_loss(torch.sigmoid(preds['affinity']),targets['affinity'])
+              outputs['affinty_loss'] = affin_loss
 
-        if 'sizemap' in preds:
-          size_loss = self.mse_loss(preds['sizemap'],targets['sizemap'])
-          outputs['size_loss'] =size_loss 
+            if 'sizemap' in preds:
+              size_loss = self.mse_loss(preds['sizemap'],targets['sizemap'])
+              outputs['size_loss'] =size_loss 
 
-        if 'centermap' in preds:
-          center_loss = self.mse_loss(preds['centermap'],targets['centermap'])
-          outputs['center_loss'] =center_loss
+            if 'centermap' in preds:
+              center_loss = self.mse_loss(preds['centermap'],targets['centermap'])
+              outputs['center_loss'] =center_loss
+            return outputs
 
+        outputs = {}
+        if not self.exp_cfg.train_conf['final_loss_only'] or not 'final' in preds:
+          outputs = loss_each_label(preds,targets)
+            
         if 'final' in preds:
-          distance  = targets['distance'] * (1-targets['affinity'])
-          #print preds['final']
-          # print type(preds['final'])
-          # print type(distance)
-          # print type(targets['affinity'])
-          fin_loss = boundary_sensitive_loss(preds['final'], distance, targets['affinity'])
-          outputs['final_dist_loss']   = fin_loss
+          m_preds ={}
+          #print self.exp_cfg.label_conf
+          final_lb = self.exp_cfg.label_conf['final_label']
+          m_preds[final_lb] = preds['final']
+          #print m_preds
+          fin_loss = loss_each_label(m_preds,targets)
+          #print fin_loss
+          outputs['final_loss']   = fin_loss[fin_loss.keys()[0]]
+        
+        #print  outputs.keys()
+
         loss = sum(outputs.values())
+
+        # distance  = targets['distance'] * (1-targets['affinity'])
+        # fin_loss = boundary_sensitive_loss(preds['final'], distance, targets['affinity'])
+        # outputs['final_dist_loss']   = fin_loss
         ''' As the final output is distance map, we mainly put weights on distance loss''' 
         #loss    = dist_loss + ang_loss + size_loss + center_loss
         # total_loss = 0

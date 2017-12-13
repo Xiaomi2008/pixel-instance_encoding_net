@@ -70,7 +70,7 @@ class exp_Dataset(Dataset):
       return tc_data, tc_label_dict
 
     def random_choice_dataset(self,im_lb_pair):
-      data_setid=np.random.choice(im_lb_pair.keys())
+      dataset_id=np.random.choice(im_lb_pair.keys())
       im_data = self.im_lb_pair[dataset_id]['image']
       lb_data = self.im_lb_pair[dataset_id]['label']  
       return im_data, lb_data
@@ -81,20 +81,31 @@ class exp_Dataset(Dataset):
       x_start = remain // self.y_size
       y_start = remain % self.y_size
 
+
+
+      if z_start > 125 - self.z_out_size:
+        z_start = 125 - self.z_out_size
+        # print 'z_start = {}'.format(z_start)
+
       z_end   = z_start + self.z_out_size
       x_end   = x_start + self.x_out_size
       y_end   = y_start + self.y_out_size
 
+      
+
+      #print ('z_e={}, z_s ={}'.format(z_end,z_start))
+      assert (z_end - z_start == 3)
+
       data    = np.array(im_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.float)
       if self.subtract_mean:
         data -= 127.0
-      
+
       seg_label   =np.array(lb_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.int)
 
 
       if self.transform:
         data,seg_label= self.transform(data,seg_label)
-
+      #print data.shape
       return data, seg_label
 
     def set_phase(self,phase):
@@ -136,6 +147,19 @@ class CRIME_Dataset(exp_Dataset):
                                          subtract_mean =subtract_mean,
                                          phase = phase,
                                          transform =transform)
+    def __getitem__(self, index):
+        im_data,lb_data= self.random_choice_dataset(self.im_lb_pair)
+        data,seg_label = self.get_random_patch(index,im_data,lb_data)
+        '''Convert seg_label to 2D by obtaining only intermedia slice 
+           so the input data have multiple slice as multi-channel input
+           the network only output the prediction for the slice in the middle'''
+        if seg_label.ndim == 3:
+          z_dim          = seg_label.shape[0]
+          m_slice_idx    = z_dim // 2
+          seg_label      = seg_label[m_slice_idx,:,:]
+        tc_data        = torch.from_numpy(data).float()
+        tc_label_dict  = self.label_generator(seg_label)[0]
+        return tc_data, tc_label_dict
     
     def set_phase(self,phase):
       self.phase = phase
@@ -176,30 +200,30 @@ class CRIME_Dataset(exp_Dataset):
 
       return im_lb_pair
 
-class CRIME_Dataset_with_3dData_2dLabel(CRIME_Dataset):
-  def __init__(self,
-                 out_patch_size       =   (224,224,1), 
-                 sub_dataset          =   'Set_A',
-                 subtract_mean        =   True,
-                 phase                =   'train',
-                 transform            =   None,
-                 data_config          =   'conf/cremi_datasets_with_tflabels.toml'):
+# class CRIME_Dataset_with_3dData_2dLabel(CRIME_Dataset):
+#   def __init__(self,
+#                  out_patch_size       =   (224,224,1), 
+#                  sub_dataset          =   'Set_A',
+#                  subtract_mean        =   True,
+#                  phase                =   'train',
+#                  transform            =   None,
+#                  data_config          =   'conf/cremi_datasets_with_tflabels.toml'):
     
-      super(CRIME_Dataset_with_3Ddata_2dLabel,self).__init__(sub_dataset=sub_dataset, 
-                                         out_patch_size = out_patch_size,
-                                         subtract_mean  = subtract_mean,
-                                         phase          = phase,
-                                         transform      = transform,
-                                         data_config    = data_config)
-      def __getitem__(self, index):
-        im_data,lb_data= self.random_choice_dataset(self.im_lb_pair)
-        data,seg_label = self.get_random_patch(index,im_data,lb_data)
-        z_dim          = seg_label.shape[0]
-        m_slice_idx    = z_dim // 2
-        seg_lable      = seg_lable[m_slice_idx,:,:]
-        tc_data        = torch.from_numpy(data).float()
-        tc_label_dict  = self.label_generator(seg_label)[0]
-        return tc_data, tc_label_dict
+#       super(CRIME_Dataset_with_3Ddata_2dLabel,self).__init__(sub_dataset=sub_dataset, 
+#                                          out_patch_size = out_patch_size,
+#                                          subtract_mean  = subtract_mean,
+#                                          phase          = phase,
+#                                          transform      = transform,
+#                                          data_config    = data_config)
+#       def __getitem__(self, index):
+#         im_data,lb_data= self.random_choice_dataset(self.im_lb_pair)
+#         data,seg_label = self.get_random_patch(index,im_data,lb_data)
+#         z_dim          = seg_label.shape[0]
+#         m_slice_idx    = z_dim // 2
+#         seg_lable      = seg_lable[m_slice_idx,:,:]
+#         tc_data        = torch.from_numpy(data).float()
+#         tc_label_dict  = self.label_generator(seg_label)[0]
+#         return tc_data, tc_label_dict
 
 
 

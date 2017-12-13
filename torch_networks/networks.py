@@ -16,6 +16,65 @@ import torchvision.models as models
 import sys
 import math
 import pdb
+
+class DilatedConvs(nn.Module):
+    def __init__(self,in_ch,num_dilation =4 , dilate_rate =2,kernel_size =3):
+        super(DilatedConvs,self).__init__()
+        self.conv_layer_list = nn.ModuleList()
+        same_padding = kernel_size // 2
+        out_ch = in_ch
+        dilation = 1
+        self.conv1x1_compress = nn.Conv2d(in_ch, out_ch//4, kernel_size=1, padding=0)
+        self.conv1x1_decompress = nn.Conv2d(out_ch//4, in_ch, kernel_size=1, padding=0)
+        same_padding =[1,2,4,8]
+        for i in range(num_dilation):
+            #padding = (kernel_size * dilation -1) //2
+            padding = same_padding[i]
+            self.conv_layer_list.append(nn.Conv2d(out_ch//4, out_ch//(4*num_dilation), kernel_size=kernel_size, dilation=dilation, padding=padding))
+            dilation = dilation * dilate_rate
+    def forward(self,x):
+        out_each = []
+        x = self.conv1x1_compress(x)
+        for conv in self.conv_layer_list:
+            #a = conv(x)
+            #print a.data[0].shape
+            out_each.append(conv(x))
+        out = torch.cat(out_each,1)
+        out = self.conv1x1_decompress(out)
+        return out
+
+
+class DownblockDilated(nn.Module):
+    def __init__(self,in_ch,num_conv,ch_growth_rate,kernel_size = 3):
+        super(DownblockDilated, self).__init__()
+        assert(num_conv>0)
+        self.in_ch = in_ch
+        self.num_conv =num_conv
+        self.ch_growth_rate =ch_growth_rate
+        self.kernel_size =kernel_size
+        self.layers=self.build_layer_block()
+        self.block = nn.Sequential(*self.layers)
+        #self.add_module('down_blocks',self.block)
+    def forward(self,x):
+        return self.block(x)
+
+    def build_layer_block(self):
+        layers = []
+        same_padding = self.kernel_size // 2
+        
+        for i in range(self.num_conv):
+            if i == 0:
+                out_ch = self.in_ch * self.ch_growth_rate
+            else:
+                self.in_ch = out_ch
+            layers.append(DilatedConvs(in_ch=self.in_ch))
+            layers.append(nn.BatchNorm2d(out_ch))
+            layers.append(nn.ReLU())
+        layers.append(nn.MaxPool2d(kernel_size=2, stride=2, return_indices=False, ceil_mode=False))
+        return layers
+
+
+
 class Downblock(nn.Module):
     def __init__(self,in_ch,num_conv,ch_growth_rate,kernel_size = 3):
         super(Downblock, self).__init__()
@@ -43,6 +102,36 @@ class Downblock(nn.Module):
             layers.append(nn.ReLU())
         layers.append(nn.MaxPool2d(kernel_size=2, stride=2, return_indices=False, ceil_mode=False))
         return layers
+
+class UpblockDilated(nn.Module):
+    def __init__(self,in_ch,num_conv,ch_growth_rate,kernel_size = 3):
+        super(DownblockDilated, self).__init__()
+        assert(num_conv>0)
+        self.in_ch = in_ch
+        self.num_conv =num_conv
+        self.ch_growth_rate =ch_growth_rate
+        self.kernel_size =kernel_size
+        self.layers=self.build_layer_block()
+        self.block = nn.Sequential(*self.layers)
+        #self.add_module('down_blocks',self.block)
+    def forward(self,x):
+        return self.block(x)
+
+    def build_layer_block(self):
+        layers = []
+        same_padding = self.kernel_size // 2
+        
+        for i in range(self.num_conv):
+            if i == 0:
+                out_ch = self.in_ch * self.ch_growth_rate
+            else:
+                self.in_ch = out_ch
+            layers.append(DilatedConvs(in_ch=self.in_ch))
+            layers.append(nn.BatchNorm2d(out_ch))
+            layers.append(nn.ReLU())
+        #layers.append(nn.MaxPool2d(kernel_size=2, stride=2, return_indices=False, ceil_mode=False))
+        return layers
+
 
 class Upblock(nn.Module):
     def __init__(self, in_ch, num_conv,ch_down_rate,kernel_size = 3):
@@ -114,6 +203,7 @@ class Unet(nn.Module):
 
         b5_down_ch = b4_down_ch * ch_change_rate
         self.down_block_5 = Downblock(b5_down_ch,num_conv_in_block,1,kernel_size)
+        #self.down_block_5=DownblockDilated(b5_down_ch,num_conv_in_block,1,kernel_size)
         # outout ch = 256
 
         b0_up_ch = b5_down_ch * 1
@@ -179,6 +269,47 @@ class Unet(nn.Module):
         # return outputs
 
 
+class _Unet_encoder_withDilaConv(nn.Module):
+    def __init__(self, in_ch =1, first_out_ch=16, number_bolck=4, \
+                 num_conv_in_block=2,ch_change_rate=2,kernel_size = 3):
+        super(_Unet_encoder_withDilaConv, self).__init__()
+        self.in_ch  = in_ch
+        #self.out_ch = out_ch
+       
+        #self.conv_2d_1 = nn.Conv2d(in_ch, first_out_ch, kernel_size=kernel_size, padding=kernel_size // 2)
+
+        self.conv_2d_1 = conv_bn_relu(in_ch, first_out_ch, kernel_size = kernel_size)
+        
+        self.enc_1 = Downblock(first_out_ch, num_conv_in_block, ch_change_rate, kernel_size)
+        b1_down_ch = first_out_ch * ch_change_rate
+        
+        self.enc_2 = Downblock(b1_down_ch, num_conv_in_block, ch_change_rate, kernel_size)
+        b2_down_ch= b1_down_ch * ch_change_rate
+
+        self.enc_3 = Downblock(b2_down_ch, num_conv_in_block, ch_change_rate, kernel_size)
+        b3_down_ch = b2_down_ch * ch_change_rate
+        
+        #self.enc_4 = Downblock(b3_down_ch, num_conv_in_block, ch_change_rate, kernel_size)
+        self.enc_4  =DownblockDilated(b4_down_ch, num_conv_in_block, ch_change_rate, kernel_size)
+        b4_down_ch =b3_down_ch * ch_change_rate
+
+        #elf.enc_5 = Downblock(b4_down_ch, num_conv_in_block, 1, kernel_size)
+        self.enc_5  =DownblockDilated(b4_down_ch, num_conv_in_block, 1, kernel_size)
+        self.b5_down_ch =b4_down_ch * 1
+        self.upsample = nn.Upsample(scale_factor=2,mode='bilinear')
+    @property
+    def last_ch(self):
+        return self.b5_down_ch
+    def forward(self,x):
+        x1  = self.conv_2d_1(x)
+        d_1 = self.enc_1(x1)
+        d_2 = self.enc_2(d_1)
+        d_3 = self.enc_3(d_2)
+        d_4 = self.enc_4(d_3)
+        d_5 = self.enc_5(d_4)
+        enc4_out = torch.cat((self.upsample(d_5), d_4), 1)
+        return [enc4_out,d_3, d_2, d_1, x1]
+
 
 class _Unet_encoder(nn.Module):
     def __init__(self, in_ch =1, first_out_ch=16, number_bolck=4, \
@@ -204,6 +335,7 @@ class _Unet_encoder(nn.Module):
         b4_down_ch =b3_down_ch * ch_change_rate
 
         self.enc_5 = Downblock(b4_down_ch, num_conv_in_block, 1, kernel_size)
+        #self.enc_5  =DownblockDilated(b4_down_ch, num_conv_in_block, 1, kernel_size)
         self.b5_down_ch =b4_down_ch * 1
         self.upsample = nn.Upsample(scale_factor=2,mode='bilinear')
 
@@ -269,6 +401,7 @@ class MdecoderUnet(nn.Module):
     def __init__(self, in_ch =1, first_out_ch=16, target_label = {'nameless',1}, \
                 number_bolck=4, num_conv_in_block=2, ch_change_rate=2,kernel_size = 3):
         super(MdecoderUnet,self).__init__()
+        self.in_ch = in_ch
         self.encoder = _Unet_encoder(in_ch,first_out_ch,number_bolck, num_conv_in_block,ch_change_rate,kernel_size)
         #self.add_module('encoder',self.encoder)
         self.target_label = target_label
@@ -285,16 +418,16 @@ class MdecoderUnet(nn.Module):
         return outputs
     @property
     def name(self):
-        return 'MdecoderUnet'+ '_in_{}_chs'.format(in_ch)
+        return 'MdecoderUnet'+ '_in_{}_chs'.format(self.in_ch)
 
 class Mdecoder2Unet(nn.Module):
-    def __init__(self, mnet=None, freeze_net1 = True, target_label= {'unassigned',1},in_ch =1, out_ch=1, first_out_ch=16, \
+    def __init__(self, mnet=None, freeze_net1 = False, target_label= {'unassigned',1},in_ch =1, out_ch=1, first_out_ch=16, \
                 number_bolck=4, num_conv_in_block=2, ch_change_rate=2,kernel_size = 3):
         super(Mdecoder2Unet, self).__init__()
         if not mnet:
-            mnet =  MdecoderUnet(target_label =  target_label)
+            mnet =  MdecoderUnet(target_label =  target_label, in_ch =in_ch)
         self.net1=mnet
-        total_input_ch =  sum(self.net1.target_label.values())+1
+        total_input_ch =  sum(self.net1.target_label.values())+in_ch
         print total_input_ch 
         self.net2 = Unet()
         #self.first_conv_in_net2 = conv_bn_relu(total_input_ch,first_out_ch)
@@ -303,13 +436,14 @@ class Mdecoder2Unet(nn.Module):
         self.net2.conv_2d_1     = self.first_conv_in_net2
         self.net2.finnal_conv2d = self.final_conv_in_net2
         self.out_ch = out_ch
+        self.in_ch  = in_ch
         self.add_module('first_'+ self.net1.name, self.net1)
         self.add_module('second_'+self.net2.name, self.net2)
         if freeze_net1:
             self.freezeWeight(self.net1)
     @property
     def name(self):
-        return 'Mdecoder2Unet' + '_in_{}_chs'.format(in_ch)
+        return 'Mdecoder2Unet' + '_in_{}_chs'.format(self.in_ch)
     def freezeWeight(self,net):
         for child in net.children():
             for param in child.parameters():
@@ -322,6 +456,9 @@ class Mdecoder2Unet(nn.Module):
         out_chs = outputs.values()
         out_chs.append(x)
         x_net2_in          = torch.cat(out_chs,1)
+        # shape = x_net2.shape
+        # x_net2_in  =   torch.nn.functional.normalize(out_chs.view(shape[0],shape[1],-1),2)
+        # x_net2_in =  x_net2_in.view(shape)
         outputs['final']   = self.net2(x_net2_in)
         return outputs
         #return gradient_out,distance_out
