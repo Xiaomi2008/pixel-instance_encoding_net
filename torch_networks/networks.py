@@ -105,7 +105,7 @@ class Downblock(nn.Module):
 
 class UpblockDilated(nn.Module):
     def __init__(self,in_ch,num_conv,ch_growth_rate,kernel_size = 3):
-        super(DownblockDilated, self).__init__()
+        super(UpblockDilated, self).__init__()
         assert(num_conv>0)
         self.in_ch = in_ch
         self.num_conv =num_conv
@@ -269,10 +269,10 @@ class Unet(nn.Module):
         # return outputs
 
 
-class _Unet_encoder_withDilaConv(nn.Module):
+class _Unet_encoder_withDilatConv(nn.Module):
     def __init__(self, in_ch =1, first_out_ch=16, number_bolck=4, \
                  num_conv_in_block=2,ch_change_rate=2,kernel_size = 3):
-        super(_Unet_encoder_withDilaConv, self).__init__()
+        super(_Unet_encoder_withDilatConv, self).__init__()
         self.in_ch  = in_ch
         #self.out_ch = out_ch
        
@@ -353,6 +353,51 @@ class _Unet_encoder(nn.Module):
         return [enc4_out,d_3, d_2, d_1, x1]
 
 
+class _Unet_decoder_withDilatConv(nn.Module):
+    def __init__(self,bottom_input_ch, out_ch =2, num_conv_in_block =2 , ch_change_rate =2 ,kernel_size =3):
+        super(_Unet_decoder_withDilatConv,self).__init__()
+        b1_in_up_ch = bottom_input_ch + bottom_input_ch / 1 
+        #self.dec_1 = Upblock(b1_in_up_ch,num_conv_in_block,ch_change_rate,kernel_size)
+        
+        self.dec_1 = UpblockDilated(b1_in_up_ch,num_conv_in_block,ch_change_rate,kernel_size)
+
+        b2_in_up_ch = b1_in_up_ch // ch_change_rate + bottom_input_ch // (2**1)
+        #self.dec_2 = Upblock(b2_in_up_ch,num_conv_in_block,ch_change_rate,kernel_size)
+        self.dec_2 = UpblockDilated(b2_in_up_ch,num_conv_in_block,ch_change_rate,kernel_size)
+
+        b3_in_up_ch = b2_in_up_ch // ch_change_rate + bottom_input_ch // (2**2)
+        self.dec_3 = Upblock(b3_in_up_ch,num_conv_in_block,ch_change_rate,kernel_size)
+
+        b4_in_up_ch = b3_in_up_ch // ch_change_rate + bottom_input_ch // (2**3)
+        self.dec_4 = Upblock(b4_in_up_ch,num_conv_in_block,ch_change_rate,kernel_size)
+
+        b5_in_up_ch = b4_in_up_ch // ch_change_rate + bottom_input_ch // (2**4)
+        self.dec_5 = Upblock(b5_in_up_ch,num_conv_in_block,ch_change_rate,kernel_size)
+
+        last_up_ch = b5_in_up_ch // ch_change_rate
+        self.finnal_conv2d = nn.Conv2d(last_up_ch, out_ch, kernel_size=3, padding=(kernel_size-1)/2)
+        self.BatchNorm = nn.BatchNorm2d(out_ch)
+
+        self.upsample = nn.Upsample(scale_factor=2,mode='bilinear')
+        # return self.finnal_conv2d
+    def forward(self, encoder_outputs):
+         u_1 = self.dec_1(encoder_outputs[0])
+
+         c_2 = torch.cat((self.upsample(u_1), encoder_outputs[1]), 1)
+         u_2 = self.dec_2(c_2)
+
+         c_3 = torch.cat((self.upsample(u_2), encoder_outputs[2]), 1)
+         u_3 = self.dec_3(c_3)
+
+         c_4 = torch.cat((self.upsample(u_3), encoder_outputs[3]), 1)
+         u_4 = self.dec_4(c_4)
+
+         c_5 = torch.cat((self.upsample(u_4), encoder_outputs[4]), 1)
+         u_5 = self.dec_5(c_5)
+
+         out = self.BatchNorm(self.finnal_conv2d(u_5))
+         return out
+
 class _Unet_decoder(nn.Module):
     def __init__(self,bottom_input_ch, out_ch =2, num_conv_in_block =2 , ch_change_rate =2 ,kernel_size =3):
         super(_Unet_decoder,self).__init__()
@@ -397,6 +442,32 @@ class _Unet_decoder(nn.Module):
 
 
     
+class MdecoderUnet(nn.Module):
+    def __init__(self, in_ch =1, first_out_ch=16, target_label = {'nameless',1}, \
+                number_bolck=4, num_conv_in_block=2, ch_change_rate=2,kernel_size = 3):
+        super(MdecoderUnet,self).__init__()
+        self.in_ch = in_ch
+        self.encoder = _Unet_encoder(in_ch,first_out_ch,number_bolck, num_conv_in_block,ch_change_rate,kernel_size)
+        #self.add_module('encoder',self.encoder)
+        self.target_label = target_label
+        self.decoders = {}
+        for name,out_ch in target_label.iteritems():
+            self.decoders[name]=_Unet_decoder(bottom_input_ch=self.encoder.last_ch, out_ch=out_ch,num_conv_in_block = num_conv_in_block)
+            self.add_module('decoder_'+ name, self.decoders[name])
+
+    def forward(self, x):
+        encoder_outputs= self.encoder(x)
+        outputs = {}
+        for name, decoder in self.decoders.iteritems():
+            outputs[name]=decoder(encoder_outputs)
+        return outputs
+    @property
+    def name(self):
+        return 'MdecoderUnet'+ '_in_{}_chs'.format(self.in_ch)
+
+
+
+
 class MdecoderUnet(nn.Module):
     def __init__(self, in_ch =1, first_out_ch=16, target_label = {'nameless',1}, \
                 number_bolck=4, num_conv_in_block=2, ch_change_rate=2,kernel_size = 3):
