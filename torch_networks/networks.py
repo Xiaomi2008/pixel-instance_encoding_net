@@ -36,13 +36,13 @@ class DilatedConvs(nn.Module):
             dilation = dilation * dilate_rate
     def forward(self,x):
         out_each = []
-        print('x shape = {} out_ch ={}, in_ch={}'.format(x.data[0].shape, self.out_ch, self.in_ch))
+        #print('x shape = {} out_ch ={}, in_ch={}'.format(x.data[0].shape, self.out_ch, self.in_ch))
         x = self.conv1x1_compress(x)
         for conv in self.conv_layer_list:
             out_each.append(conv(x))
         out = torch.cat(out_each,1)
         out = self.conv1x1_decompress(out)
-        print ('dilated outshape ={}'.format(out.data[0].shape))
+        #print ('dilated outshape ={}'.format(out.data[0].shape))
         return out
 
 
@@ -125,7 +125,7 @@ class UpblockDilated(nn.Module):
         
         for i in range(self.num_conv):
             if i == 0:
-                out_ch = self.in_ch * self.ch_growth_rate
+                out_ch = self.in_ch // self.ch_growth_rate
             else:
                 self.in_ch = out_ch
             layers.append(DilatedConvs(in_ch=self.in_ch, out_ch=out_ch))
@@ -305,7 +305,7 @@ class _Unet_encoder_withDilatConv(nn.Module):
         d_1 = self.enc_1(x1)
         d_2 = self.enc_2(d_1)
         d_3 = self.enc_3(d_2)
-        print('d3 shape = {}'.format(d_3.data[0].shape))
+        #print('d3 shape = {}'.format(d_3.data[0].shape))
         d_4 = self.enc_4(d_3)
         d_5 = self.enc_5(d_4)
         enc4_out = torch.cat((self.upsample(d_5), d_4), 1)
