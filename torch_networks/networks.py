@@ -287,7 +287,7 @@ class _Unet_encoder_withDilatConv(nn.Module):
         b3_down_ch = b2_down_ch * ch_change_rate
         
         #self.enc_4 = Downblock(b3_down_ch, num_conv_in_block, ch_change_rate, kernel_size)
-        self.enc_4  =DownblockDilated(b4_down_ch, num_conv_in_block, ch_change_rate, kernel_size)
+        self.enc_4  =DownblockDilated(b3_down_ch, num_conv_in_block, ch_change_rate, kernel_size)
         b4_down_ch =b3_down_ch * ch_change_rate
 
         #elf.enc_5 = Downblock(b4_down_ch, num_conv_in_block, 1, kernel_size)
