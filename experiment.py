@@ -33,7 +33,8 @@ class experiment_config():
     print self.label_conf['labels']
     print '_'.join(self.label_conf['labels'])
     networks = \
-              {'Unet' : Unet,'DUnet' : DUnet,'MDUnet': MdecoderUnet,'M2DUnet':Mdecoder2Unet}
+              {'Unet' : Unet,'DUnet' : DUnet,'MDUnet': MdecoderUnet, \
+              'MDUnetDilat',MdecoderUnet_withDilatConv 'M2DUnet':Mdecoder2Unet}
    
     self.data_transform     = self.data_Transform(self.data_aug_conf['transform'])
     self.label_generator    = self.label_Generator()

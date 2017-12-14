@@ -265,10 +265,7 @@ class Unet(nn.Module):
 
         out = self.finnal_conv2d(u_4)
         return out
-        # outputs['gradient'] = out
-        # return outputs
-
-
+    
 class _Unet_encoder_withDilatConv(nn.Module):
     def __init__(self, in_ch =1, first_out_ch=16, number_bolck=4, \
                  num_conv_in_block=2,ch_change_rate=2,kernel_size = 3):
@@ -442,17 +439,17 @@ class _Unet_decoder(nn.Module):
 
 
     
-class MdecoderUnet(nn.Module):
+class MdecoderUnet_withDilatConv(nn.Module):
     def __init__(self, in_ch =1, first_out_ch=16, target_label = {'nameless',1}, \
                 number_bolck=4, num_conv_in_block=2, ch_change_rate=2,kernel_size = 3):
-        super(MdecoderUnet,self).__init__()
+        super(MdecoderUnet_withDilatConv,self).__init__()
         self.in_ch = in_ch
-        self.encoder = _Unet_encoder(in_ch,first_out_ch,number_bolck, num_conv_in_block,ch_change_rate,kernel_size)
+        self.encoder = _Unet_encoder_withDilatConv(in_ch,first_out_ch,number_bolck, num_conv_in_block,ch_change_rate,kernel_size)
         #self.add_module('encoder',self.encoder)
         self.target_label = target_label
         self.decoders = {}
         for name,out_ch in target_label.iteritems():
-            self.decoders[name]=_Unet_decoder(bottom_input_ch=self.encoder.last_ch, out_ch=out_ch,num_conv_in_block = num_conv_in_block)
+            self.decoders[name]=_Unet_decoder_withDilatConv(bottom_input_ch=self.encoder.last_ch, out_ch=out_ch,num_conv_in_block = num_conv_in_block)
             self.add_module('decoder_'+ name, self.decoders[name])
 
     def forward(self, x):
@@ -463,7 +460,7 @@ class MdecoderUnet(nn.Module):
         return outputs
     @property
     def name(self):
-        return 'MdecoderUnet'+ '_in_{}_chs'.format(self.in_ch)
+        return 'MdecoderUnetDilatConv'+ '_in_{}_chs'.format(self.in_ch)
 
 
 
