@@ -223,6 +223,7 @@ class experiment():
                   targets   = self.make_cuda_data(targets)
                 
               self.optimizer.zero_grad()
+              print ('data shape ={}'.format(data.data[0].shape))
               preds        = self.model(data)
               losses       = self.compute_loss(preds,targets)
               merged_loss = losses['merged_loss']

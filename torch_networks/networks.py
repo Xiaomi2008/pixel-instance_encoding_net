@@ -18,29 +18,31 @@ import math
 import pdb
 
 class DilatedConvs(nn.Module):
-    def __init__(self,in_ch,num_dilation =4 , dilate_rate =2,kernel_size =3):
+    def __init__(self,in_ch, out_ch, num_dilation =4 , dilate_rate =2,kernel_size =3):
         super(DilatedConvs,self).__init__()
         self.conv_layer_list = nn.ModuleList()
+        self.in_ch = in_ch
+        self.out_ch = out_ch
         same_padding = kernel_size // 2
-        out_ch = in_ch
         dilation = 1
-        self.conv1x1_compress = nn.Conv2d(in_ch, out_ch//4, kernel_size=1, padding=0)
-        self.conv1x1_decompress = nn.Conv2d(out_ch//4, in_ch, kernel_size=1, padding=0)
-        same_padding =[1,2,4,8]
+        self.conv1x1_compress = nn.Conv2d(in_ch, out_ch//num_dilation, kernel_size=1, padding=0)
+        self.conv1x1_decompress = nn.Conv2d(out_ch, out_ch, kernel_size=1, padding=0)
+        #same_padding =[1,2,4,8]
         for i in range(num_dilation):
             #padding = (kernel_size * dilation -1) //2
-            padding = same_padding[i]
-            self.conv_layer_list.append(nn.Conv2d(out_ch//4, out_ch//(4*num_dilation), kernel_size=kernel_size, dilation=dilation, padding=padding))
+            #padding = same_padding[i]
+            padding = dilation
+            self.conv_layer_list.append(nn.Conv2d(out_ch//num_dilation, out_ch//num_dilation, kernel_size=kernel_size, dilation=dilation, padding=padding))
             dilation = dilation * dilate_rate
     def forward(self,x):
         out_each = []
+        print('x shape = {} out_ch ={}, in_ch={}'.format(x.data[0].shape, self.out_ch, self.in_ch))
         x = self.conv1x1_compress(x)
         for conv in self.conv_layer_list:
-            #a = conv(x)
-            #print a.data[0].shape
             out_each.append(conv(x))
         out = torch.cat(out_each,1)
         out = self.conv1x1_decompress(out)
+        print ('dilated outshape ={}'.format(out.data[0].shape))
         return out
 
 
@@ -67,7 +69,7 @@ class DownblockDilated(nn.Module):
                 out_ch = self.in_ch * self.ch_growth_rate
             else:
                 self.in_ch = out_ch
-            layers.append(DilatedConvs(in_ch=self.in_ch))
+            layers.append(DilatedConvs(in_ch=self.in_ch, out_ch=out_ch))
             layers.append(nn.BatchNorm2d(out_ch))
             layers.append(nn.ReLU())
         layers.append(nn.MaxPool2d(kernel_size=2, stride=2, return_indices=False, ceil_mode=False))
@@ -126,7 +128,7 @@ class UpblockDilated(nn.Module):
                 out_ch = self.in_ch * self.ch_growth_rate
             else:
                 self.in_ch = out_ch
-            layers.append(DilatedConvs(in_ch=self.in_ch))
+            layers.append(DilatedConvs(in_ch=self.in_ch, out_ch=out_ch))
             layers.append(nn.BatchNorm2d(out_ch))
             layers.append(nn.ReLU())
         #layers.append(nn.MaxPool2d(kernel_size=2, stride=2, return_indices=False, ceil_mode=False))
@@ -287,6 +289,7 @@ class _Unet_encoder_withDilatConv(nn.Module):
         b3_down_ch = b2_down_ch * ch_change_rate
         
         #self.enc_4 = Downblock(b3_down_ch, num_conv_in_block, ch_change_rate, kernel_size)
+        #print ('enc 4 has {}'.format(b3_down_ch))
         self.enc_4  =DownblockDilated(b3_down_ch, num_conv_in_block, ch_change_rate, kernel_size)
         b4_down_ch =b3_down_ch * ch_change_rate
 
@@ -302,6 +305,7 @@ class _Unet_encoder_withDilatConv(nn.Module):
         d_1 = self.enc_1(x1)
         d_2 = self.enc_2(d_1)
         d_3 = self.enc_3(d_2)
+        print('d3 shape = {}'.format(d_3.data[0].shape))
         d_4 = self.enc_4(d_3)
         d_5 = self.enc_5(d_4)
         enc4_out = torch.cat((self.upsample(d_5), d_4), 1)
