@@ -158,7 +158,8 @@ class CRIME_Dataset(exp_Dataset):
           z_dim          = seg_label.shape[0]
           assert ((z_dim % 2) == 1) # we will ensure that # slices is odd number
           m_slice_idx    = z_dim // 2
-          seg_label      = np.expand_dims(seg_label[m_slice_idx,:,:],axis =1) 
+          #seg_label      = seg_label[m_slice_idx,:,:]
+          seg_label      = np.expand_dims(seg_label[m_slice_idx,:,:],axis =0) 
         tc_data        = torch.from_numpy(data).float()
         tc_label_dict  = self.label_generator(seg_label)[0]
         return tc_data, tc_label_dict
@@ -248,6 +249,7 @@ class labelGenerator(object):
 
       output  = []
       for idex,seg_label in enumerate(input):
+        #print ('seg_label shape = {}'.format(seg_label.shape))
         affinMap        =  self.affinityFunc(seg_label)
         objCenterMap    =  self.objCenterFunc(seg_label)
         

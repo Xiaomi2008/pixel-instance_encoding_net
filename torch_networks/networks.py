@@ -166,7 +166,7 @@ class Upblock(nn.Module):
             print(self.in_ch,self.kernel_size,same_padding)
             layers.append(nn.Conv2d(self.in_ch, out_ch, kernel_size=self.kernel_size, padding=same_padding))
             layers.append(nn.BatchNorm2d(out_ch))
-            layers.append(nn.ReLU())
+            layers.append(nn.ReLU6())
         return layers
 class conv_bn_relu(nn.Module):
     def __init__(self, in_ch, out_ch, kernel_size = 3):
@@ -177,7 +177,7 @@ class conv_bn_relu(nn.Module):
         self.same_padding = (kernel_size -1)/2
         self.Conv      = nn.Conv2d(self.in_ch,self.out_ch,self.same_padding)
         self.BatchNorm = nn.BatchNorm2d(out_ch)
-        self.ReLU      = nn.ReLU(inplace=True)
+        self.ReLU      = nn.ReLU6(inplace=True)
     def forward(self,x):
         #x1 = self.Conv2d(x)
         #x1 = self.BatchNorm(x)
