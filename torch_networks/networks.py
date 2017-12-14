@@ -16,6 +16,11 @@ import torchvision.models as models
 import sys
 import math
 import pdb
+# class ReLu6(nn.Module):
+#     def __init__():
+#         super(Relu6,self).__init__()
+#     def forward(self,x):
+
 
 class DilatedConvs(nn.Module):
     def __init__(self,in_ch, out_ch, num_dilation =4 , dilate_rate =2,kernel_size =3):
@@ -71,7 +76,7 @@ class DownblockDilated(nn.Module):
                 self.in_ch = out_ch
             layers.append(DilatedConvs(in_ch=self.in_ch, out_ch=out_ch))
             layers.append(nn.BatchNorm2d(out_ch))
-            layers.append(nn.ReLU())
+            layers.append(nn.ReLU6())
         layers.append(nn.MaxPool2d(kernel_size=2, stride=2, return_indices=False, ceil_mode=False))
         return layers
 
@@ -101,7 +106,7 @@ class Downblock(nn.Module):
                 self.in_ch = out_ch
             layers.append(nn.Conv2d(self.in_ch, out_ch, kernel_size=self.kernel_size, padding=same_padding))
             layers.append(nn.BatchNorm2d(out_ch))
-            layers.append(nn.ReLU())
+            layers.append(nn.ReLU6())
         layers.append(nn.MaxPool2d(kernel_size=2, stride=2, return_indices=False, ceil_mode=False))
         return layers
 
@@ -130,7 +135,7 @@ class UpblockDilated(nn.Module):
                 self.in_ch = out_ch
             layers.append(DilatedConvs(in_ch=self.in_ch, out_ch=out_ch))
             layers.append(nn.BatchNorm2d(out_ch))
-            layers.append(nn.ReLU())
+            layers.append(nn.ReLU6())
         #layers.append(nn.MaxPool2d(kernel_size=2, stride=2, return_indices=False, ceil_mode=False))
         return layers
 

@@ -94,7 +94,7 @@ class exp_Dataset(Dataset):
       
 
       #print ('z_e={}, z_s ={}'.format(z_end,z_start))
-      assert (z_end - z_start == 3)
+      #assert (z_end - z_start == 3)
 
       data    = np.array(im_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.float)
       if self.subtract_mean:
@@ -151,12 +151,14 @@ class CRIME_Dataset(exp_Dataset):
         im_data,lb_data= self.random_choice_dataset(self.im_lb_pair)
         data,seg_label = self.get_random_patch(index,im_data,lb_data)
         '''Convert seg_label to 2D by obtaining only intermedia slice 
-           so the input data have multiple slice as multi-channel input
-           the network only output the prediction for the slice in the middle'''
-        if seg_label.ndim == 3:
+           while the input data have multiple slice as multi-channel input
+           the network only output the prediction of sigle slice in the center of Z dim'''
+        #assert seg_label.ndim
+        if seg_label.ndim ==3:
           z_dim          = seg_label.shape[0]
+          assert ((z_dim % 2) == 1) # we will ensure that # slices is odd number
           m_slice_idx    = z_dim // 2
-          seg_label      = seg_label[m_slice_idx,:,:]
+          seg_label      = np.expand_dims(seg_label[m_slice_idx,:,:],axis =1) 
         tc_data        = torch.from_numpy(data).float()
         tc_label_dict  = self.label_generator(seg_label)[0]
         return tc_data, tc_label_dict
