@@ -25,19 +25,31 @@ import pdb
 class DilatedConvs(nn.Module):
     def __init__(self,in_ch, out_ch, num_dilation =4 , dilate_rate =2,kernel_size =3):
         super(DilatedConvs,self).__init__()
+        def ratio_of_featureMap(num_dilation,out_ch,dilate_rate =2):
+            from math import ceil
+            listA  = [(i+1)**1.5 for i in range(num_dilation)]
+            sumA  = sum(listA)
+            #print listA
+            return map(lambda x: int(ceil(out_ch*float(x)/float(sumA))),listA)[::-1]
         self.conv_layer_list = nn.ModuleList()
-        self.in_ch = in_ch
+        self.in_ch  = in_ch
         self.out_ch = out_ch
         same_padding = kernel_size // 2
         dilation = 1
+        num_featureMap = ratio_of_featureMap(num_dilation,out_ch,dilate_rate =2)
+        #print('n_feaure = {}'.format(num_featureMap))
+        #dilation = []
+        out_ch_concat = sum(num_featureMap)
         self.conv1x1_compress = nn.Conv2d(in_ch, out_ch//num_dilation, kernel_size=1, padding=0)
-        self.conv1x1_decompress = nn.Conv2d(out_ch, out_ch, kernel_size=1, padding=0)
+        self.conv1x1_decompress = nn.Conv2d(out_ch_concat, out_ch, kernel_size=1, padding=0)
+
         #same_padding =[1,2,4,8]
         for i in range(num_dilation):
             #padding = (kernel_size * dilation -1) //2
             #padding = same_padding[i]
             padding = dilation
-            self.conv_layer_list.append(nn.Conv2d(out_ch//num_dilation, out_ch//num_dilation, kernel_size=kernel_size, dilation=dilation, padding=padding))
+            self.conv_layer_list.append(nn.Conv2d(out_ch//num_dilation, num_featureMap[i], kernel_size=kernel_size, dilation=dilation, padding=padding))
+            #self.conv_layer_list.append(nn.Conv2d(out_ch//num_dilation, out_ch//num_dilation, kernel_size=kernel_size, dilation=dilation, padding=padding))
             dilation = dilation * dilate_rate
     def forward(self,x):
         out_each = []
