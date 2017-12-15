@@ -351,47 +351,50 @@ class experiment():
           self.model = torch.nn.DataParallel(self.model, device_ids=gpus)
     
   def compute_loss(self,preds,targets):
-        def loss_each_label(preds,targets):
+        def compute_loss_foreach_label(preds,targets):
             outputs ={}
             #print 'key = {}'.format(preds.keys())
             if 'gradient' in preds:
               ang_loss  = angularLoss(preds['gradient'], targets['gradient'])
-              outputs['ang_loss'] =ang_loss
+              pred_size = np.prod(preds['gradient'].data[0].shape)
+              outputs['ang_loss'] =ang_loss / float(pred_size)
 
             ''' We want the location of boundary(affinity) in distance map  to be zeros '''
             if 'distance' in preds:
               #print ('distance in  preds')
               distance  = targets['distance'] * (1-targets['affinity'])
               dist_loss = boundary_sensitive_loss(preds['distance'],distance, targets['affinity'])
-              outputs['dist_loss']   = dist_loss
+              pred_size = np.prod(preds['distance'].data[0].shape)
+              outputs['dist_loss']   = dist_loss / float(pred_size)
 
             # 'labels',['gradient','sizemap','affinity','centermap','distance']
             #if 'affinity' in self.exp_cfg.label_conf:
             if 'affinity' in preds:
               affin_loss=self.bce_loss(torch.sigmoid(preds['affinity']),targets['affinity'])
-              outputs['affinty_loss'] = affin_loss
+              pred_size = np.prod(preds['affinity'].data[0].shape)
+              outputs['affinty_loss'] = affin_loss / float(pred_size)
 
             if 'sizemap' in preds:
               size_loss = self.mse_loss(preds['sizemap'],targets['sizemap'])
-              outputs['size_loss'] =size_loss 
+              pred_size = np.prod(preds['sizemap'].data[0].shape)
+              outputs['size_loss'] =size_loss /float(pred_size)
+
 
             if 'centermap' in preds:
               center_loss = self.mse_loss(preds['centermap'],targets['centermap'])
-              outputs['center_loss'] =center_loss
+              pred_size = np.prod(preds['centermap'].data[0].shape)
+              outputs['center_loss'] =center_loss / float(pred_size)
             return outputs
 
         outputs = {}
         if not self.exp_cfg.train_conf['final_loss_only'] or not 'final' in preds:
-          outputs = loss_each_label(preds,targets)
+          outputs = compute_loss_foreach_label(preds,targets)
             
         if 'final' in preds:
           m_preds ={}
-          #print self.exp_cfg.label_conf
           final_lb = self.exp_cfg.label_conf['final_label']
           m_preds[final_lb] = preds['final']
-          #print m_preds
-          fin_loss = loss_each_label(m_preds,targets)
-          #print fin_loss
+          fin_loss = compute_loss_foreach_label(m_preds,targets)
           outputs['final_loss']   = fin_loss[fin_loss.keys()[0]]
         
         #print  outputs.keys()
