@@ -121,11 +121,12 @@ class experiment_config():
       return train_dataset, valid_dataset
     
   def data_Transform(self,op_list):
-      op_list = []
+      cur_list = []
       ops = {'vflip':VFlip(),'hflip':HFlip(),'rot90':Rot90()}
       for op_str in op_list:
-        op_list.appent(ops[op_str])
-      return random_transform(* op_list)
+        cur_list.append(ops[op_str])
+      print ('op_list  = {}'.format(cur_list))
+      return random_transform(* cur_list)
   
   def label_Generator(self):
       return labelGenerator()
@@ -274,35 +275,36 @@ class experiment():
             # label_conf['labels']=label_conf.get('labels',['gradient','sizemap','affinity','centermap','distance'])
             if i % iters ==0:
                 exp_config_name = self.exp_cfg.name
-                save2figuer(i,'raw_img_'   + exp_config_name, data)
+                #save2figure(i,'raw_img_'   + exp_config_name, data)
+                saveRawfigure(i,'raw_img_' + exp_config_name, data)
                 
                 if 'distance' in preds:
-                  save2figuer(i,'dist_t_map_'+ exp_config_name,targets['distance'],)
-                  save2figuer(i,'dist_p_map_'+ exp_config_name,preds['distance'])
+                  save2figure(i,'dist_t_map_'+ exp_config_name,targets['distance'],)
+                  save2figure(i,'dist_p_map_'+ exp_config_name,preds['distance'])
                 
                 if 'sizemap' in preds:
-                  save2figuer(i,'size_p_img_' + exp_config_name, torch.log(preds['sizemap']),use_pyplot=True)
-                  save2figuer(i,'size_t_img_' + exp_config_name, torch.log(targets['sizemap']),use_pyplot=True)
+                  save2figure(i,'size_p_img_' + exp_config_name, torch.log(preds['sizemap']),use_pyplot=True)
+                  save2figure(i,'size_t_img_' + exp_config_name, torch.log(targets['sizemap']),use_pyplot=True)
 
                 if 'affinity' in preds:
-                  save2figuer(i,'affin_t_img_' + exp_config_name, targets['affinity'])
-                  save2figuer(i,'affin_p_img_' + exp_config_name, preds['affinity'])
+                  save2figure(i,'affin_t_img_' + exp_config_name, targets['affinity'])
+                  save2figure(i,'affin_p_img_' + exp_config_name, preds['affinity'])
 
                 if 'gradient' in preds:
                   ang_t_map=compute_angular(targets['gradient'])
                   ang_p_map=compute_angular(preds['gradient'])
-                  save2figuer(i,'ang_t_img_' + exp_config_name, ang_t_map,use_pyplot =True)
-                  save2figuer(i,'ang_p_img_' + exp_config_name, ang_p_map,use_pyplot =True)
+                  save2figure(i,'ang_t_img_' + exp_config_name, ang_t_map,use_pyplot =True)
+                  save2figure(i,'ang_p_img_' + exp_config_name, ang_p_map,use_pyplot =True)
 
                 if 'centermap' in preds:
-                  save2figuer(i,'cent_t_img_x_' + exp_config_name, targets['centermap'][:,0,:,:])
-                  save2figuer(i,'cent_p_img_x_' + exp_config_name, preds['centermap'][:,0,:,:])
-                  save2figuer(i,'cent_t_img_y_' + exp_config_name, targets['centermap'][:,1,:,:])
-                  save2figuer(i,'cent_p_img_y_' + exp_config_name, preds['centermap'][:,1,:,:])
+                  save2figure(i,'cent_t_img_x_' + exp_config_name, targets['centermap'][:,0,:,:])
+                  save2figure(i,'cent_p_img_x_' + exp_config_name, preds['centermap'][:,0,:,:])
+                  save2figure(i,'cent_t_img_y_' + exp_config_name, targets['centermap'][:,1,:,:])
+                  save2figure(i,'cent_p_img_y_' + exp_config_name, preds['centermap'][:,1,:,:])
 
                 if 'final' in preds:
-                  save2figuer(i,'final_dist_t_map_'+ exp_config_name,targets['distance'],)
-                  save2figuer(i,'final_dist_p_map_'+ exp_config_name,preds['final'])
+                  save2figure(i,'final_dist_t_map_'+ exp_config_name,targets['distance'],)
+                  save2figure(i,'final_dist_p_map_'+ exp_config_name,preds['final'])
 
                 #if 'final' in preds:
 
@@ -445,14 +447,22 @@ class experiment():
             #loss = self.mse_loss(dist_pred, distance)
             #print('loss:{}'.format(loss.data[0]))
             model_name=self.model.name
-            save2figuer(i,'dist_p_map_'+self.exp_cfg.name+'_predict',dist_pred,use_pyplot=True)
-            save2figuer(i,'dist_t_map_'+self.exp_cfg.name+'_predict',distance,use_pyplot=True)
+            save2figure(i,'dist_p_map_'+self.exp_cfg.name+'_predict',dist_pred,use_pyplot=True)
+            save2figure(i,'dist_t_map_'+self.exp_cfg.name+'_predict',distance,use_pyplot=True)
             watershed_d(i,dist_pred)
             if i > 7:
                 break
 
+def saveRawfigure(iters, file_prefix,output):
+    if isinstance(output,Variable):
+           output = output.data
+    data = output.cpu()
+    z_dim = data.shape[1]
+    for i in range(max(1,z_dim -3+1)):
+      img = data[:,i:i+3,:,:]
+      save_image(img,file_prefix+'{}_iter_{}_slice.png'.format(iters,i),normalize =True)
 
-def save2figuer(iters,file_prefix,output, use_pyplot =False):
+def save2figure(iters,file_prefix,output, use_pyplot =False):
     from torchvision.utils import save_image
     if not use_pyplot:
       if isinstance(output,Variable):
