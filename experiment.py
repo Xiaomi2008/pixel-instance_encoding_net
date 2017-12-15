@@ -481,13 +481,13 @@ class losses_acumulator():
         if key not in self.total_loss_dict:
           self.total_loss_dict[key] = value.data
         else:
-          self.total_loss_dict[key] + = value.data
-      self.append_iters + = 1
+          self.total_loss_dict[key] += value.data
+    self.append_iters += 1
   
   def get_ave_losses(self):
     ave_dict ={}
     for key,value in self.total_loss_dict.iteritems():
-        self.ave_dict[key] = value / float(self.append_iters)
+        ave_dict[key] = value / float(self.append_iters)
     return ave_dict
   
   def reset(self):
@@ -498,35 +498,60 @@ class losses_acumulator():
 
 class tensorBoardWriter():
   def __init__(self):
-    writer = SummaryWriter()
-  def write(self,iters,train_loss_dict,valid_loss_dict,data,preds_dict,targets_dict):
+    self.writer = SummaryWriter()
+  def write(self,iters,train_loss_dict,valid_loss_dict,data,preds,targets):
     for key, value in train_loss_dict.iteritems():
-      writer.add_scalar('train_loss/{}'.format(key),value,iters)
+      self.writer.add_scalar('train_loss/{}'.format(key),value,iters)
 
     for key,value in valid_loss_dict.iteritems():
-      writer.add_scalar('valid_loss/{}'.format(key),value,iters)
+      self.writer.add_scalar('valid_loss/{}'.format(key),value,iters)
 
-    for ket,value in predict.iteritems():
+    for key,value in preds.iteritems():
       if key == 'gradient':
         im = compute_angular(value)
       else:
-        im =value
-      im = vutils.make_grid(im, normalize=True, scale_each=True)
-      writer.add_image('predict/{}'.format(key), im, iters)
+        im =value.data[0]
+      if isinstance(im,Variable):
+        im = im.data
+      #print('tensorb im shape {} = {}'.format(key, im.shape))
+      if key == 'centermap':
+        print(im.shape)
+        im = torch.unsqueeze(im,1)
+        #im = im.permute(1,0,2,3)
+        im = vutils.make_grid(im, normalize=True, scale_each=True)
+        self.writer.add_image('pred/{}'.format(key +'_x'), im, iters)
+      else:
+        im = vutils.make_grid(im, normalize=True, scale_each=True)
+        self.writer.add_image('pred/{}'.format(key), im, iters)
+      # im = vutils.make_grid(im, normalize=True, scale_each=True)
+      # self. writer.add_image('predict/{}'.format(key), im, iters)
 
     for key,value in targets.iteritems():
       if key == 'gradient':
         im = compute_angular(value)
       else:
         im =value
-      im = vutils.make_grid(im, normalize=True, scale_each=True)
-      writer.add_image('target/{}'.format(key), im, iters)
+      if isinstance(im,Variable):
+        im = im.data
+      #print('tensorb im shape {} = {}'.format(key, im.shape))
+      if key == 'centermap':
+        im = im.permute(1,0,2,3)
+        im = vutils.make_grid(im, normalize=True, scale_each=True)
+        self.writer.add_image('target/{}'.format(key +'_x'), im, iters)
 
+        # im = vutils.make_grid(im[:,1,:,:], normalize=True, scale_each=True)
+        # self.writer.add_image('target/{}'.format(key +'_y'), im, iters)
+      else:
+        im = vutils.make_grid(im, normalize=True, scale_each=True)
+        self.writer.add_image('target/{}'.format(key), im, iters)
+
+    if isinstance(data,Variable):
+        data =data.data
     z_dim = data.shape[1]
     for i in range(max(1,z_dim -3+1)):
       img = data[:,i:i+3,:,:]
       raw_im = vutils.make_grid(img, normalize=True, scale_each=True)
-      write_add_image('raw_{}'.format(i),raw_im, iters)
+      self.writer.add_image('raw_{}'.format(i),raw_im, iters)
 
 
 
