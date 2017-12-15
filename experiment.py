@@ -201,6 +201,7 @@ class experiment():
            
         else:
            loss_str = 'loss : {:.2f}'.format(merged_loss.data[0])
+           #print ('show merged_loss = {}'.format(merged_loss.data))
            loss_str =  loss_str + ', time : {:.2}s'.format(time_elaps)
            printProgressBar(iters, self.model_save_steps, prefix = iter_str, suffix = loss_str, length = 50)
       
@@ -356,7 +357,10 @@ class experiment():
             #print 'key = {}'.format(preds.keys())
             if 'gradient' in preds:
               ang_loss  = angularLoss(preds['gradient'], targets['gradient'])
-              pred_size = np.prod(preds['gradient'].data[0].shape)
+              pred_size = np.prod(preds['gradient'].data.shape)
+
+              #print ('loss shape = {}'.format(preds['gradient'].data.shape))
+              #print (preds['gradient'].data.shape)
               outputs['ang_loss'] =ang_loss / float(pred_size)
 
             ''' We want the location of boundary(affinity) in distance map  to be zeros '''
@@ -364,25 +368,25 @@ class experiment():
               #print ('distance in  preds')
               distance  = targets['distance'] * (1-targets['affinity'])
               dist_loss = boundary_sensitive_loss(preds['distance'],distance, targets['affinity'])
-              pred_size = np.prod(preds['distance'].data[0].shape)
+              pred_size = np.prod(preds['distance'].data.shape)
               outputs['dist_loss']   = dist_loss / float(pred_size)
 
             # 'labels',['gradient','sizemap','affinity','centermap','distance']
             #if 'affinity' in self.exp_cfg.label_conf:
             if 'affinity' in preds:
               affin_loss=self.bce_loss(torch.sigmoid(preds['affinity']),targets['affinity'])
-              pred_size = np.prod(preds['affinity'].data[0].shape)
+              pred_size = np.prod(preds['affinity'].data.shape)
               outputs['affinty_loss'] = affin_loss / float(pred_size)
 
             if 'sizemap' in preds:
               size_loss = self.mse_loss(preds['sizemap'],targets['sizemap'])
-              pred_size = np.prod(preds['sizemap'].data[0].shape)
+              pred_size = np.prod(preds['sizemap'].data.shape)
               outputs['size_loss'] =size_loss /float(pred_size)
 
 
             if 'centermap' in preds:
               center_loss = self.mse_loss(preds['centermap'],targets['centermap'])
-              pred_size = np.prod(preds['centermap'].data[0].shape)
+              pred_size = np.prod(preds['centermap'].data.shape)
               outputs['center_loss'] =center_loss / float(pred_size)
             return outputs
 
