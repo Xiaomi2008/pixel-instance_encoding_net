@@ -13,6 +13,7 @@ from utils.transform import VFlip, HFlip, Rot90, random_transform
 from utils.torch_loss_functions import *
 from utils.printProgressBar import printProgressBar
 import torchvision.utils as vutils
+from tensorboardX import SummaryWriter
 
 import numpy as np
 #from matplotlib import pyplot as plt
@@ -187,6 +188,7 @@ class experiment():
 
   def train(self):
       # set model to the train mode
+      boardwriter = tensorBoardWriter()
       self.model.train()
       self.set_parallel_model()
       train_loader = DataLoader(dataset     = self.exp_cfg.train_dataset,
@@ -216,6 +218,8 @@ class experiment():
       for epoch in range(5):
             runing_loss = 0.0
             start_time  = time.time()
+            train_losses_acumulator = losses_acumulator()
+
             for i, (data,targets) in enumerate(train_loader, 0):
               data   = Variable(data).float()
               target = self.make_variable(targets)
@@ -227,6 +231,7 @@ class experiment():
               #print ('data shape ={}'.format(data.data[0].shape))
               preds        = self.model(data)
               losses       = self.compute_loss(preds,targets)
+
               merged_loss = losses['merged_loss']
               
               merged_loss.backward()
@@ -234,15 +239,21 @@ class experiment():
               
               runing_loss += merged_loss.data[0]
               time_elaps   = time.time() - start_time
+              train_losses_acumulator.append_losses(losses)
 
               steps,iter_str=get_iter_info(i)
 
               if steps == 0:
                   self.save_model(i)
                   show_iter_info(steps,runing_loss, iter_str, time_elaps, end_of_iter = True)
-                  self.valid()
-                  start_time = time.time()
-                  runing_loss = 0.0
+                  start_time   = time.time()
+                  runing_loss  = 0.0
+                  
+                  train_losses = train_losses_acumulator.get_ave_losses()
+                  valid_losses, (data,preds, targets)=self.valid()
+                  boardwriter.write(i,train_losses,valid_losses,data,preds,targets)
+                  train_losses_acumulator.reset()
+  
               else:
                   show_iter_info(steps,runing_loss, iter_str, time_elaps, end_of_iter = False)
                   # loss_str = 'loss : {:.5f}'.format(general_loss.data[0])
@@ -251,6 +262,7 @@ class experiment():
   
   def valid(self):
         #from torchvision.utils import save_image
+        valid_losses_acumulator = losses_acumulator()
         dataset = self.exp_cfg.valid_dataset
         self.model.eval()
         valid_loader = DataLoader(dataset =dataset,
@@ -270,7 +282,7 @@ class experiment():
             preds  = self.model(data)
             losses = self.compute_loss(preds,targets)
             loss += losses['merged_loss'].data[0]
-
+            valid_losses_acumulator.append_losses(losses)
             # loss += self.mse_loss(dist_pred,distance).data[0]
             # label_conf['labels']=label_conf.get('labels',['gradient','sizemap','affinity','centermap','distance'])
             if i % iters ==0:
@@ -323,9 +335,12 @@ class experiment():
         loss = loss / iters
         self.model.train()
         print (' valid loss : {:.2f}'.format(loss))
+        return valid_losses_acumulator.get_ave_losses(), (data,preds, targets)
   
   #def predict(self):
   #  pass
+
+
   def net_load_weight(self, iters):
       self.model_file = self.model_saved_dir + '/' \
                          + '{}_iter_{}.model'.format(
@@ -356,7 +371,7 @@ class experiment():
             #print 'key = {}'.format(preds.keys())
             if 'gradient' in preds:
               ang_loss  = angularLoss(preds['gradient'], targets['gradient'])
-              pred_size = np.prod(preds['gradient'].data[0].shape)
+              pred_size = np.prod(preds['gradient'].data.shape)
               outputs['ang_loss'] =ang_loss / float(pred_size)
 
             ''' We want the location of boundary(affinity) in distance map  to be zeros '''
@@ -364,25 +379,25 @@ class experiment():
               #print ('distance in  preds')
               distance  = targets['distance'] * (1-targets['affinity'])
               dist_loss = boundary_sensitive_loss(preds['distance'],distance, targets['affinity'])
-              pred_size = np.prod(preds['distance'].data[0].shape)
+              pred_size = np.prod(preds['distance'].data.shape)
               outputs['dist_loss']   = dist_loss / float(pred_size)
 
             # 'labels',['gradient','sizemap','affinity','centermap','distance']
             #if 'affinity' in self.exp_cfg.label_conf:
             if 'affinity' in preds:
               affin_loss=self.bce_loss(torch.sigmoid(preds['affinity']),targets['affinity'])
-              pred_size = np.prod(preds['affinity'].data[0].shape)
+              pred_size = np.prod(preds['affinity'].data.shape)
               outputs['affinty_loss'] = affin_loss / float(pred_size)
 
             if 'sizemap' in preds:
               size_loss = self.mse_loss(preds['sizemap'],targets['sizemap'])
-              pred_size = np.prod(preds['sizemap'].data[0].shape)
+              pred_size = np.prod(preds['sizemap'].data.shape)
               outputs['size_loss'] =size_loss /float(pred_size)
 
 
             if 'centermap' in preds:
               center_loss = self.mse_loss(preds['centermap'],targets['centermap'])
-              pred_size = np.prod(preds['centermap'].data[0].shape)
+              pred_size = np.prod(preds['centermap'].data.shape)
               outputs['center_loss'] =center_loss / float(pred_size)
             return outputs
 
@@ -455,6 +470,65 @@ class experiment():
             watershed_d(i,dist_pred)
             if i > 7:
                 break
+
+
+class losses_acumulator():
+  def __init__(self):
+    self.reset()
+  def append_losses(self,current_iter_loss):
+    for key, value in current_iter_loss.iteritems():
+        if key not in self.total_loss_dict:
+          self.total_loss_dict[key] = value.data
+        else:
+          self.total_loss_dict[key] + = value.data
+      self.append_iters + = 1
+  
+  def get_ave_losses(self):
+    ave_dict ={}
+    for key,value in self.total_loss_dict.iteritems():
+        self.ave_dict[key] = value / float(self.append_iters)
+    return ave_dict
+  
+  def reset(self):
+    self.total_loss_dict = {}
+    self.append_iters = 0
+
+
+
+class tensorBoardWriter():
+  def __init__(self):
+    writer = SummaryWriter()
+  def write(self,iters,train_loss_dict,valid_loss_dict,data,preds_dict,targets_dict):
+    for key, value in train_loss_dict.iteritems():
+      writer.add_scalar('train_loss/{}'.format(key),value,iters)
+
+    for key,value in valid_loss_dict.iteritems():
+      writer.add_scalar('valid_loss/{}'.format(key),value,iters)
+
+    for ket,value in predict.iteritems():
+      if key == 'gradient':
+        im = compute_angular(value)
+      else:
+        im =value
+      im = vutils.make_grid(im, normalize=True, scale_each=True)
+      writer.add_image('predict/{}'.format(key), im, iters)
+
+    for key,value in targets.iteritems():
+      if key == 'gradient':
+        im = compute_angular(value)
+      else:
+        im =value
+      im = vutils.make_grid(im, normalize=True, scale_each=True)
+      writer.add_image('target/{}'.format(key), im, iters)
+
+    z_dim = data.shape[1]
+    for i in range(max(1,z_dim -3+1)):
+      img = data[:,i:i+3,:,:]
+      raw_im = vutils.make_grid(img, normalize=True, scale_each=True)
+      write_add_image('raw_{}'.format(i),raw_im, iters)
+
+
+
 
 def saveRawfigure(iters, file_prefix,output):
     if isinstance(output,Variable):
