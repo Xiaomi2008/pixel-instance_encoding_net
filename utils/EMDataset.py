@@ -153,7 +153,6 @@ class CRIME_Dataset(exp_Dataset):
         '''Convert seg_label to 2D by obtaining only intermedia slice 
            while the input data have multiple slice as multi-channel input
            the network only output the prediction of sigle slice in the center of Z dim'''
-        #assert seg_label.ndim
         if seg_label.ndim ==3:
           z_dim          = seg_label.shape[0]
           assert ((z_dim % 2) == 1) # we will ensure that # slices is odd number
