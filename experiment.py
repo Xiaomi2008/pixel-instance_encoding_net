@@ -518,11 +518,12 @@ class tensorBoardWriter():
         print(im.shape)
         im = torch.unsqueeze(im,1)
         #im = im.permute(1,0,2,3)
-        im = vutils.make_grid(im, normalize=True, scale_each=True)
-        self.writer.add_image('pred/{}'.format(key +'_x'), im, iters)
-      else:
-        im = vutils.make_grid(im, normalize=True, scale_each=True)
-        self.writer.add_image('pred/{}'.format(key), im, iters)
+        #im = vutils.make_grid(im, normalize=True, scale_each=True)
+        #self.writer.add_image('pred/{}'.format(key +'_x'), im, iters)
+      #else:
+      im = vutils.make_grid(im, normalize=True, scale_each=True)
+      im = matplotlib.cm.spring(im.numpy())
+      self.writer.add_image('pred/{}'.format(key), im, iters)
       # im = vutils.make_grid(im, normalize=True, scale_each=True)
       # self. writer.add_image('predict/{}'.format(key), im, iters)
 
@@ -536,15 +537,17 @@ class tensorBoardWriter():
       #print('tensorb im shape {} = {}'.format(key, im.shape))
       if key == 'centermap':
         im = im.permute(1,0,2,3)
-        im = vutils.make_grid(im, normalize=True, scale_each=True)
-        self.writer.add_image('target/{}'.format(key +'_x'), im, iters)
+        #im = vutils.make_grid(im, normalize=True, scale_each=True)
+        #self.writer.add_image('target/{}'.format(key +'_x'), im, iters)
 
         # im = vutils.make_grid(im[:,1,:,:], normalize=True, scale_each=True)
         # self.writer.add_image('target/{}'.format(key +'_y'), im, iters)
-      else:
-        im = vutils.make_grid(im, normalize=True, scale_each=True)
-        self.writer.add_image('target/{}'.format(key), im, iters)
-
+      #else:
+        #im = vutils.make_grid(im, normalize=True, scale_each=True)
+        #self.writer.add_image('target/{}'.format(key), im, iters)
+      im = vutils.make_grid(im, normalize=True, scale_each=True)
+      im = matplotlib.cm.spring(im.numpy())
+      self.writer.add_image('target/{}'.format(key), im, iters)
     if isinstance(data,Variable):
         data =data.data
     z_dim = data.shape[1]
