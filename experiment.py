@@ -84,6 +84,7 @@ class experiment_config():
             train_conf = conf['train']
             train_conf['final_loss_only']  = train_conf.get('final_loss_only',False)
             train_conf['learning_rate']    = train_conf.get('learning_rate',0.01)
+            train_conf['tensorboard_folder'] = train_conf.get('tensorboard_folder','runs/exp1')
             #net_conf['trained_file']     = net_conf.get('trained_file','')
            
             label_conf =conf['target_labels']
@@ -188,7 +189,7 @@ class experiment():
 
   def train(self):
       # set model to the train mode
-      boardwriter = tensorBoardWriter()
+      boardwriter = tensorBoardWriter(self.exp_cfg.train_conf['tensorboard_folder'])
       self.model.train()
       self.set_parallel_model()
       graph_write_done  = False
@@ -481,7 +482,7 @@ class tensorBoardWriter():
       self.writer = SummaryWriter()
     else:
       self.writer = SummaryWriter(save_folder)
-      
+
   def wirte_model_graph(self,model,lastvar):
     self.writer.add_graph(model,lastvar)
   

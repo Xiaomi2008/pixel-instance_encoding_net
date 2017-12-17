@@ -12,7 +12,7 @@ use_gpu         = true
 [train]
 final_loss_only = true
 learning_rate   = 0.01
-tensorboard_fodler = 'run/dialate_mnet_3ch_480_480'
+tensorboard_folder = 'runs/dialet_mnet_3ch_480_480_resum_155049_iters'
 
 #[sub_net]
 #model = 'MDUnet'
