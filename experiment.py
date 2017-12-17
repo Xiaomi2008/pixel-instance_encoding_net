@@ -324,24 +324,13 @@ class experiment():
                   save2figure(i,'final_dist_t_map_'+ exp_config_name,targets['distance'],)
                   save2figure(i,'final_dist_p_map_'+ exp_config_name,preds['final'])
 
-                #if 'final' in preds:
-
-
-                #save_image([data.data.cpu(), preds['distance'].data.cpu()], \
-                #           exp_config_name +' _valid.png')
-                # save_image([data, \
-                #            targets['distance'],preds['distance'], \
-                #            targets['sizemap'], preds['sizemap'],\
-                #            targets['affinity'],preds['affinity'], \
-                #            ang_t_map,ang_p_map ], \
-                #            exp_config_name +' _valid.png')
                 
             if i >= iters-1:
                 break
         loss = loss / iters
         self.model.train()
         print (' valid loss : {:.2f}'.format(loss))
-        return valid_losses_acumulator.get_ave_losses(), (data,preds, targets)
+        return valid_losses_acumulator.get_ave_losses(), (data,preds,targets)
   
   #def predict(self):
   #  pass
@@ -417,27 +406,12 @@ class experiment():
           m_preds[final_lb] = preds['final']
           fin_loss = compute_loss_foreach_label(m_preds,targets)
           outputs['final_loss']   = fin_loss[fin_loss.keys()[0]]
-        
-        #print  outputs.keys()
 
         loss = sum(outputs.values())
-
-        # distance  = targets['distance'] * (1-targets['affinity'])
-        # fin_loss = boundary_sensitive_loss(preds['final'], distance, targets['affinity'])
-        # outputs['final_dist_loss']   = fin_loss
-        ''' As the final output is distance map, we mainly put weights on distance loss''' 
-        #loss    = dist_loss + ang_loss + size_loss + center_loss
-        # total_loss = 0
-        # for loss in outputs:
-        #   tota
-
-        #loss      = 0.9995*dist_loss+0.0005*ang_loss
-        
-        #if train:
-        #  loss.backward()
-
         outputs['merged_loss'] = loss
         return outputs
+  
+
   def save_model(self,iters):
         model_save_file = self.get_model_save_filename(iters)
         torch.save(self.model.state_dict(),model_save_file)
@@ -502,95 +476,64 @@ class losses_acumulator():
 
 
 class tensorBoardWriter():
-  def __init__(self):
-    self.writer = SummaryWriter()
+  def __init__(self,save_folder = None):
+    if not save_folder:
+      self.writer = SummaryWriter()
+    else:
+      self.writer = SummaryWriter(save_folder)
+      
   def wirte_model_graph(self,model,lastvar):
     self.writer.add_graph(model,lastvar)
+  
   def write(self,iters,train_loss_dict,valid_loss_dict,data,preds,targets):    
     for key, value in train_loss_dict.iteritems():
       self.writer.add_scalar('train_loss/{}'.format(key),value,iters)
 
     for key,value in valid_loss_dict.iteritems():
       self.writer.add_scalar('valid_loss/{}'.format(key),value,iters)
+    
+    self.writer_images(preds,'preds')
+    self.writer_images(targets,'targets')
 
-    for key,value in preds.iteritems():
-      if key == 'gradient':
-        im = compute_angular(value)
-      else:
-        im =value
-      
-      if isinstance(im,Variable):
-        im= im.data
-      #print('tensorb im shape {} = {}'.format(key, im.shape))
-      if key == 'centermap':
-        im = im.permute(1,0,2,3)
-    
-      im2 = im.cpu().numpy()
-      im2 = np.squeeze(im2)
-      if im2.ndim == 2:
-       im2 = np.expand_dims(im2, 0)
-      
-      im_list = []
-      for i in range(im2.shape[0]):
-        #cm_d  = matplotlib.cm.cm.gist_earth(im2[i])
-        denom = im2[i] - np.min(im2[i])
-        im = (denom/max(np.max(denom),0.0000001))
-        cm_d  = matplotlib.cm.gist_earth(im)
-        #print cm_d.shape
-        cm_d = cm_d[:,:,0:3]
-        im_list.append(np.transpose(cm_d,(2,0,1)))
-      im=np.stack(im_list, axis = 0)
-        
-      im = torch.FloatTensor(im)
-      #if im.dim > 3:
-      im = vutils.make_grid(im, normalize=True, scale_each=True)
-      self.writer.add_image('pred/{}'.format(key), im, iters)
-      # im = vutils.make_grid(im, normalize=True, scale_each=True)
-      # self. writer.add_image('predict/{}'.format(key), im, iters)
-
-    for key,value in targets.iteritems():
-      if key == 'gradient':
-        im = compute_angular(value)
-      else:
-        im =value
-      
-      if isinstance(im,Variable):
-        im= im.data
-      #print('tensorb im shape {} = {}'.format(key, im.shape))
-      if key == 'centermap':
-        im = im.permute(1,0,2,3)
-    
-      im2 = im.cpu().numpy()
-      im2 = np.squeeze(im2)
-      if im2.ndim == 2:
-       im2 = np.expand_dims(im2, 0)
-      
-      im_list = []
-      for i in range(im2.shape[0]):
-        #cm_d  = matplotlib.cm.cm.gist_earth(im2[i])
-        denom = im2[i] - np.min(im2[i])
-        im = (denom/max(np.max(denom),0.0000001))
-        cm_d  = matplotlib.cm.gist_earth(im)
-        #print cm_d.shape
-        cm_d = cm_d[:,:,0:3]
-        im_list.append(np.transpose(cm_d,(2,0,1)))
-      im=np.stack(im_list, axis = 0)
-        
-      im = torch.FloatTensor(im)
-      #if im.dim > 3:
-      im = vutils.make_grid(im, normalize=True, scale_each=True)
-      #print 'im shape is for {}  = {}'.format(key, im.shape)
-     
-      #print 'im shape after matplot {}'.format(im.shape)
-      self.writer.add_image('target/{}'.format(key), im, iters)
-    
     if isinstance(data,Variable):
         data =data.data
     z_dim = data.shape[1]
+    raw_im_list = []
     for i in range(max(1,z_dim -3+1)):
-      img = data[:,i:i+3,:,:]
-      raw_im = vutils.make_grid(img, normalize=True, scale_each=True)
-      self.writer.add_image('raw_{}'.format(i),raw_im, iters)
+      raw_im_list.append(data[:,i:i+3,:,:])
+    raw_images = np.concatenate(raw_im_list,aixs = 0)
+    raw_im = vutils.make_grid(raw_images, normalize=True, scale_each=True)
+    self.writer.add_image('raw_{}'.format(i),raw_im, iters)
+
+  def write_images(self,output_dict,dict_name):
+      for key,value in output_dict.iteritems():
+        if key == 'gradient':
+          im = compute_angular(value)
+        else:
+          im =value
+        
+        if isinstance(im,Variable):
+          im= im.data
+        #print('tensorb im shape {} = {}'.format(key, im.shape))
+        if key == 'centermap':
+          im = im.permute(1,0,2,3)
+      
+        #im2 = im.cpu().numpy()
+        im2 = np.squeeze(im2.cpu().numpy())
+        if im2.ndim == 2:
+         im2 = np.expand_dims(im2, 0)
+        
+        im_list = []
+        for i in range(im2.shape[0]):
+          #cm_d  = matplotlib.cm.cm.gist_earth(im2[i])
+          denom = im2[i] - np.min(im2[i])
+          im = (denom/max(np.max(denom),0.0000001))
+          cm_d  = matplotlib.cm.gist_earth(im)[:,:,0:3]
+          im_list.append(np.transpose(cm_d,(2,0,1)))
+
+        im = torch.FloatTensor(np.stack(im_list, axis = 0))
+        im = vutils.make_grid(im, normalize=True, scale_each=True)
+        self.writer.add_image('{}/{}'.format(dict_name,key), im, iters)
 
 
 

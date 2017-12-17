@@ -202,31 +202,6 @@ class CRIME_Dataset(exp_Dataset):
 
       return im_lb_pair
 
-# class CRIME_Dataset_with_3dData_2dLabel(CRIME_Dataset):
-#   def __init__(self,
-#                  out_patch_size       =   (224,224,1), 
-#                  sub_dataset          =   'Set_A',
-#                  subtract_mean        =   True,
-#                  phase                =   'train',
-#                  transform            =   None,
-#                  data_config          =   'conf/cremi_datasets_with_tflabels.toml'):
-    
-#       super(CRIME_Dataset_with_3Ddata_2dLabel,self).__init__(sub_dataset=sub_dataset, 
-#                                          out_patch_size = out_patch_size,
-#                                          subtract_mean  = subtract_mean,
-#                                          phase          = phase,
-#                                          transform      = transform,
-#                                          data_config    = data_config)
-#       def __getitem__(self, index):
-#         im_data,lb_data= self.random_choice_dataset(self.im_lb_pair)
-#         data,seg_label = self.get_random_patch(index,im_data,lb_data)
-#         z_dim          = seg_label.shape[0]
-#         m_slice_idx    = z_dim // 2
-#         seg_lable      = seg_lable[m_slice_idx,:,:]
-#         tc_data        = torch.from_numpy(data).float()
-#         tc_label_dict  = self.label_generator(seg_label)[0]
-#         return tc_data, tc_label_dict
-
 
 
 class labelGenerator(object):
