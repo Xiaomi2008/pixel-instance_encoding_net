@@ -522,7 +522,8 @@ class tensorBoardWriter():
         #self.writer.add_image('pred/{}'.format(key +'_x'), im, iters)
       #else:
       im = vutils.make_grid(im, normalize=True, scale_each=True)
-      im = matplotlib.cm.spring(im.numpy())
+      #im = matplotlib.cm.spring(im.cpu().numpy())
+      #im = torch.FloatTensor(im[:,:,:3])
       self.writer.add_image('pred/{}'.format(key), im, iters)
       # im = vutils.make_grid(im, normalize=True, scale_each=True)
       # self. writer.add_image('predict/{}'.format(key), im, iters)
@@ -533,21 +534,35 @@ class tensorBoardWriter():
       else:
         im =value
       if isinstance(im,Variable):
-        im = im.data
+         = im.data
       #print('tensorb im shape {} = {}'.format(key, im.shape))
       if key == 'centermap':
         im = im.permute(1,0,2,3)
-        #im = vutils.make_grid(im, normalize=True, scale_each=True)
-        #self.writer.add_image('target/{}'.format(key +'_x'), im, iters)
-
-        # im = vutils.make_grid(im[:,1,:,:], normalize=True, scale_each=True)
-        # self.writer.add_image('target/{}'.format(key +'_y'), im, iters)
-      #else:
-        #im = vutils.make_grid(im, normalize=True, scale_each=True)
-        #self.writer.add_image('target/{}'.format(key), im, iters)
+    
+      im2 = im.cpu().numpy()
+      im2 = np.squeeze(im2)
+      if im2.ndim == 2:
+       im2 = np.expand_dims(im2, 0)
+      
+      im_list = []
+      for i in range(im2.shape[0]):
+        #cm_d  = matplotlib.cm.cm.gist_earth(im2[i])
+        denom = im2[i] - np.min(im2[i])
+        im = (denom/max(np.max(denom),0.0000001))
+        cm_d  = matplotlib.cm.gist_earth(im)
+        #print cm_d.shape
+        cm_d = cm_d[:,:,0:3]
+        im_list.append(np.transpose(cm_d,(2,0,1)))
+      im=np.stack(im_list, axis = 0)
+        
+      im = torch.FloatTensor(im)
+      #if im.dim > 3:
       im = vutils.make_grid(im, normalize=True, scale_each=True)
-      im = matplotlib.cm.spring(im.numpy())
+      #print 'im shape is for {}  = {}'.format(key, im.shape)
+     
+      #print 'im shape after matplot {}'.format(im.shape)
       self.writer.add_image('target/{}'.format(key), im, iters)
+    
     if isinstance(data,Variable):
         data =data.data
     z_dim = data.shape[1]
