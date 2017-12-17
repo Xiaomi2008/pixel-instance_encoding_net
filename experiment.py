@@ -191,6 +191,7 @@ class experiment():
       boardwriter = tensorBoardWriter()
       self.model.train()
       self.set_parallel_model()
+      graph_write_done  = False
       train_loader = DataLoader(dataset     = self.exp_cfg.train_dataset,
                                 batch_size  = self.exp_cfg.net_conf['batch_size'],
                                 shuffle     = True,
@@ -232,6 +233,10 @@ class experiment():
               #print ('data shape ={}'.format(data.data[0].shape))
               preds        = self.model(data)
               losses       = self.compute_loss(preds,targets)
+
+              if not graph_write_done:
+                boardwriter.wirte_model_graph(self.model,preds['gradient'])
+                graph_write_done = True
 
               merged_loss = losses['merged_loss']
               
@@ -499,7 +504,9 @@ class losses_acumulator():
 class tensorBoardWriter():
   def __init__(self):
     self.writer = SummaryWriter()
-  def write(self,iters,train_loss_dict,valid_loss_dict,data,preds,targets):
+  def wirte_model_graph(self,model,lastvar):
+    self.writer.add_graph(model,lastvar)
+  def write(self,iters,train_loss_dict,valid_loss_dict,data,preds,targets):    
     for key, value in train_loss_dict.iteritems():
       self.writer.add_scalar('train_loss/{}'.format(key),value,iters)
 
