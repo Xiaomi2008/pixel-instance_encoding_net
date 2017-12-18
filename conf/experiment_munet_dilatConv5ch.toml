@@ -10,8 +10,9 @@ use_gpu         = true
 
 
 [train]
-final_loss_only = true
+final_loss_only = false
 learning_rate   = 0.01
+tensorboard_folder = 'runs/dialet_mnet_5ch_320x320'
 
 #[sub_net]
 #model = 'MDUnet'

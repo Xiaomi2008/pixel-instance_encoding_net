@@ -5,7 +5,8 @@ from matplotlib import pyplot as plt
 
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
-from torch_networks.networks import Unet,DUnet,MdecoderUnet,Mdecoder2Unet,MdecoderUnet_withDilatConv
+from torch_networks.networks import Unet,DUnet,MdecoderUnet,Mdecoder2Unet, \
+                                     MdecoderUnet_withDilatConv, Mdecoder2Unet_withDilatConv
 # from transform import *
 
 from utils.EMDataset import CRIME_Dataset,labelGenerator
@@ -35,7 +36,8 @@ class experiment_config():
     print '_'.join(self.label_conf['labels'])
     networks = \
               {'Unet' : Unet,'DUnet' : DUnet,'MDUnet': MdecoderUnet, \
-              'MDUnetDilat':MdecoderUnet_withDilatConv, 'M2DUnet':Mdecoder2Unet}
+              'MDUnetDilat':MdecoderUnet_withDilatConv, 'M2DUnet':Mdecoder2Unet, \
+              'M2DUnet_withDilatConv',Mdecoder2Unet_withDilatConv}
    
     self.data_transform     = self.data_Transform(self.data_aug_conf['transform'])
     self.label_generator    = self.label_Generator()

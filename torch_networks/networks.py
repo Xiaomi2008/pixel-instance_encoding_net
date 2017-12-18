@@ -484,6 +484,43 @@ class MdecoderUnet_withDilatConv(nn.Module):
         return 'MdecoderUnetDilatConv'+ '_in_{}_chs'.format(self.in_ch)
 
 
+class Mdecoder2Unet_withDilatConv(nn.Module):
+    def __init__(self, mnet=None, freeze_net1 = False, target_label= {'unassigned',1},in_ch =3, out_ch=1, first_out_ch=16, \
+                number_bolck=4, num_conv_in_block=2, ch_change_rate=2,kernel_size = 3):
+        super(Mdecoder2Unet, self).__init__()
+        if not mnet:
+            mnet =  MdecoderUnet_withDilatConv(target_label =  target_label, in_ch =in_ch)
+        self.net1=mnet
+        total_input_ch =  sum(self.net1.target_label.values())+in_ch
+        #print total_input_ch 
+        net2_target_label[] = target_label
+        self.net2 = MdecoderUnet_withDilatConv(target_label =  target_label, in_ch =total_input_ch, out_ch = out_ch)
+        self.out_ch = out_ch
+        self.in_ch  = in_ch
+        self.add_module('first_'+ self.net1.name, self.net1)
+        self.add_module('second_'+self.net2.name, self.net2)
+        if freeze_net1:
+            self.freezeWeight(self.net1)
+    @property
+    def name(self):
+        return 'Mdecoder2Unet_withDilatConv' + '_in_{}_chs'.format(self.in_ch)
+    def freezeWeight(self,net):
+        for child in net.children():
+            for param in child.parameters():
+                param.requires_grad = False
+
+    def forward(self,x):
+        outputs = self.net1(x)
+        out_chs = outputs.values()
+        out_chs.append(x)
+        x_net2_in          = torch.cat(out_chs,1)
+        outputs['final']   = self.net2(x_net2_in)
+        return outputs
+        #return gradient_out,distance_out
+
+
+
+
 
 
 class MdecoderUnet(nn.Module):
