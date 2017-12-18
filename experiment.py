@@ -493,8 +493,8 @@ class tensorBoardWriter():
     for key,value in valid_loss_dict.iteritems():
       self.writer.add_scalar('valid_loss/{}'.format(key),value,iters)
     
-    self.writer_images(preds,'preds')
-    self.writer_images(targets,'targets')
+    self.write_images(preds,'preds',iters)
+    self.write_images(targets,'targets',iters)
 
     if isinstance(data,Variable):
         data =data.data
@@ -502,11 +502,13 @@ class tensorBoardWriter():
     raw_im_list = []
     for i in range(max(1,z_dim -3+1)):
       raw_im_list.append(data[:,i:i+3,:,:])
-    raw_images = np.concatenate(raw_im_list,aixs = 0)
+    raw_images = torch.cat(raw_im_list,dim = 0)
+
     raw_im = vutils.make_grid(raw_images, normalize=True, scale_each=True)
     self.writer.add_image('raw_{}'.format(i),raw_im, iters)
 
-  def write_images(self,output_dict,dict_name):
+
+  def write_images(self,output_dict,dict_name, iters):
       for key,value in output_dict.iteritems():
         if key == 'gradient':
           im = compute_angular(value)
@@ -520,7 +522,7 @@ class tensorBoardWriter():
           im = im.permute(1,0,2,3)
       
         #im2 = im.cpu().numpy()
-        im2 = np.squeeze(im2.cpu().numpy())
+        im2 = np.squeeze(im.cpu().numpy())
         if im2.ndim == 2:
          im2 = np.expand_dims(im2, 0)
         

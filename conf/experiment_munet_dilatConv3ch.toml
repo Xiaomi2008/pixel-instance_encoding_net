@@ -3,8 +3,8 @@ model = 'MDUnetDilat'
 model_save_dir = 'model'
 load_train_iter = 0
 trained_file  = 'model/MdecoderUnetDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_iter_155049.model'
-model_save_step = 350
-batch_size      = 7
+model_save_step = 300
+batch_size      = 5
 patch_size      = [480,480,3]
 use_gpu         = true
 
