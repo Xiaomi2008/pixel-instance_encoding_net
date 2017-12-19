@@ -4,8 +4,9 @@ import numpy as np
 from scipy.ndimage.morphology import distance_transform_edt as dis_transform
 from scipy.ndimage.measurements import center_of_mass
 import scipy.ndimage as nd
-import math
 import pdb
+import math
+
 from affine_utils import *
 
 class label_transform(object):
@@ -68,63 +69,6 @@ class label_transform(object):
 
         return tuple(output)
 
-class label_transform3D(object):
-    def __init__(self, gradient     = True, 
-                       distance     = True,
-                       objSizeMap   = False,
-                       objCenterMap = False):
-        self.gradient = gradient
-        self.distance = distance
-        self.objSizeMap =objSizeMap
-        self.objCenterMap = objCenterMap
-
-    def __call__(self,*input):
-        """
-        Given input segmentation label of objects(neurons), 
-        Generate 'Distance transform', 'gradient', 'size of object'
-        labels.
-        
-        Args:
-         2D numpy arrays, must be segmentation labels
-        """
-        output =[]
-        dx,dy   = 1,1
-        for idex,_input in enumerate(input):
-            sum_gx =np.zeros_like(_input).astype(np.float)
-            sum_gy =np.zeros_like(_input).astype(np.float)
-            sum_dt =np.zeros_like(_input).astype(np.float)
-            if self.objSizeMap:
-                sum_sizeMap =np.zeros_like(_input).astype(np.float)
-            for i in range(_input.shape[0]):    
-                __input = _input[i]
-                __input =np.squeeze(__input)
-                s_ids =np.unique(__input).tolist()
-                        
-                for obj_id in s_ids:
-                    obj_arr =  (__input == obj_id).astype(int)
-                    dt      =  dis_transform(obj_arr)
-                    gx,gy   =  np.gradient(dt,dx,dy,edge_order =1)
-                    sum_gx[i] +=gx
-                    sum_gy[i] +=gy
-                    sum_dt[i] +=dt
-                    if self.objSizeMap:
-                        obj_idx = obj_arr==1
-                        sum_sizeMap[i,obj_idx]=(float(np.sum(obj_arr))/float(__input.size))*100.0
-                # make it to 3D data (c,h,w)
-                # sum_gx = np.expand_dims(sum_gx,0)
-                # sum_gy = np.expand_dims(sum_gy,0)
-                # sum_dt = np.expand_dims(sum_dt,0)
-            out_dict ={}
-            if self.objSizeMap:
-                # sum_sizeMap = np.expand_dims(sum_sizeMap,0)
-                out_dict['sizemap'] = sum_sizeMap
-            out_dict['gradient'] = (sum_gx,sum_gy)
-            if self.distance:
-                out_dict['distance'] = sum_dt
-            output.append(out_dict)
-
-        return tuple(output)
-    
 class objCenterMap(object):
     def __call__(self, *input):
         out_list = []
@@ -151,37 +95,12 @@ class objCenterMap(object):
             out_list.append((x_center,y_center))
         return tuple(out_list)
 
-class objCenterMap3D(object):
-    def __call__(self, *input):
-        out_list = []
-        aff_x = affinity(axis = -1,distance =2)
-        aff_y = affinity(axis = -2,distance =2)
-
-        compute_boundary = lambda x: ((aff_x(x)[0]+aff_y(x)[0])==0).astype(np.int)
-        for idex, _input in enumerate(input):
-            x_center =np.zeros_like(_input).astype(np.float)
-            y_center =np.zeros_like(_input).astype(np.float)
-            for j in range(_input.shape[0]):
-                __input = _input[j]
-                __input =np.squeeze(__input)
-                s_ids =np.unique(__input).tolist()
-                
-                data = compute_boundary(__input)
-                label,f =nd.label(data)
-                #print np.unique(label)
-                centers = center_of_mass(data, labels=label,index=np.unique(label)[1:])
-                #print centers
-                for i, (cx,cy) in enumerate(centers):
-                    obj_arr = (label == i+1)
-                    x_center[j,obj_arr] = cx / obj_arr.shape[0]
-                    y_center[j,obj_arr] = cy / obj_arr.shape[1]
-                #x_center = np.expand_dims(x_center,0)
-                #y_center = np.expand_dims(y_center,0)
-            out_list.append((x_center,y_center))
-        return tuple(out_list)
-    
 def my_center_of_mass(x):
     pass
+
+
+
+
 
 class affinity(object):
     """
@@ -222,7 +141,6 @@ class affinity(object):
         #return affinityMap
 
 
-
 class random_transform(object):
     def __init__(self,*transform):
         """
@@ -240,15 +158,39 @@ class random_transform(object):
          or return data directly without process
         """
         print("call transform")
-        func_idx = random.randint(0,len(self.transform))
+        func_idx = random.randint(0,len(self.transform)+1)
         if func_idx ==len(self.transform):
             out1 = lambda *x: x
             out2 = 'identity'
+        elif func_idx == len(self.transform)+1:
+            out1 = lambda *x: x
+            out2 = 'miss_allign'
         else:
             out1 = self.transform[func_idx]
             out2 = self.transform[func_idx].category
         return out1, out2
 
+# class random_transform(object):
+#     def __init__(self,*transform):
+#         """
+#         Args:
+#             number of tansform fuctions to be used  as below 
+       
+#         """
+#         self.transform =transform
+#     def __call__(self,*input):
+#         """
+#         Args:
+#         list of 2d numpy array to be transformed
+#         return:
+#          randomly choise one transform to process the input data,
+#          or return data directly without process
+#         """
+#         func_idx = random.randint(0,len(self.transform))
+#         if func_idx ==len(self.transform):
+#             return input
+#         else:
+#             return  self.transform[func_idx](*input)
 
 class VFlip(object):
     def __init__(self):
@@ -299,15 +241,44 @@ class Rot90(object):
         output =[]
         #rnd= random.random() < 0.5
         for idex,_input in enumerate(input):
-            output.append(np.rot90(_input,2).copy())
+            output.append(np.rot90(_input,1,axes = (1,2)).copy())
         return tuple(output)
 
 
 
+# class Contrast(object):
+    # """
+    # """
+    # def __init__(self, value):
+    #     """
+    #     Adjust Contrast of image.
+    #     Contrast is adjusted independently for each channel of each image.
+    #     For each channel, this Op computes the mean of the image pixels 
+    #     in the channel and then adjusts each component x of each pixel to 
+    #     (x - mean) * contrast_factor + mean.
+    #     Arguments
+    #     ---------
+    #     value : float
+    #         smaller value: less contrast
+    #         ZERO: channel means
+    #         larger positive value: greater contrast
+    #         larger negative value: greater inverse contrast
+    #     """
+    #     self.value = value
+
+    # def __call__(self, *inputs):
+    #     output = []
+    #     for idx, _input in enumerate(inputs):
+    #         channel_means = _input.mean(1).mean(2)
+    #         channel_means = channel_means.expand_as(_input)
+    #         _input = torch.clamp((_input - channel_means) * self.value + channel_means,0,1)
+    #         output.append(_input)
+    #     return output if idx > 1 else output[0]
+
 class Contrast(object):
     """
     """
-    def __init__(self, value):
+    def __init__(self, value=1.5):
         """
         Adjust Contrast of image.
         Contrast is adjusted independently for each channel of each image.
@@ -338,10 +309,52 @@ class Contrast(object):
                 output.append(_input)
         return tuple(output)
 
- class Shear(object):
+# class RandomContrast(object):
+
+#     def __init__(self, min_val, max_val):
+#         """
+#         Alter the Contrast of an image with a value randomly selected
+#         between `min_val` and `max_val`
+#         Arguments
+#         ---------
+#         min_val : float
+#             min range
+#         max_val : float
+#             max range
+#         """
+#         self.values = (min_val, max_val)
+
+#     def __call__(self, *inputs):
+#         value = random.uniform(self.values[0], self.values[1])
+#         output = Contrast(value)(*inputs)
+#         return output
+
+# class RandomChoiceContrast(object):
+
+#     def __init__(self, values, p=None):
+#         """
+#         Alter the Contrast of an image with a value randomly selected
+#         from the list of given values with given probabilities
+#         Arguments
+#         ---------
+#         values : list of floats
+#             contrast values to sampled from
+#         p : list of floats - same length as `values`
+#             if None, values will be sampled uniformly.
+#             Must sum to 1.
+#         """
+#         self.values = values
+#         self.p = p
+
+#     def __call__(self, *inputs):
+#         value = th_random_choice(self.values, p=None)
+#         output = Contrast(value)(*inputs)
+#         return output
+
+class Shear(object):
 
     def __init__(self,
-                 value,
+                 value=30,
                  interp='bilinear',
                  lazy=False):
         self.value = value
@@ -378,8 +391,8 @@ class Contrast(object):
 class Zoom(object):
 
     def __init__(self,
-                 value,
-                 interp='bilinear',
+                 value=0.8,
+                 interp=('bilinear','nearest'),
                  lazy=False):
         """
         Arguments
@@ -431,12 +444,12 @@ class Zoom(object):
                 output.append(input_tf)
             # return output if idx > 1 else output[0]
             return tuple(output)
-        
+
 class Rotate(object):
 
     def __init__(self, 
-                 value,
-                 interp='bilinear',
+                 value=45,
+                 interp=('bilinear','nearest'),
                  lazy=False):
         """
         Randomly rotate an image between (-degrees, degrees). If the image
@@ -485,7 +498,8 @@ class Rotate(object):
                 output.append(input_tf)
             return output
             # return output if idx > 1 else output[0]
-        
+
+
 def _blur_image(image, H):
     # break image up into its color components
     size = image.shape
@@ -539,12 +553,54 @@ def _butterworth_filter(rows, cols, thresh, order):
     return f
 
 
+# class Blur(object):
+#     """
+#     Blur an image with a Butterworth filter with a frequency
+#     cutoff matching local block size
+#     """
+#     def __init__(self, threshold=8, order=5):
+#         """
+#         scramble blocksize of 128 => filter threshold of 64
+#         scramble blocksize of 64 => filter threshold of 32
+#         scramble blocksize of 32 => filter threshold of 16
+#         scramble blocksize of 16 => filter threshold of 8
+#         scramble blocksize of 8 => filter threshold of 4
+#         """
+#         self.threshold = threshold
+#         self.order = order
+#         self.category = 'blur'
+
+#     def __call__(self, *inputs):
+#         """
+#         inputs should have values between 0 and 255
+#         """
+#         output = []
+#         for idx, _input in enumerate(inputs):
+#             if idx == 0:
+#                 rows = _input.shape[0]
+#                 cols = _input.shape[1]
+#                 fc = self.threshold # threshold
+#                 fs = 128.0 # max frequency
+#                 n  = self.order # filter order
+#                 fc_rad = (fc/fs)*0.5
+#                 H = _butterworth_filter(rows, cols, fc_rad, n)
+#                 _input_blurred = _blur_image(_input.astype('uint8'), H)
+#                 # _input_blurred = np.asarray(_input_blurred)
+#                 # _input_blurred = th.from_numpy(_input_blurred).float()
+#                 output.append(_input_blurred)
+#                 # output = np.asarray(_input_blurred)
+#             else:
+#                 output.append(_input)
+
+#         # return output if idx > 1 else output[0]
+#         return tuple(output)
+
 class Blur(object):
     """
     Blur an image with a Butterworth filter with a frequency
     cutoff matching local block size
     """
-    def __init__(self, threshold, order=5):
+    def __init__(self, threshold=16, order=5):
         """
         scramble blocksize of 128 => filter threshold of 64
         scramble blocksize of 64 => filter threshold of 32
@@ -563,17 +619,22 @@ class Blur(object):
         output = []
         for idx, _input in enumerate(inputs):
             if idx == 0:
-                rows = _input.shape[0]
-                cols = _input.shape[1]
-                fc = self.threshold # threshold
-                fs = 128.0 # max frequency
-                n  = self.order # filter order
-                fc_rad = (fc/fs)*0.5
-                H = _butterworth_filter(rows, cols, fc_rad, n)
-                _input_blurred = _blur_image(_input.astype('uint8'), H)
+                out = np.zeros_like(_input).astype(np.float)
+                for i in range(_input.shape[0]):
+                    __input = _input[i]
+                    rows = __input.shape[0]
+                    cols = __input.shape[1]
+                    fc = self.threshold # threshold
+                    fs = 128.0 # max frequency
+                    n  = self.order # filter order
+                    fc_rad = (fc/fs)*0.5
+                    H = _butterworth_filter(rows, cols, fc_rad, n)
+                    _input_blurred = _blur_image(__input.astype('uint8'), H)
+                    out[i] = _input_blurred
+                output.append(out)
                 # _input_blurred = np.asarray(_input_blurred)
                 # _input_blurred = th.from_numpy(_input_blurred).float()
-                output.append(_input_blurred)
+                # output.append(_input_blurred)
                 # output = np.asarray(_input_blurred)
             else:
                 output.append(_input)
@@ -585,7 +646,7 @@ class RandomBlur(object):
     """
     Blur an image at boundary 
     """
-    def __init__(self, num_patch = 5, patch_size = 10, threshold = 32):
+    def __init__(self, num_patch = 5, patch_size = 10, threshold = 16):
         self.num_patch = num_patch
         self.patch_size = patch_size
         self.threshold = threshold
@@ -597,20 +658,26 @@ class RandomBlur(object):
         affineX=affinity(axis=-1,distance =1)
         affineY=affinity(axis=-2,distance =1)
         data = inputs[0]
-        x_size = data.shape[0]
-        y_size = data.shape[1]
         seg_label = inputs[1]
-        im = data[0].copy()
+        x_size = data.shape[1]
+        y_size = data.shape[2]
+        z_size = data.shape[0]
+        im = data[z_size//2].copy()
         affinMap = ((affineX(seg_label)[0] + affineY(seg_label)[0])>0).astype(np.int)
-        affinity_set = np.where(affinMap[0,self.patch_size:x_size-self.patch_size, self.patch_size:y_size-self.patch_size] == 1)
+        # Only choose the affinity in the middle layer
+        affinity_set = np.where(affinMap[z_size//2,self.patch_size:x_size-self.patch_size, self.patch_size:y_size-self.patch_size] == 1)
         loc = np.random.choice(affinity_set[0].shape[0], self.num_patch, replace = False)
         x_loc, y_loc = affinity_set[0][loc] + self.patch_size, affinity_set[1][loc] + self.patch_size
         for i in range(0, self.num_patch):
             _im = im[x_loc[i]-self.patch_size:x_loc[i]+self.patch_size, y_loc[i]-self.patch_size:y_loc[i]+self.patch_size]
+            _im = np.expand_dims(_im,0)
             new_im = self.transform(_im)
-            im[x_loc[i]-self.patch_size:x_loc[i]+self.patch_size, y_loc[i]-self.patch_size:y_loc[i]+self.patch_size] = new_im[0]
-        output.append(np.reshape(im, data.shape)) 
+            im[x_loc[i]-self.patch_size:x_loc[i]+self.patch_size, y_loc[i]-self.patch_size:y_loc[i]+self.patch_size] = new_im[0][0]
+        data[z_size//2] = im
+        output.append(data) 
         output.append(seg_label)
         return tuple(output)
+
+
 
         
