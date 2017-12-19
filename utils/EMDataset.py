@@ -3,190 +3,352 @@ sys.path.append('../')
 import pdb
 import torch
 import numpy as np
-from transform import *
-import cv2
+from transform_min import *
+#import cv2
 import torch.nn.functional as F
 from matplotlib import pyplot as plt
-#import matplotlib.gridspec as gridspec
+import matplotlib.gridspec as gridspec
 from torch.utils.data import Dataset, DataLoader
 from label_transform.volumes import Volume
 from label_transform.volumes import HDF5Volume
 from label_transform.volumes import bounds_generator
 from label_transform.volumes import SubvolumeGenerator
 
+class exp_Dataset(Dataset):
+    """base dataset"""
+    def __init__(self, 
+                out_patch_size = (224,224,1),
+                in_patch_size  = None,
+                sub_dataset    = 'All',
+                subtract_mean  = True,
+                phase          = 'train',
+                transform      = None,
+                label_gen      = None):
+      
 
-class CRIME_Dataset(Dataset):
-  """ EM dataset."""
-  # Initialize EM data
-  def __init__(self, out_size =   224, 
-               dataset        =   'Set_A',
-               subtract_mean  =   True,
-               phase          =   'train',
-               transform      =   None,
-               data_config    =   'conf/cremi_datasets.toml'):
-    self.dataset      = dataset
-    self.phase        = phase
-    # self.x_out_size   = out_size
-    # self.y_out_size   = out_size
-    self.z_out_size   = 1
-    self.data_config  = data_config
-    self.subtract_mean = subtract_mean
-    self.transform = transform
-    self.set_phase(phase)
-    self.load_data()
+      self.sub_dataset      = sub_dataset
+      self.phase            = phase
 
-    self.out_size   = out_size
+      self.x_out_size       = out_patch_size[0]
+      self.y_out_size       = out_patch_size[1]
+      self.z_out_size       = out_patch_size[2]
+      self.in_patch_size    = in_patch_size if in_patch_size else out_patch_size
+      self.x_in_size        = self.in_patch_size[0]
+      self.y_in_size        = self.in_patch_size[1]
+      self.z_in_size        = self.z_out_size
 
-    dim_shape             = self.im_data.shape
-    self.y_size1           = dim_shape[2] -self.out_size + 1
-    self.x_size1           = dim_shape[1] -self.out_size + 1 
-    self.y_size2           = dim_shape[2] -self.out_size*2 + 1
-    self.x_size2           = dim_shape[1] -self.out_size*2 + 1 
+      self.subtract_mean    = subtract_mean
+      self.transform        = transform
+      
+      ''' subclass should assign this param befor calling  __getitm__ function '''
+      self.slice_start_z    = 0
 
-    self.label_generator  = label_transform(objSizeMap =True)
-    #self.z_size       = dim_shape[0] -self.z_out_size + 1
-  def set_phase(self,phase):
-    self.phase = phase
-    if phase == 'train':
-      self.slice_start_z= 0
-      self.slice_end_z   = 99
-    elif phase == 'valid':
-      self.slice_start_z = 100
-      self.slice_end_z = 124
+      self.set_phase(phase)
+      self.im_lb_pair= self.load_data()
 
-    self.z_size = self.slice_end_z - self.slice_start_z +1
+      im_data  = self.im_lb_pair[self.im_lb_pair.keys()[0]]['image']
+      dim_shape             = im_data.shape
+      self.y_size           = dim_shape[2] -self.x_out_size + 1
+      self.x_size           = dim_shape[1] -self.y_out_size + 1 
+
+      #self.label_generator  = label_transform(objSizeMap =True)
+      self.label_generator = label_gen if label_gen else  labelGenerator()
+
+    def output_labels(self):
+      return self.label_generator.output_labels()
+      #return ['gradient','affinity','centermap','sizemap','distance']
+
+    def __getitem__(self, index):
+
+       # random choice one of sub_datasets
+      self.transform_call = self.transform()
+      # trans_category = self.transform_call[1]
+      im_data,lb_data=self.random_choice_dataset(self.im_lb_pair)
+      data,seg_label =self.get_random_patch(index,self.transform_call,im_data,lb_data)
+      
+
+      tc_data        = torch.from_numpy(data).float()
+      tc_label_dict  = self.label_generator(seg_label)[0]
+      return tc_data, tc_label_dict
+
+    def random_choice_dataset(self,im_lb_pair):
+      dataset_id=np.random.choice(im_lb_pair.keys())
+      im_data = self.im_lb_pair[dataset_id]['image']
+      lb_data = self.im_lb_pair[dataset_id]['label']  
+      return im_data, lb_data
     
+    def get_random_patch(self,index,trans,im_data,lb_data):
+      if trans:
+        trans_category = trans[1]
+      else:
+        trans_category = None
+      len2 = self.z_size * (self.x_size-self.x_out_size) * (self.y_size-self.y_out_size)
+      len3 = self.z_size * (self.x_size-4) * (self.y_size-4)
+      if trans_category == 'affine':
+        idx = random.randint(0,len2-1)
+        out_x = self.x_out_size*2
+        out_y = self.y_out_size*2
+        size_x = self.x_size-self.x_out_size
+        size_y = self.y_size-self.y_out_size
+      elif trans_category == 'miss_allign':
+        idx = random.randint(0,len3-1)
+        out_x = self.x_out_size+4
+        out_y = self.y_out_size+4
+        size_x = self.x_size-4
+        size_y = self.y_size-4
+      else:
+        idx = index
+        out_x = self.x_out_size
+        out_y = self.y_out_size
+        size_x = self.x_size
+        size_y = self.y_size
+
+      z_start = idx // (size_x * size_y) + self.slice_start_z
+      remain  = index % (size_x * size_y)
+      x_start = remain // size_y
+      y_start = remain % size_y
+
+      if z_start > 125 - self.z_out_size:
+        z_start = 125 - self.z_out_size
+        # print 'z_start = {}'.format(z_start)
+
+      z_end   = z_start + self.z_out_size
+      x_end   = x_start + out_x
+      y_end   = y_start + out_y
+
+      print(x_start,x_end)
+      print(y_start,y_end)
+      print(z_start,z_end)
+
+      data    = np.array(im_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.float)
+      seg_label   =np.array(lb_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.int)
+
+      if trans:
+        data,seg_label= trans[0](data,seg_label)
+      
+      if self.subtract_mean:
+        data -= 127.0
+      #print data.shape
+
+      print('data shape is {} and seg label shape is {}').format(data.shape, seg_label.shape)
+      if trans_category == 'affine':
+        x_left = data.shape[1]/2 - self.x_out_size/2
+        x_right = data.shape[1] - x_left
+        y_left = data.shape[2]/2 - self.y_out_size/2
+        y_right = data.shape[2] - y_left
+        loc = [x_left,x_right,y_left,y_right]
+        data,seg_label = self.recover_patch(data,seg_label,loc)
+
+      if trans_category == 'miss_allign':
+        x_left = np.random.randint(0,5, size = self.z_out_size)
+        x_right = x_left + self.x_out_size
+        y_left = np.random.randint(0,5, size = self.z_out_size)
+        y_right = y_left + self.y_out_size
+        loc = [x_left.tolist(),x_right.tolist(),y_left.tolist(),y_right.tolist()]
+        data,seg_label = self.recover_patch(data,seg_label,loc)
+
+      return data, seg_label
+
+    def recover_patch(self,data,seg_label,loc):
+      if not isinstance(loc[0], (tuple,list)):
+        for counter,value in enumerate(loc):
+          loc[counter] = [value]*data.shape[0]
+      
+      output1 = np.empty((self.z_out_size,self.x_out_size,self.y_out_size))
+      output2 = np.empty((self.z_out_size,self.x_out_size,self.y_out_size))
+      for i in range(data.shape[0]):
+        output1[i] = data[i, loc[0][i]:loc[1][i],loc[2][i]:loc[3][i]]
+        output2[i] = seg_label[i, loc[0][i]:loc[1][i],loc[2][i]:loc[3][i]]
+
+      return output1, output2
+
+    def set_phase(self,phase):
+      raise NotImplementedError("Must be implemented in subclass !")
+
+    def load_data(self):
+      '''Subclass must load data 
+         into 2 list of numpy array of dictionary in self.im_ld_pairs
+         key = 'image' & 'label' '''
+      raise NotImplementedError("Must be implemented in subclass !")
+
+    @property
+    def subset(self):
+      return {'Set_A','Set_B','Set_C'}
+    @property
+    def name(self):
+      return 'Dataset-CRIME-' + self.sub_dataset
+
+    def __len__(self):
+      self.len = self.x_size * self.y_size * self.z_size 
+      return self.len
+
+class CRIME_Dataset(exp_Dataset):
+    """ EM dataset."""
+
+
+    # Initialize EM data
+    def __init__(self,
+                 out_patch_size       =   (224,224,1), 
+                 sub_dataset          =   'Set_A',
+                 subtract_mean        =   True,
+                 phase                =   'train',
+                 transform            =   None,
+                 data_config          =   'conf/cremi_datasets_with_tflabels.toml'):
+      
+      self.data_config = data_config
+      super(CRIME_Dataset,self).__init__(sub_dataset=sub_dataset, 
+                                         out_patch_size =out_patch_size,
+                                         subtract_mean =subtract_mean,
+                                         phase = phase,
+                                         transform =transform)
+    def __getitem__(self, index):
+      
+      if self.transform:  
+        self.transform_call = self.transform()
+      else:
+        self.transform_call = None
+      # trans_category = self.transform_call[1]
+      im_data,lb_data=self.random_choice_dataset(self.im_lb_pair)
+      # print(im_data.shape)
+      data,seg_label =self.get_random_patch(index,self.transform_call,im_data,lb_data)      
+      # print('data dim {}').format(data.shape)
+      # print('seg label dim {}').format(seg_label.shape)
+      '''Convert seg_label to 2D by obtaining only intermedia slice 
+           while the input data have multiple slice as multi-channel input
+           the network only output the prediction of sigle slice in the center of Z dim'''
+      if seg_label.ndim ==3:
+        z_dim          = seg_label.shape[0]
+        assert ((z_dim % 2) == 1) # we will ensure that # slices is odd number
+        m_slice_idx    = z_dim // 2
+        #seg_label      = seg_label[m_slice_idx,:,:]
+        seg_label      = np.expand_dims(seg_label[m_slice_idx,:,:],axis =0) 
+      
+      print('seg label dim {}').format(seg_label.shape)
+      tc_data        = torch.from_numpy(data).float()
+      tc_label_dict  = self.label_generator(seg_label)[0]
+      return tc_data, tc_label_dict
+    
+    def set_phase(self,phase):
+      self.phase = phase
+      if phase == 'train':
+        self.slice_start_z= 0
+        self.slice_end_z   = 99
+      elif phase == 'valid':
+        self.slice_start_z = 100
+        self.slice_end_z = 124
+
+      self.z_size = (self.slice_end_z - self.slice_start_z +1) - self.z_out_size + 1
+
 
       
-  def __getitem__(self, index):
+    def load_data(self):
+      
+      #data_config = 'conf/cremi_datasets.toml'
+      volumes = HDF5Volume.from_toml(self.data_config)
+      data_name = {'Set_A':'Sample A',
+                   'Set_B':'Sample B with extra transformed labels',
+                   'Set_C':'Sample C with extra transformed labels'
+                  }
+      # data_name = {'Set_A':'Sample A',
+      #              'Set_B':'Sample B',
+      #              'Set_C':'Sample C'
+      #             }
+      im_lb_pair ={}
+      if self.sub_dataset == 'All':
+        for k,v in data_name.iteritems():
+          V = volumes[data_name[k]]
+          im_lb_pair[k] ={'image':V.data_dict['image_dataset'],
+                                'label':V.data_dict['label_dataset']}
+      else:
+        k = self.sub_dataset
+        V = volumes[data_name[k]]
+        im_lb_pair[k] ={'image':V.data_dict['image_dataset'],
+                                'label':V.data_dict['label_dataset']}
 
-    self.transform_call = self.transform() 
-    len2 = self.z_size * self.x_size2 * self.y_size2 
-    if self.transform_call[1] == 'affine':
-      idx = random.randint(0,len2-1)
-      x_out_size   = self.out_size*2
-      y_out_size   = self.out_size*2
-      x_size = self.x_size2
-      y_size = self.y_size2 
-    else:
-      idx = index
-      x_out_size   = self.out_size
-      y_out_size   = self.out_size
-      x_size = self.x_size1
-      y_size = self.y_size1
+      return im_lb_pair
 
-    z_start = idx// (x_size * y_size) + self.slice_start_z
-    remain  = idx % (x_size * y_size)
-    x_start = remain // y_size
-    y_start = remain % y_size
-
-    z_end   = z_start + self.z_out_size
-    x_end   = x_start + x_out_size
-    y_end   = y_start + y_out_size
-
-    data    = np.array(self.im_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.float)
-    if self.subtract_mean:
-      data -= 127.0
-    seg_label   =np.array(self.lb_data[z_start:z_end,x_start:x_end,y_start:y_end]).astype(np.int)
-#     print('data[0,:10,:10] is {}').format(data[0,:10,:10])
-#     print('lable[0,:10,:10] is {} ').format(seg_label[0,:10,:10])
-    if self.transform_call:
-      data, seg_label = self.transform_call[0](data,seg_label)
+# class CRIME_Dataset_with_3dData_2dLabel(CRIME_Dataset):
+#   def __init__(self,
+#                  out_patch_size       =   (224,224,1), 
+#                  sub_dataset          =   'Set_A',
+#                  subtract_mean        =   True,
+#                  phase                =   'train',
+#                  transform            =   None,
+#                  data_config          =   'conf/cremi_datasets_with_tflabels.toml'):
     
-    ## for affine transformations, we need to substract a final center output
-    if self.transform_call[1] == 'affine':
-      x_center_start = x_out_size/2 - self.out_size/2
-      x_center_end = x_out_size - x_center_start
-      y_center_start = y_out_size/2 - self.out_size/2
-      y_center_end = y_out_size - y_center_start
-      data = data[:,x_center_start:x_center_end,y_center_start:y_center_end]
-
-      seg_label = seg_label[:,x_center_start:x_center_end, y_center_start:y_center_end]
-    
-    print('data[0,:10,:10] is {}').format(data[0,:10,:10])
-    print('lable[0,:10,:10] is {} ').format(seg_label[0,:10,:10])
-   
-   #set distance large enough to conver the boundary 
-   # as to put more weight on bouday areas.
-   #, which is important when do cut for segmentation 
-    affineX=affinity(axis=-1,distance =2)
-    affineY=affinity(axis=-2,distance =2)
-    affinMap = ((affineX(seg_label)[0] + affineY(seg_label)[0])>0).astype(np.int)
-
-
-    centermap = objCenterMap()
-    [(x_centerMap, y_centerMap)] = centermap(seg_label)
-
-    # if self.transform:
-      # data,seg_label,affinMap,x_centerMap,y_centerMap = self.transform(data,seg_label,affinMap,x_centerMap,y_centerMap)
-
-    objCenter_map = np.concatenate((x_centerMap,y_centerMap),0) 
-    
-
-
-    # if self.transform:
-    #   data,seg_label,affinMap = self.transform(data,seg_label,affinMap)
-
-
-    
-
-    # compute the runtime obj graidient instead of pre-computed one
-    # to avoid using wrong gradient map when performing data augmentation
-    # such as flip, rotate etc.
-    trans_data_list = self.label_generator(seg_label)
-    grad_x, grad_y = trans_data_list[0]['gradient']
-    grad  = np.concatenate((grad_x,grad_y),0)
-    
+#       super(CRIME_Dataset_with_3Ddata_2dLabel,self).__init__(sub_dataset=sub_dataset, 
+#                                          out_patch_size = out_patch_size,
+#                                          subtract_mean  = subtract_mean,
+#                                          phase          = phase,
+#                                          transform      = transform,
+#                                          data_config    = data_config)
+#       def __getitem__(self, index):
+#         im_data,lb_data= self.random_choice_dataset(self.im_lb_pair)
+#         data,seg_label = self.get_random_patch(index,im_data,lb_data)
+#         z_dim          = seg_label.shape[0]
+#         m_slice_idx    = z_dim // 2
+#         seg_label      = seg_label[m_slice_idx,:,:]
+#         tc_data        = torch.from_numpy(data).float()
+#         tc_label_dict  = self.label_generator(seg_label)[0]
+#         return tc_data, tc_label_dict
 
 
 
-    tc_label_dict ={}
-    for key,value in trans_data_list[0].iteritems():
-      tc_label_dict[key] = torch.from_numpy(value).float() \
-                               if key is not 'gradient' \
-                               else torch.from_numpy(grad).float()
+class labelGenerator(object):
+  def __init__(self):
+     self.label_generator  = label_transform(objSizeMap =True)
+  def __call__(self,*input):
+      ''' set distance large enough to conver the boundary 
+         as to put more weight on bouday areas.
+         which is important when do cut for segmentation '''
+      ''' compute the runtime obj graidient instead of pre-computed one
+        to avoid using wrong gradient map when performing data augmentation
+        such as flip, rotate etc.'''
 
-    tc_label_dict['affinity']  = torch.from_numpy(affinMap).float()
+      """ Input: segmentation label """
 
-    tc_label_dict['centermap'] = torch.from_numpy(objCenter_map).float()
+      """ Ouput: list of transformed labels dict:  
+                     d{'gradient','affinity','centermap','sizemap','distance'}):
+                     """ 
 
-    #print ('here is center shape ={}'.format(objCenter_map.shape))
+      output  = []
+      for idex,seg_label in enumerate(input):
+        #print ('seg_label shape = {}'.format(seg_label.shape))
+        affinMap        =  self.affinityFunc(seg_label)
+        objCenterMap    =  self.objCenterFunc(seg_label)
+        
+        trans_data_list =  self.label_generator(seg_label)
+        grad_x, grad_y  =  trans_data_list[0]['gradient']
+        grad  = np.concatenate((grad_x,grad_y),0)
 
-    #tc_data, tc_grad, = torch.from_numpy(data).float(), torch.from_numpy(grad).float()
-    tc_data = torch.from_numpy(data).float()
+        tc_label_dict ={}
+        for key,value in trans_data_list[0].iteritems():
+          tc_label_dict[key] = torch.from_numpy(value).float() \
+                                 if key is not 'gradient' \
+                                 else torch.from_numpy(grad).float()
+        tc_label_dict['affinity']  = torch.from_numpy(affinMap).float()
+        tc_label_dict['centermap'] = torch.from_numpy(objCenterMap).float()
+        
+        output.append(tc_label_dict)
+      return output
+  def output_labels(self):
+       ''' output: diction, Key = name of label, value = channel of output '''
+       return {'gradient':2,'affinity':1,'centermap':2,'sizemap':1,'distance':1}
 
-    return tc_data, tc_label_dict
+  def affinityFunc(self,seg_label):
+       affineX=affinity(axis=-1,distance =2)
+       affineY=affinity(axis=-2,distance =2)
+       affinMap = ((affineX(seg_label)[0] + affineY(seg_label)[0])>0).astype(np.int)
+       return affinMap
+  
+  def objCenterFunc(self,seg_label):
+      centermap = objCenterMap()
+      [(x_centerMap, y_centerMap)] = centermap(seg_label)
+      objCenter_map = np.concatenate((x_centerMap,y_centerMap),0)
+      return objCenter_map
 
-  def __len__(self):
-    self.len = self.x_size1 * self.y_size1 * self.z_size
-    return self.len
 
-  def load_data(self):
-    
-    #data_config = 'conf/cremi_datasets.toml'
-    volumes = HDF5Volume.from_toml(self.data_config)
-    #data_name ={'Set_A':'Sample A','Set_B':'Sample B','Set_C':'Sample C'}
-    # data_name = {'Set_A':'Sample A with extra transformed labels',
-    #              'Set_B':'Sample B with extra transformed labels',
-    #              'Set_C':'Sample C with extra transformed labels'
-    #             }
-    data_name = {'Set_A':'Sample A',
-                 'Set_B':'Sample B',
-                 'Set_C':'Sample C'
-                }
-    self.V = volumes[data_name[self.dataset]]
-    
-    self.lb_data = self.V.data_dict['label_dataset']
-    self.im_data = self.V.data_dict['image_dataset']
-    #self.gradX = self.V.data_dict['gradX_dataset']
-    #self.gradY = self.V.data_dict['gradY_dataset']
-   
-    # gradX = np.expand_dims(gradX, 1)
-    # gradY = np.expand_dims(gradY, 1)
-    # self.gd_data = np.concatenate((gradX,gradY),axis=1)
-    # self.lb_data = np.array(self.V.data_dict['label_dataset']).astype(np.int32)
-    # self.im_data = np.array(self.V.data_dict['image_dataset']).astype(np.int32)
-    
+
 def saveGradfiguers(iters,file_prefix,output):
     my_dpi = 96
     plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
@@ -229,27 +391,7 @@ def compute_angular(x):
     #print('angle_map shape {}'.format(angle_map.shape))
     return angle_map
 
-    # print ('x shape {}'.format(x.shape))
-    # x    = l2_norm(x)*0.9999
     
-    # x_aix = x[:,0]/torch.sqrt(torch.sum(x**2,1))
-    # angle_map   = torch.acos(x_aix)
-    # #pdb.set_trace()
-    # return angle_map
-
-
-     # pred        = pred.transpose(1,2).transpose(2,3).contiguous()
-    # gt          = gt.transpose(1,2).transpose(2,3).contiguous()
-    # pred        = pred.view(-1, outputChannels)
-    # gt          = gt.view(-1, outputChannels)
-    # # print(pred[0,:].shape)
-    # # s = torch.sqrt(torch.sum((pred*pred),1))
-    # # print(s.shape)
-    # p_xy        = pred[:,0]/torch.sqrt(torch.sum((pred*pred),1))
-    # gt_xy       = gt[:,0]/torch.sqrt(torch.sum((gt*gt),1))
-    # err_angle   = torch.acos(p_xy) - torch.acos(gt_xy)
-    # loss        = torch.sum(err_angle*err_angle)
-    # return loss
 def test_angluar_map():
   data_config = '../conf/cremi_datasets_with_tflabels.toml'
   dataset = CRIME_Dataset(data_config = data_config,phase='valid')
@@ -268,31 +410,19 @@ def test_angluar_map():
 
 
 def test_transform():
-  data_config = '../conf/cremi_datasets.toml'
+  data_config = '../conf/cremi_datasets_with_tflabels.toml'
   #data_config = '../conf/cremi_datasets.toml'
-  trans=random_transform(VFlip(), 
-                        Shear(value = 30, interp = ('bilinear', 'nearest')), 
-                        Zoom(value = 0.8, interp = ('bilinear', 'nearest')),
-                        Blur(32),
-                        RandomBlur())
-  dataset = CRIME_Dataset(data_config   = data_config,
-                          subtract_mean  =   True,
-                          phase='valid',
-                          transform = trans,
-                          out_size = 224,
-                          dataset='Set_A')
-  
+  trans=random_transform(VFlip(),HFlip(),Rot90())
+  dataset = CRIME_Dataset(data_config   = data_config,phase='valid',transform = trans,out_size = 512,dataset='Set_A')
   train_loader = DataLoader(dataset     = dataset,
                             batch_size  = 1,
                             shuffle     = True,
                             num_workers = 1)
-  for i , (inputs,target,trans_type, idx) in enumerate(train_loader,start =0):
+  for i , (inputs,target) in enumerate(train_loader,start =0):
   #for i , all in enumerate(train_loader,start =0):
     
     #labels = labels[:,0,:,:,:]
     #print inputs.shape
-    print(trans_type)
-    print('index is {}').format(idx)
     im  = inputs[0,0].numpy()
     #pdb.set_trace()
     #tg1 = target['gradient'][0,0].numpy()
@@ -316,7 +446,7 @@ def test_transform():
     #print('center shape ={}'.format(center.shape))
 
     fig,axes = plt.subplots(nrows =2, ncols=3,gridspec_kw = {'wspace':0.01, 'hspace':0.01})
-    axes[0,0].imshow(im,cmap='gray', vmin = -127.5, vmax = 127.5)
+    axes[0,0].imshow(im,cmap='gray')
     axes[0,0].axis('off')
     axes[0,0].margins(0,0)
     
@@ -351,23 +481,57 @@ def test_transform():
 
 
 if __name__ == '__main__':
-  test_transform()
-  #test_angluar_map()
-  # data_config = '../conf/cremi_datasets_with_tflabels.toml'
-  # dataset = CRIME_Dataset(data_config = data_config)
-  # train_loader = DataLoader(dataset=dataset,
-  #                         batch_size=1,
-  #                         shuffle=True,
-  #                         num_workers=1)
-  # for epoch in range(1):
-  #   #d,l = dataset.__getitem__(1000)
-  #   for i, data in enumerate(train_loader, start=0):
-  #        # get the inputs
-  #        inputs, labels = data
-  #        labels = labels[:,0,:,:,:]
-  #        pdb.set_trace()
-  #        print ('iter = {} shape labels = {}'.format(i,labels.shape))
-  #        saveGradfiguers(i,'grad',labels,)
-  #        #saveRawfiguers(i,'raw',inputs,)
-  #        if i > 3:
-  #         break
+  # test_transform()
+  transform = random_transform(RandomBlur(),Blur())
+  dataset = CRIME_Dataset(data_config = '../conf/cremi_datasets.toml',phase='valid',transform = transform,out_patch_size = (224,224,3),sub_dataset = 'Set_A',subtract_mean=False)
+  dataset2 = CRIME_Dataset(data_config = '../conf/cremi_datasets.toml',phase='valid',transform = None,out_patch_size = (224,224,3),sub_dataset = 'Set_A',subtract_mean=False)
+  out1 = dataset[222]
+  out2 = dataset2[222]
+  print('trans_category {}').format(out1[2])
+
+  data = out1[0].numpy()
+  data2 = out2[0].numpy()
+  # trans = Blur(threshold=16)
+  # data_trans = trans(data)
+  # data_trans2 = trans(data[0])
+
+  # for i in range(data.shape[0]):
+  #   data_trans[i] = trans(data[i])[0]
+
+  # data_trans = np.expand_dims(data_trans,0)
+  # # data_trans = trans(data[i])
+  # print(type(data_trans))
+  # print('data shape is {}').format(data.shape)
+  # print('data zoom shape is {}').format(data_trans[0].shape)
+
+  fig,axes = plt.subplots(nrows =2, ncols=3,gridspec_kw = {'wspace':0.01, 'hspace':0.01})
+  axes[0,0].imshow(data[0],cmap='gray',vmin=0,vmax=255)
+  axes[0,0].axis('off')
+  axes[0,0].margins(0,0)
+  
+  axes[0,1].imshow(data[1],cmap='gray',vmin=0,vmax=255)
+  axes[0,1].axis('off')
+  axes[0,1].margins(0,0)
+  
+  axes[0,2].imshow(data[2],cmap='gray',vmin=0,vmax=255)
+  axes[0,2].axis('off')
+  axes[0,2].margins(0,0)
+
+  axes[1,0].imshow(data2[0],cmap='gray',vmin=0,vmax=255)
+  axes[1,0].axis('off')
+  axes[1,0].margins(0,0)
+
+
+  axes[1,1].imshow(data2[1],cmap='gray',vmin=0,vmax=255)
+  axes[1,1].axis('off')
+  axes[1,1].margins(0,0)
+
+  axes[1,2].imshow(data2[2],cmap='gray',vmin=0,vmax=255)
+  axes[1,2].axis('off')
+  axes[1,2].margins(0,0)
+
+  plt.margins(x=0.001,y=0.001)
+  plt.subplots_adjust(wspace=0, hspace=0)
+
+  plt.show()
+  plt.close('all')
