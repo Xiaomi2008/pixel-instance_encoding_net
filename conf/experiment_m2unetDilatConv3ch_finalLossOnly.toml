@@ -2,21 +2,21 @@
 model = 'M2DUnet_withDilatConv'
 model_save_dir = 'model'
 load_train_iter = 0
-#trained_file  = 'model/Mdecoder2Unet_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient__freeze_net1=False_iter_126999.model'
+trained_file  = 'model/Mdecoder2Unet_withDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_freeze_net1=True_iter_11749.model'
 model_save_step = 250
 batch_size      = 10
 patch_size      = [320,320,3]
 use_gpu         = true
 
-
 [train]
 final_loss_only = true
 learning_rate   = 0.01
+tensorboard_folder = 'runs/mDecoder2Unet_Dilat_3ch_320x320'
 
 [sub_net]
 model = 'MDUnetDilat'
 freeze_weight = true
-trained_file  = 'trained_file  = 'model/MdecoderUnetDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_iter_155049.model'
+#trained_file  = 'model/MdecoderUnetDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_iter_155049.model'
 
 
 [target_labels]

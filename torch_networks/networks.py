@@ -372,11 +372,12 @@ class _Unet_encoder(nn.Module):
 
 
 class _Unet_decoder_withDilatConv(nn.Module):
-    def __init__(self,bottom_input_ch, out_ch =2, num_conv_in_block =2 , ch_change_rate =2 ,kernel_size =3):
+    def __init__(self,bottom_input_ch, out_ch =2, num_conv_in_block =2 , \
+                ch_change_rate =2 ,kernel_size =3, BatchNorm_final = True):
         super(_Unet_decoder_withDilatConv,self).__init__()
         b1_in_up_ch = bottom_input_ch + bottom_input_ch / 1 
         #self.dec_1 = Upblock(b1_in_up_ch,num_conv_in_block,ch_change_rate,kernel_size)
-        
+        self.BatchNorm_final = BatchNorm_final
         self.dec_1 = UpblockDilated(b1_in_up_ch,num_conv_in_block,ch_change_rate,kernel_size)
 
         b2_in_up_ch = b1_in_up_ch // ch_change_rate + bottom_input_ch // (2**1)
@@ -412,8 +413,10 @@ class _Unet_decoder_withDilatConv(nn.Module):
 
          c_5 = torch.cat((self.upsample(u_4), encoder_outputs[4]), 1)
          u_5 = self.dec_5(c_5)
-
-         out = self.BatchNorm(self.finnal_conv2d(u_5))
+         if self.BatchNorm_final:
+            out = self.BatchNorm(self.finnal_conv2d(u_5))
+         else:
+            out = self.finnal_conv2d(u_5)
          return out
 
 class _Unet_decoder(nn.Module):
@@ -461,8 +464,8 @@ class _Unet_decoder(nn.Module):
 
     
 class MdecoderUnet_withDilatConv(nn.Module):
-    def __init__(self, in_ch =1, first_out_ch=16, target_label = {'nameless',1}, \
-                number_bolck=4, num_conv_in_block=2, ch_change_rate=2,kernel_size = 3):
+    def __init__(self, in_ch =1, first_out_ch=16, target_label = {'nameless':1}, \
+                number_bolck=4, num_conv_in_block=2, ch_change_rate=2,kernel_size = 3, BatchNorm_final =True):
         super(MdecoderUnet_withDilatConv,self).__init__()
         self.in_ch = in_ch
         self.encoder = _Unet_encoder_withDilatConv(in_ch,first_out_ch,number_bolck, num_conv_in_block,ch_change_rate,kernel_size)
@@ -470,7 +473,8 @@ class MdecoderUnet_withDilatConv(nn.Module):
         self.target_label = target_label
         self.decoders = {}
         for name,out_ch in target_label.iteritems():
-            self.decoders[name]=_Unet_decoder_withDilatConv(bottom_input_ch=self.encoder.last_ch, out_ch=out_ch,num_conv_in_block = num_conv_in_block)
+            self.decoders[name]=_Unet_decoder_withDilatConv(bottom_input_ch=self.encoder.last_ch, out_ch=out_ch,\
+                                               num_conv_in_block = num_conv_in_block, BatchNorm_final = BatchNorm_final)
             self.add_module('decoder_'+ name, self.decoders[name])
 
     def forward(self, x):
@@ -485,20 +489,37 @@ class MdecoderUnet_withDilatConv(nn.Module):
 
 
 class Mdecoder2Unet_withDilatConv(nn.Module):
-    def __init__(self, mnet=None, freeze_net1 = False, target_label= {'unassigned',1},in_ch =3, out_ch=1, first_out_ch=16, \
+    def __init__(self, mnet=None, freeze_net1 = False, target_label= {'unassigned':1},in_ch =3, out_ch=1, first_out_ch=16, \
                 number_bolck=4, num_conv_in_block=2, ch_change_rate=2,kernel_size = 3):
-        super(Mdecoder2Unet, self).__init__()
+        super(Mdecoder2Unet_withDilatConv, self).__init__()
         if not mnet:
             mnet =  MdecoderUnet_withDilatConv(target_label =  target_label, in_ch =in_ch)
         self.net1=mnet
         total_input_ch =  sum(self.net1.target_label.values())+in_ch
-        #print total_input_ch 
-        net2_target_label[] = target_label
-        self.net2 = MdecoderUnet_withDilatConv(target_label =  target_label, in_ch =total_input_ch, out_ch = out_ch)
+        #print total_input_ch
+
+        # print target_label
+        net2_target_label = {}
+        net2_target_label['final'] = out_ch
+        self.net2 = MdecoderUnet_withDilatConv(target_label =  net2_target_label, in_ch =total_input_ch, BatchNorm_final = False)
         self.out_ch = out_ch
         self.in_ch  = in_ch
         self.add_module('first_'+ self.net1.name, self.net1)
         self.add_module('second_'+self.net2.name, self.net2)
+
+
+
+        # self.net2 = Unet()
+        # #self.first_conv_in_net2 = conv_bn_relu(total_input_ch,first_out_ch)
+        # self.first_conv_in_net2 = nn.Conv2d(total_input_ch,first_out_ch,kernel_size=kernel_size,padding =kernel_size // 2)
+        # self.final_conv_in_net2 = nn.Conv2d(48,out_ch,kernel_size=kernel_size,padding =kernel_size // 2)
+        # #self.BatchNorm = nn.BatchNorm2d(out_ch) 
+        # self.net2.conv_2d_1     = self.first_conv_in_net2
+        # self.net2.finnal_conv2d = self.final_conv_in_net2
+        # self.out_ch = out_ch
+        # self.in_ch  = in_ch
+        # self.add_module('first_'+ self.net1.name, self.net1)
+        # self.add_module('second_'+self.net2.name, self.net2)
         if freeze_net1:
             self.freezeWeight(self.net1)
     @property
@@ -514,12 +535,15 @@ class Mdecoder2Unet_withDilatConv(nn.Module):
         out_chs = outputs.values()
         out_chs.append(x)
         x_net2_in          = torch.cat(out_chs,1)
-        outputs['final']   = self.net2(x_net2_in)
+        # outputs['final']   = self.net2(x_net2_in)
+        # return outputs
+
+
+
+        final_dict         = self.net2(x_net2_in)
+        outputs['final']   = final_dict[final_dict.keys()[0]]
         return outputs
         #return gradient_out,distance_out
-
-
-
 
 
 
@@ -547,7 +571,7 @@ class MdecoderUnet(nn.Module):
         return 'MdecoderUnet'+ '_in_{}_chs'.format(self.in_ch)
 
 class Mdecoder2Unet(nn.Module):
-    def __init__(self, mnet=None, freeze_net1 = False, target_label= {'unassigned',1},in_ch =1, out_ch=1, first_out_ch=16, \
+    def __init__(self, mnet=None, freeze_net1 = False, target_label= {'unassigned':1},in_ch =1, out_ch=1, first_out_ch=16, \
                 number_bolck=4, num_conv_in_block=2, ch_change_rate=2,kernel_size = 3):
         super(Mdecoder2Unet, self).__init__()
         if not mnet:

@@ -37,7 +37,7 @@ class experiment_config():
     networks = \
               {'Unet' : Unet,'DUnet' : DUnet,'MDUnet': MdecoderUnet, \
               'MDUnetDilat':MdecoderUnet_withDilatConv, 'M2DUnet':Mdecoder2Unet, \
-              'M2DUnet_withDilatConv',Mdecoder2Unet_withDilatConv}
+              'M2DUnet_withDilatConv':Mdecoder2Unet_withDilatConv}
    
     self.data_transform     = self.data_Transform(self.data_aug_conf['transform'])
     self.label_generator    = self.label_Generator()
@@ -376,6 +376,7 @@ class experiment():
             if 'distance' in preds:
               #print ('distance in  preds')
               distance  = targets['distance'] * (1-targets['affinity'])
+              #print 'distance = {}'.format(distance.data.shape)
               dist_loss = boundary_sensitive_loss(preds['distance'],distance, targets['affinity'])
               pred_size = np.prod(preds['distance'].data.shape)
               outputs['dist_loss']   = dist_loss / float(pred_size)
@@ -407,6 +408,7 @@ class experiment():
           m_preds ={}
           final_lb = self.exp_cfg.label_conf['final_label']
           m_preds[final_lb] = preds['final']
+          #print preds['final'].data.shape
           fin_loss = compute_loss_foreach_label(m_preds,targets)
           outputs['final_loss']   = fin_loss[fin_loss.keys()[0]]
 
