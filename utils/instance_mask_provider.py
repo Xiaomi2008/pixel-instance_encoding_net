@@ -150,7 +150,6 @@ class CRIME_Dataset_3D_labels(CRIME_Dataset):
                                          subtract_mean =subtract_mean,
                                          phase = phase,
                                          transform =transform)
-	    self.nn_model = nn_model
 
 	def __getitem__(self, index):
         im_data,lb_data= self.random_choice_dataset(self.im_lb_pair)
@@ -190,11 +189,11 @@ def watershed_seg2D(distance):
         distance = distance.data
     distance = distance.cpu().numpy()
     distance = np.squeeze(distance)
-    hat = ndimage.black_tophat(distance, 14)
+    #hat = ndimage.black_tophat(distance, 14)
     # Combine with denoised image
-    hat -= 0.3 * distance
+    #hat -= 0.3 * distance
     # Morphological dilation to try to remove some holes in hat image
-    hat = skimage.morphology.dilation(hat)
+    #hat = skimage.morphology.dilation(hat)
     markers = distance > 3.5
     markers = skimage.morphology.label(markers)
     seg_labels  = watershed(-distance, markers)
@@ -214,3 +213,24 @@ def find_max_coverage_id(mask, seg):
 	unqiue_ids,count = np.unique(converted_ids,return_count = True)
 	idex = np.argmax(count)
 	return unqiue_ids[idex]
+
+
+def test():
+	dataset = CRIME_Dataset_3D_labels(out_patch_size       =   (224,224,3), 
+						              sub_dataset          =   'ALL',
+						              subtract_mean        =   True,
+						              phase                =   'train',
+						              transform            =   None,
+						              data_config          =   '../conf/cremi_datasets_with_tflabels.toml')
+	GT_Mask_DataLoader = instance_mask_GTproc_DataLoader(dataset    = dataset,
+                                						batch_size  = 10,
+                                						shuffle     = True,
+                                						num_workers = 1)
+	for i, (data,targets) in enumerate(GT_Mask_DataLoader, 0):
+		if i > 10:
+			break
+
+if __name__ == '__main__':
+  test()
+
+
