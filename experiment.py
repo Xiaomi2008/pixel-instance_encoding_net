@@ -606,6 +606,7 @@ def save_image(tensor, filename, nrow=8, padding=2,
     ndarr = grid.mul(255).clamp(0, 255).byte().permute(1, 2, 0).numpy()
     im = Image.fromarray(ndarr)
     im.save(filename)
+
 def watershed_d(i,distance):
     from scipy import ndimage
     from skimage.feature import peak_local_max

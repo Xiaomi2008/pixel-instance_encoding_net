@@ -14,8 +14,8 @@ import matplotlib
 import time
 #matplotlib.use('Agg')
 from matplotlib import pyplot as plt
-#from .dataloader import DataLoader
-#from torch.utils.data import *
+from torch_networks.networks import Unet,DUnet,MdecoderUnet,Mdecoder2Unet, \
+                                     MdecoderUnet_withDilatConv, Mdecoder2Unet_withDilatConv
 
 
 class Proc_DataLoaderIter(DataLoaderIter):
@@ -31,6 +31,7 @@ class NN_proc_DataLoaderIter(Proc_DataLoaderIter):
 	def __init__(self,loader,nn_model):
 		super(NN_proc_DataLoaderIter,self).__init__(loader)
 		self.nn_model = nn_model
+	
 	def __next__(self):
 		batch=super(NN_proc_DataLoaderIter,self).__next__()
 
@@ -40,13 +41,19 @@ class NN_proc_DataLoaderIter(Proc_DataLoaderIter):
 		Mask_in,Mask_gt = self.__make_mask__(pred_seg,seg_label)
 		input_data      = self.__make_input_data__(data,preds)
 
-		return input_data, Mask_in, Mask_gt
+		Mask_in         = torch.from_numpy(Mask_in).float()
+		Mask_gt         = torch.from_numpy(Mask_gt).float()
 
+		input_data      = torch.cat([input_data,Mask_in],dim =1)
+		return input_data, Mask_gt
+
+	next = __next__  #''' Compatible with Pyton 2.x '''
+	
 	def __segment__(self,preds):
 		distance = preds['distance']
-		assert distance.dim ==4 and distance[1] ==1
+		assert (distance.dim ==4 and distance[1] ==1)
 		seg2D_list = [ watershed_seg2D(torch.squeeze(distance[i]))
-		               for i in range(len(distnce.shape[0]))]
+		               for i in range(distnce.shape[0])]
 		seg_batch  =  torch.stack( 
 				       			  [  torch.usqueeze(torch.Tensor(seg2d),0)
 				       			     for seg2d in seg2d_list
@@ -55,24 +62,26 @@ class NN_proc_DataLoaderIter(Proc_DataLoaderIter):
 			       			     )
 		return seg_batch
 	
-	def __make_mask__(self,pred_seg_batch,target_seg_batch):
-		n_samples = pred_seg_batch.shape[0]
+	def __make_mask__(self, pred_seg_batch, target_seg_batch):
+		n_samples      = len(pred_seg_batch)
+		mid_slice_idx  = pred_seg_batch.shape[1]//2
 		unqiue_ids_in_each_seg      = [np.unqiue(
-			                                     pred_seg_batch[i].cpu.numpy()
+			                                     pred_seg_batch[i][mid_slice_idx].cpu().numpy()
 			                                    ) 
 		                                for i in range(n_samples)
 		                              ]
 
-		selected_seg_ids            =  [np.random.choice(unqiue_ids_in_each_seg[i]) 
-		                                for i in range(n_samples)
-		                               ]
+		selected_seg_ids            = [select_nonzero_id(unqiue_ids_in_each_seg[i],pred_seg_batch[i][mid_slice_idx].cpu().numpy())
+									     for i in range(n_samples)
+									   ]
+
 		masked_preds                =  [(pred_seg_batch[i] == selected_seg_ids[i]).astype(np.int) 
 		                                for i in range(n_samples)]
 
-		masked_target_ids           =  [find_max_coverage_id(masked_preds[i], seg[i,seg[i].shape[0]//2]) 
+		masked_target_ids           =  [find_max_coverage_id(masked_preds[i], seg[i][mid_slice_idx]) 
 		                                for i in range(n_samples)]
 		
-		masked_target               =   [ (target_seg_batch[i]== masked_target_ids[i]).astype(np.int) 
+		masked_target               =   [(target_seg_batch[i]== masked_target_ids[i]).astype(np.int) 
 		                                for i in range(n_samples)]
 		maksed_target_batch =  np.concatenate(masked_target,axis = 0)
 		maksed_preds_batch  =  np.concatenate(masked_preds,axis =0)
@@ -97,15 +106,11 @@ class GT_proc_DataLoaderIter(Proc_DataLoaderIter):
 		#print('Mask_in shape ={}'.format(Mask_in.shape))
 		input_data      = torch.cat([input_data,Mask_in],dim =1)
 		return input_data, Mask_gt
-	next = __next__
+	
+	next = __next__ #''' Compatible with Pyton 2.x '''
+	
+
 	def __make_mask__(self,target_seg_batch):
-		def select_nonzero_id(unique_ids,seg,threshed = 36):
-		    islarger = False
-		    while not islarger:
-		    	sid = np.random.choice(unique_ids)
-		    	if sid >0:
-		    		islarger = np.sum((seg== sid).astype(np.int)) > threshed
-		    return sid
 
 		n_samples = len(target_seg_batch)
 		mid_slice_idx  = target_seg_batch.shape[1]//2
@@ -231,9 +236,17 @@ def find_max_coverage_id(mask, seg):
 	bool_mask = mask.astype(np.bool)
 	converted_ids=seg[bool_mask]
 	unqiue_ids,count = np.unique(converted_ids,return_count = True)
-	print(unique_ids)
+	#print(unique_ids)
 	idex = np.argmax(count)
 	return unqiue_ids[idex]
+
+def select_nonzero_id(unique_ids,seg,threshed = 36):
+	islarger = False
+	while not islarger:
+		sid = np.random.choice(unique_ids)
+		if sid >0:
+		   islarger = np.sum((seg== sid).astype(np.int)) > threshed
+    return sid
 
 
 def test():
@@ -242,25 +255,9 @@ def test():
 		ops = {'vflip':VFlip(),'hflip':HFlip(),'rot90':Rot90()}
 		for op_str in op_list:
 			cur_list.append(ops[op_str])
-			#print ('op_list  = {}'.format(cur_list))
 		return random_transform(* cur_list)
-	transform = data_Transform(['vflip','hflip','rot90'])
 
-	dataset = CRIME_Dataset_3D_labels(out_patch_size       =   (320,320,3), 
-						              sub_dataset          =   'All',
-						              subtract_mean        =   True,
-						              phase                =   'train',
-						              transform            =   transform,
-						              data_config          =   '../conf/cremi_datasets_with_tflabels.toml')
-	
-	GT_Mask_DataLoader = instance_mask_GTproc_DataLoader(dataset    = dataset,
-                                						batch_size  = 10,
-                                						shuffle     = True,
-                                						num_workers = 1)
-	start_time  = time.time()
-	for i,(input_data,mask_target) in enumerate(GT_Mask_DataLoader, 0):
-		#plt.imshow(input_data[0,2])
-		print('size of obj = {}'.format( torch.sum(mask_target) ))
+	def view_output(input_data,mask_target):
 		fig = plt.figure()
 		for t  in range(3):
 			a = fig.add_subplot(3, 2, t*2+1)
@@ -270,12 +267,58 @@ def test():
 			imgplot = plt.imshow(mask_target[0,t])
 			a.set_title('mask')
 		plt.show()
+		
 
+
+
+	transform = data_Transform(['vflip','hflip','rot90'])
+
+	dataset = CRIME_Dataset_3D_labels(out_patch_size       =   (320,320,3), 
+						              sub_dataset          =   'All',
+						              subtract_mean        =   True,
+						              phase                =   'train',
+						              transform            =   transform,
+						              data_config          =   '../conf/cremi_datasets_with_tflabels.toml')
+	
+	GT_Mask_DataLoader = instance_mask_GTproc_DataLoader(dataset     = dataset,
+                                						 batch_size  = 10,
+                                						 shuffle     = True,
+                                						 num_workers = 1)
+
+    data_out_labels = dataset.output_labels()
+	nn_model = Mdecoder2Unet_withDilatConv(target_label = label_ch_pair, in_ch = 3)
+
+	NN_Mask_DataLoader = instance_mask_NNproc_DataLoader(nn_model    = nn_model,
+														 dataset     = dataset,
+														 batch_size  = 10,
+														 shuffle     = True,
+														 num_workers = 1
+														 )
+	start_time  = time.time()
+
+	#loader = GT_Mask_DataLoader
+	loader = NN_Mask_DataLoader
+
+	#dataloader = GT_Mask_DataLoader if loader == 'GT' else NN_Mask_DataLoader
+
+	for i,(input_data,mask_target) in enumerate(loader, 0):
+		#plt.imshow(input_data[0,2])''
 		end_time = time.time() - start_time
+		
 		print('time  = {:2} s'.format(end_time))
+		print('size of obj = {}'.format( torch.sum(mask_target)))
+		
+		view_output(input_data, mask_target)
 		start_time = time.time()
+		
 		if i > 20:
 			break
+	# for i,(input_data,mask_target) in enumerate(NN_Mask_DataLoader, 0):
+	# 	end_time = time.time() - start_time
+		
+	# 	print('time  = {:2} s'.format(end_time))
+	# 	print('size of obj = {}'.format( torch.sum(mask_target)))
+
 
 if __name__ == '__main__':
   test()
