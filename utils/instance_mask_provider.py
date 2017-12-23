@@ -7,30 +7,39 @@ import torch.nn.functional as F
 from matplotlib import pyplot as plt
 from utils.EMDataset import labelGenerator
 from utils.EMDataset import CRIME_Dataset
-from torch.utils.data import DataLoader, Dataloaderiter
+from torch.utils.data import DataLoader
+from torch.utils.data.dataloader import DataLoaderIter
+from utils.transform import VFlip, HFlip, Rot90, random_transform
+import matplotlib
+import time
+#matplotlib.use('Agg')
+from matplotlib import pyplot as plt
+#from .dataloader import DataLoader
+#from torch.utils.data import *
 
 
-class Proc_DataLoaderIter(Dataloaderiter):
-	def __init__(self,loader,label_generator):
+class Proc_DataLoaderIter(DataLoaderIter):
+	def __init__(self,loader):
 		super(Proc_DataLoaderIter,self).__init__(loader)
-		self.label_generator =  label_generator
 	def __make_input_data__(self,data,preds):
 	 	'''we can concate preds into data as etra channels
            for noew, we just return data
-	 	 '''
-	 	 return data
+	 	'''
+	 	return data
 
-class NN_proc_DataLoaderIter(DataLoaderIter):
+class NN_proc_DataLoaderIter(Proc_DataLoaderIter):
 	def __init__(self,loader,nn_model):
 		super(NN_proc_DataLoaderIter,self).__init__(loader)
 		self.nn_model = nn_model
 	def __next__(self):
 		batch=super(NN_proc_DataLoaderIter,self).__next__()
+
 		data,targets,seg_label = batch
 		preds           = self.nn_model(data)
 		pred_seg        = self.__segment__(preds)
 		Mask_in,Mask_gt = self.__make_mask__(pred_seg,seg_label)
 		input_data      = self.__make_input_data__(data,preds)
+
 		return input_data, Mask_in, Mask_gt
 
 	def __segment__(self,preds):
@@ -65,54 +74,72 @@ class NN_proc_DataLoaderIter(DataLoaderIter):
 		
 		masked_target               =   [ (target_seg_batch[i]== masked_target_ids[i]).astype(np.int) 
 		                                for i in range(n_samples)]
-
-	    maksed_target_batch =  np.concatenate(masked_target,dim = 0)
-	    maksed_preds_batch  =  np.concatenate(masked_preds,dim =0)
-	    return maksed_preds_batch, maksed_target_batch
+		maksed_target_batch =  np.concatenate(masked_target,axis = 0)
+		maksed_preds_batch  =  np.concatenate(masked_preds,axis =0)
+		return maksed_preds_batch, maksed_target_batch
 
 	 
 
 
-class GT_proc_DataLoaderIter(DataLoaderIter):
+class GT_proc_DataLoaderIter(Proc_DataLoaderIter):
 	def __init__(self,loader):
 		super(GT_proc_DataLoaderIter,self).__init__(loader)
 	def __next__(self):
+		#print ('gt next......')
 		batch=super(GT_proc_DataLoaderIter,self).__next__()
-		data,targets,seg_label = batch
+		data,seg_label,targets = batch
 		Mask_in,Mask_gt = self.__make_mask__(seg_label)
-		input_data      =  self.__make_input_data__(data,targets)
-		return input_data, Mask_in, Mask_gt
+		input_data      = self.__make_input_data__(data,targets)
+		Mask_in         = torch.from_numpy(Mask_in).float()
+		Mask_gt         = torch.from_numpy(Mask_gt).float()
 
+		#print ('input shape ={}'.format(input_data.shape))
+		#print('Mask_in shape ={}'.format(Mask_in.shape))
+		input_data      = torch.cat([input_data,Mask_in],dim =1)
+		return input_data, Mask_gt
+	next = __next__
 	def __make_mask__(self,target_seg_batch):
-		n_samples = target_seg_batch.shape[0]
-		unqiue_ids_in_each_seg      = [np.unqiue(
-			                                     target_seg_batch[i].cpu.numpy()
-			                                    ) 
-		                                for i in range(n_samples)
-		                              ]
+		def select_nonzero_id(unique_ids,seg,threshed = 36):
+		    islarger = False
+		    while not islarger:
+		    	sid = np.random.choice(unique_ids)
+		    	if sid >0:
+		    		islarger = np.sum((seg== sid).astype(np.int)) > threshed
+		    return sid
 
-		selected_seg_ids            =  [np.random.choice(unqiue_ids_in_each_seg[i]) 
-		                                for i in range(n_samples)
-		                               ]
+		n_samples = len(target_seg_batch)
+		mid_slice_idx  = target_seg_batch.shape[1]//2
+		unqiue_ids_in_each_seg      = [np.unique(
+												target_seg_batch[i][mid_slice_idx].cpu().numpy()
+												)
+										 for i in range(n_samples)
+		                              ]
 		
-		masked_target               =   [ (target_seg_batch[i]== selected_seg_ids[i]).astype(np.int) 
+		selected_seg_ids              = [select_nonzero_id(unqiue_ids_in_each_seg[i],target_seg_batch[i][mid_slice_idx].cpu().numpy())
+									     for i in range(n_samples)
+									   ]
+
+		
+		
+		masked_target               =   [ (target_seg_batch[i].cpu().numpy()== selected_seg_ids[i]).astype(np.int) 
 		                                for i in range(n_samples)]
 
-		masked_preds                = [ np.expand_dims(maksed_target[i, maksed_target[i].shape[0]//2],0)
-		                                for i in range(n_samples)]               
-
-	    maksed_target_batch =  np.concatenate(masked_target,dim = 0)
-	    maksed_preds_batch  =  np.concatenate(masked_preds,dim =0)
-	    return maksed_preds_batch, maksed_target_batch
+		
+		masked_preds                = [ np.expand_dims(masked_target[i][mid_slice_idx],0)
+		                                for i in range(n_samples)]
+		
+		maksed_target_batch =  np.stack(masked_target, axis = 0)
+		maksed_preds_batch  =  np.stack(masked_preds,axis =0)
+		return maksed_preds_batch, maksed_target_batch
 
 
 class instance_mask_Dataloader(DataLoader):
 	def __init__(self,**kwargs):
-		super(instance_mask_provider,self).__init__(kwargs)
+		super(instance_mask_Dataloader,self).__init__(**kwargs)
 
-	def __iter__(self):
+	#def __iter__(self):
 		'''subclass should return different Dataloaderiter'''
-		raise NotImplementedError(" __iter__ function must be implemented in subclass !")
+	#	raise NotImplementedError(" __iter__ function must be implemented in subclass !")
 
 	def gen_train_input(data,Preds,Mask_in):
 		input_data = torch.cat([data,Preds['distance'], Mask_in],1)
@@ -120,84 +147,77 @@ class instance_mask_Dataloader(DataLoader):
 
 
 
-class instance_mask_NNproc_Dataloader(instance_mask_Dataloader):
+class instance_mask_NNproc_DataLoader(instance_mask_Dataloader):
 	def __init__(self,nn_model,**kwargs):
-		super(instance_mask_NNproc_Dataloader,self).__init__(kwargs)
+		super(instance_mask_NNproc_Dataloader,self).__init__(**kwargs)
 		self.nn_model = nn_model
+	
 	def __iter__(self):
-        return NN_proc_DataLoaderIter(self,self.nn_model)
+		return NN_proc_DataLoaderIter(self,self.nn_model)
 
 
 
 class instance_mask_GTproc_DataLoader(instance_mask_Dataloader):
 	def __init__(self,**kwargs):
-		super(instance_mask_GTproc_DataLoader,self).__init__(kwargs)
+		super(instance_mask_GTproc_DataLoader,self).__init__(**kwargs)
 		#self.CRIME_Dataset_3D = CRIME_Dataset_3D_labels(kwargs)
 		#self.data_loader = DataLoader
 	def __iter__(self):
-        return GT_proc_DataLoaderIter(self,self.nn_model)
+		return GT_proc_DataLoaderIter(self)
 
 class CRIME_Dataset_3D_labels(CRIME_Dataset):
 	def __init__(self,
-                 out_patch_size       =   (224,224,1), 
+                 out_patch_size       =   (224,224,3), 
                  sub_dataset          =   'Set_A',
                  subtract_mean        =   True,
                  phase                =   'train',
                  transform            =   None,
-                 data_config          =   'conf/cremi_datasets_with_tflabels.toml'):
-	    super(CRIME_Dataset_with_NNgen_labels,self).__init__(sub_dataset=sub_dataset, 
+                 data_config          =   '../conf/cremi_datasets.toml'):
+	    super(CRIME_Dataset_3D_labels,self).__init__(sub_dataset=sub_dataset, 
                                          out_patch_size =out_patch_size,
                                          subtract_mean =subtract_mean,
                                          phase = phase,
-                                         transform =transform)
+                                         transform =transform,
+                                         data_config = data_config)
 
 	def __getitem__(self, index):
-        im_data,lb_data= self.random_choice_dataset(self.im_lb_pair)
-        data,seg_label = self.get_random_patch(index,im_data,lb_data)
-        '''Convert seg_label to 2D by obtaining only intermedia slice 
-           while the input data have multiple slice as multi-channel input
-           the network only output the prediction of sigle slice in the center of Z dim'''
-        tc_data        = torch.from_numpy(data).float()
-        tc_label_dict  = self.gen_label_per_slice(seg_label)
-        return tc_data, tc_label_dict, seg_label
-    
-    def gen_label_per_slice(self,seg):
-    	if seg.ndim == 3:
-    		z_dim = seg.shapep[0]
-    		assert ((z_dim % 2) == 1) #  need ensure that # slices is odd number
-    		slice_seg_list = [slice_seg_lb[i,:,:] for i in range(z_dim)]
-    		slice_tgDict_list  = self.label_generator(*slice_seg_list)
+		im_data,lb_data= self.random_choice_dataset(self.im_lb_pair)
+		data,seg_label = self.get_random_patch(index,im_data,lb_data)
+		'''Convert seg_label to 2D by obtaining only intermedia slice
+		while the input data have multiple slice as multi-channel input
+		the network only output the prediction of sigle slice in the center of Z dim'''
+		tc_data        = torch.from_numpy(data).float()
+		tc_label_dict  = self.gen_label_per_slice(seg_label)
+		return tc_data, seg_label, tc_label_dict 
 
-    		lb_dict= {}
-    		for k in slice_seg_list[0].keys():
-    			#V = [ slice_seg_list[i][k] for i in range(len(slice_seg_list))]
-    			lb_dict[k] = torch.cat([slice_seg_list[i][k] for i in range(len(slice_seg_list))],dim=0)
-
-    		return lb_dict
+	def gen_label_per_slice(self,seg):
+		if seg.ndim == 3:
+			z_dim = seg.shape[0]
+			assert ((z_dim % 2) == 1) #  need ensure that # slices is odd number
+			slice_seg_list = [seg[i,:,:] for i in range(z_dim)]
+			slice_tgDict_list  = self.label_generator(*slice_seg_list)
+			lb_dict= {}
+			for k in slice_tgDict_list[0].keys():
+				lb_dict[k] = torch.cat([slice_tgDict_list[i][k] for i in range(len(slice_seg_list))],dim=0)
+			return lb_dict
 
 
 def watershed_seg2D(distance):
 	from scipy import ndimage
-    from skimage.feature import peak_local_max
-    from skimage.segmentation import watershed
-    from skimage.color import label2rgb
-    from skimage.morphology import disk,skeletonize
-    import skimage
-    from skimage.filters import gaussian
-
-    if isinstance(distance,Variable):
-        distance = distance.data
-    distance = distance.cpu().numpy()
-    distance = np.squeeze(distance)
-    #hat = ndimage.black_tophat(distance, 14)
-    # Combine with denoised image
-    #hat -= 0.3 * distance
-    # Morphological dilation to try to remove some holes in hat image
-    #hat = skimage.morphology.dilation(hat)
-    markers = distance > 3.5
-    markers = skimage.morphology.label(markers)
-    seg_labels  = watershed(-distance, markers)
-    return seg_labels
+	from skimage.feature import peak_local_max
+	from skimage.segmentation import watershed
+	from skimage.color import label2rgb
+	from skimage.morphology import disk,skeletonize
+	import skimage
+	from skimage.filters import gaussian
+	if isinstance(distance,Variable):
+		distance = distance.data
+	distance = distance.cpu().numpy()
+	distance = np.squeeze(distance)
+	markers = distance > 3.5
+	markers = skimage.morphology.label(markers)
+	seg_labels  = watershed(-distance, markers)
+	return seg_labels
 
 def tensor_unique(t_tensor):
 	t = np.unique(t_tensor.cpu().numpy())
@@ -211,23 +231,50 @@ def find_max_coverage_id(mask, seg):
 	bool_mask = mask.astype(np.bool)
 	converted_ids=seg[bool_mask]
 	unqiue_ids,count = np.unique(converted_ids,return_count = True)
+	print(unique_ids)
 	idex = np.argmax(count)
 	return unqiue_ids[idex]
 
 
 def test():
-	dataset = CRIME_Dataset_3D_labels(out_patch_size       =   (224,224,3), 
-						              sub_dataset          =   'ALL',
+	def data_Transform(op_list):
+		cur_list = []
+		ops = {'vflip':VFlip(),'hflip':HFlip(),'rot90':Rot90()}
+		for op_str in op_list:
+			cur_list.append(ops[op_str])
+			#print ('op_list  = {}'.format(cur_list))
+		return random_transform(* cur_list)
+	transform = data_Transform(['vflip','hflip','rot90'])
+
+	dataset = CRIME_Dataset_3D_labels(out_patch_size       =   (320,320,3), 
+						              sub_dataset          =   'All',
 						              subtract_mean        =   True,
 						              phase                =   'train',
-						              transform            =   None,
+						              transform            =   transform,
 						              data_config          =   '../conf/cremi_datasets_with_tflabels.toml')
+	
 	GT_Mask_DataLoader = instance_mask_GTproc_DataLoader(dataset    = dataset,
                                 						batch_size  = 10,
                                 						shuffle     = True,
                                 						num_workers = 1)
-	for i, (data,targets) in enumerate(GT_Mask_DataLoader, 0):
-		if i > 10:
+	start_time  = time.time()
+	for i,(input_data,mask_target) in enumerate(GT_Mask_DataLoader, 0):
+		#plt.imshow(input_data[0,2])
+		print('size of obj = {}'.format( torch.sum(mask_target) ))
+		fig = plt.figure()
+		for t  in range(3):
+			a = fig.add_subplot(3, 2, t*2+1)
+			imgplot = plt.imshow(input_data[0,t])
+			a.set_title('im')
+			a = fig.add_subplot(3, 2, t*2+2)
+			imgplot = plt.imshow(mask_target[0,t])
+			a.set_title('mask')
+		plt.show()
+
+		end_time = time.time() - start_time
+		print('time  = {:2} s'.format(end_time))
+		start_time = time.time()
+		if i > 20:
 			break
 
 if __name__ == '__main__':

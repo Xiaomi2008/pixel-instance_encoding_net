@@ -161,6 +161,7 @@ class CRIME_Dataset(exp_Dataset):
           seg_label      = np.expand_dims(seg_label[m_slice_idx,:,:],axis =0) 
         tc_data        = torch.from_numpy(data).float()
         tc_label_dict  = self.label_generator(seg_label)[0]
+        print tc_label_dict['sizemap'].shape
         return tc_data, tc_label_dict
     
     def set_phase(self,phase):

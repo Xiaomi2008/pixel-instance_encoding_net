@@ -1,5 +1,5 @@
 [local_data]
-data_dir = "data"
+data_dir = "../data"
 #data_dir = "/tempspace/tzeng/kdd2018_proj/pixel-instance_encoding_net/data"
 [[dataset]]
 name = "Sample A with extra transformed labels"

@@ -226,6 +226,7 @@ class experiment():
             train_losses_acumulator = losses_acumulator()
 
             for i, (data,targets) in enumerate(train_loader, 0):
+              #print (targets['distance'].shape)
               data   = Variable(data).float()
               target = self.make_variable(targets)
               if self.use_gpu:
