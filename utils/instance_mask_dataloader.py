@@ -336,7 +336,7 @@ def test(masker):
         nn_model = nn_model.float()
         pre_trained_weights = \
             '../model/Mdecoder2Unet_withDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance' \
-            '-gradient_VFlip-HFlip-Rot90_freeze_net1=True_iter_32499.model '
+            '-gradient_VFlip-HFlip-Rot90_freeze_net1=True_iter_32499.model'
         nn_model.load_state_dict(torch.load(pre_trained_weights))
         data_loader = instance_mask_NNproc_DataLoader(nn_model=nn_model,
                                                       use_gpu=True,
