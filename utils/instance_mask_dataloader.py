@@ -318,7 +318,7 @@ def test(masker):
 
     transform = data_Transform(['vflip', 'hflip', 'rot90'])
 
-    dataset = CRIME_Dataset_3D_labels(out_patch_size=(480, 480, 3),
+    dataset = CRIME_Dataset_3D_labels(out_patch_size=(800, 800, 3),
                                       sub_dataset='All',
                                       subtract_mean=True,
                                       phase='train',
@@ -341,7 +341,7 @@ def test(masker):
         data_loader = instance_mask_NNproc_DataLoader(nn_model=nn_model,
                                                       use_gpu=True,
                                                       dataset=dataset,
-                                                      batch_size=5,
+                                                      batch_size=1,
                                                       shuffle=True,
                                                       num_workers=1
                                                       )
