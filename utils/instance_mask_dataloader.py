@@ -64,17 +64,15 @@ class NN_proc_DataLoaderIter(Proc_DataLoaderIter):
         # print('input_data shape ={}'.format(input_data.shape) )
         # print('Mask_in shape ={}'.format(Mask_in.shape) )
         # print('Mask_gt shape ={}'.format(Mask_gt.shape) )
-        input_data = torch.cat([input_data, Mask_in, pred_seg], dim=1)
-        return input_data, Mask_gt
+        #input_data = torch.cat([input_data, Mask_in, pred_seg], dim=1)
+        input_data = torch.cat([input_data, Mask_in], dim=1)
+        targets['mask'] = Mask_in
+        return input_data, targets
 
     next = __next__  # ''' Compatible with Pyton 2.x '''
 
     def __segment__(self, preds):
         distance = preds['distance']
-        # print(type(distance))
-        # print(distance.shape)
-        # print(distance.dim)
-        # print(distance[1])
         assert (distance.dim() == 4 and distance.shape[1] == 1)
         seg2D_list = [watershed_seg2D(torch.squeeze(distance[i]))
                       for i in range(len(distance))]
@@ -135,8 +133,10 @@ class GT_proc_DataLoaderIter(Proc_DataLoaderIter):
         # input_data      = torch.cat([input_data,Mask_in],dim =1)
         # input_data      = torch.cat([input_data,Mask_in,pred_seg],dim =1)
         # pdb.set_trace()
-        input_data = torch.cat([input_data, Mask_in, seg_label.float()], dim=1)
-        return input_data, Mask_gt
+        #input_data = torch.cat([input_data, Mask_in, seg_label.float()], dim=1)
+        input_data = torch.cat([input_data, Mask_in], dim=1)
+        targets['mask'] = Mask_gt
+        return input_data, targets
 
     next = __next__  # ''' Compatible with Pyton 2.x '''
 
@@ -237,6 +237,10 @@ class CRIME_Dataset_3D_labels(CRIME_Dataset):
                 lb_dict[k] = torch.cat([slice_tgDict_list[i][k] for i in range(len(slice_seg_list))], dim=0)
             return lb_dict
 
+    def output_labels(self):
+        ''' output: diction, Key = name of label, value = channel of output '''
+        return {'mask': 3}
+
 
 def watershed_seg2D(distance):
     from scipy import ndimage
@@ -271,7 +275,7 @@ def find_max_coverage_id(mask, seg):
     # print('seg shape ={}'.format(seg.shape))
     bool_mask = mask.astype(np.bool)
     converted_ids = seg[bool_mask]
-    unique_ids, count = np.unique(converted_ids, return_counts=True)
+    unique_ids, count = np.unique(converted_ids, return_counts = True)
     # print(unique_ids)
     idex = np.argmax(count)
     return unique_ids[idex]

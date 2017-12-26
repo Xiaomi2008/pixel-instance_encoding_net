@@ -35,8 +35,8 @@ class experiment_config():
         print self.label_conf['labels']
         print '_'.join(self.label_conf['labels'])
         networks = \
-            {'Unet': Unet, 'DUnet': DUnet, 'MDUnet': MdecoderUnet, \
-             'MDUnetDilat': MdecoderUnet_withDilatConv, 'M2DUnet': Mdecoder2Unet, \
+            {'Unet': Unet, 'DUnet': DUnet, 'MDUnet': MdecoderUnet,
+             'MDUnetDilat': MdecoderUnet_withDilatConv, 'M2DUnet': Mdecoder2Unet,
              'M2DUnet_withDilatConv': Mdecoder2Unet_withDilatConv}
 
         self.data_transform = self.data_Transform(self.data_aug_conf['transform'])

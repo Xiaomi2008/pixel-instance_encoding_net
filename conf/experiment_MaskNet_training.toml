@@ -1,0 +1,32 @@
+[mask_dataloader]
+# options {'GT' , 'NN'}. 'GT' mask create based on ground truth, 'NN' based on segmentation created by 2D CNN
+mode = 'GT'
+
+# which network model to use to generate segmentation/ mask
+nn_model = 'Mdecoder2Unet_withDilatConv'
+nn_weight_file = 'model/Mdecoder2Unet_withDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_freeze_net1=True_iter_32499.model'
+use_gpu    = true
+
+[network]
+model = 'MDUnetDilat'
+model_save_dir = 'model'
+load_train_iter = 0
+#trained_file  = 'model/MdecoderUnetDilatConv_in_5_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_iter_9099.model'
+model_save_step = 250
+batch_size      = 6
+patch_size      = [320,320,3]
+use_gpu         = true
+
+
+[train]
+learning_rate   = 0.01
+tensorboard_folder = 'runs/dialet_mask_unet_3ch_320x320'
+
+[dataset]
+sub_dataset = 'All'
+# Options: {'Set_A','Set_B','Set_C','All'}
+
+[data_augmentation]
+ transform =['vflip',
+            'hflip',
+            'rot90']

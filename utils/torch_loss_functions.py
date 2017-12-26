@@ -1,17 +1,21 @@
 import os, sys
+
 sys.path.append('../')
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+
 def l2_norm(x):
     epsilon = 1e-12
-    #epsilon=torch.cuda.DoubleTensor([1e-12])
-    #sq_x   = torch.max(x**2,epsilon)
-    #sq_x   = torch.max(x**2,epsilon)
-    #e_mat  = torch.zero_like(sq_x)
-    sum_x  = torch.sum(x**2,1,keepdim=True)
+    # epsilon=torch.cuda.DoubleTensor([1e-12])
+    # sq_x   = torch.max(x**2,epsilon)
+    # sq_x   = torch.max(x**2,epsilon)
+    # e_mat  = torch.zero_like(sq_x)
+    sum_x = torch.sum(x ** 2, 1, keepdim=True)
     sqrt_x = torch.sqrt(sum_x).clamp(min=epsilon).expand_as(x)
-    return x/sqrt_x
+    return x / sqrt_x
+
 
 def dice_loss(input, target):
     smooth = 1.0
@@ -21,29 +25,31 @@ def dice_loss(input, target):
     intersection = (iflat * tflat).sum()
 
     return 1.0 - (((2. * intersection + smooth) /
-              (iflat.sum() + tflat.sum() + smooth)))
+                   (iflat.sum() + tflat.sum() + smooth)))
+
+
 def weighted_mse_loss(input, target, weight):
     return torch.sum(weight * (input - target) ** 2)
 
 
-def boundary_sensitive_loss(input,target,boudary):
+def boundary_sensitive_loss(input, target, boudary):
     ''' boudary exist when == 1, else  0 for none-boundary '''
     ''' we want the boudary to be more important (more loss) then none-dounary area'''
-    return torch.sum(boudary* (0-input) ** 2 + 0.5*(1-boudary)*(torch.abs(input-target)))
+    return torch.sum(boudary * (0 - input) ** 2 + 0.5 * (1 - boudary) * (torch.abs(input - target)))
 
 
 def angularLoss(pred, gt, weight=0, outputChannels=2):
-   
-   # pred        = l2_norm(pred)*0.9999999999
-   # gt          = l2_norm(gt)*0.9999999999
+    # pred        = l2_norm(pred)*0.9999999999
+    # gt          = l2_norm(gt)*0.9999999999
 
-    pred        = F.normalize(pred)*0.99999
-    gt          = F.normalize(gt)*0.99999
+    pred = F.normalize(pred) * 0.99999
+    gt = F.normalize(gt) * 0.99999
 
-    prod_sum    = torch.sum(gt*pred,1)
-    angle_err   = torch.acos(prod_sum)
-    loss        = torch.sum(angle_err*angle_err)
+    prod_sum = torch.sum(gt * pred, 1)
+    angle_err = torch.acos(prod_sum)
+    loss = torch.sum(angle_err * angle_err)
     return loss
+
 
 # Recommend
 class CrossEntropyLoss2d(nn.Module):
@@ -53,6 +59,7 @@ class CrossEntropyLoss2d(nn.Module):
 
     def forward(self, inputs, targets):
         return self.nll_loss(F.log_softmax(inputs), targets)
+
 
 # this may be unstable sometimes.Notice set the size_average
 def CrossEntropy2d(input, target, weight=None, size_average=False):
@@ -64,7 +71,7 @@ def CrossEntropy2d(input, target, weight=None, size_average=False):
 
     target_mask = target >= 0
     target = target[target_mask]
-    #loss = F.nll_loss(F.log_softmax(input), target, weight=weight, size_average=False)
+    # loss = F.nll_loss(F.log_softmax(input), target, weight=weight, size_average=False)
     loss = F.cross_entropy(input, target, weight=weight, size_average=False)
     if size_average:
         loss /= target_mask.sum().data[0]
