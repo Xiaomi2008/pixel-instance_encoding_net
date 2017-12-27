@@ -1,4 +1,4 @@
-[mask_dataloader]
+[mask_loader]
 # options {'GT' , 'NN'}. 'GT' mask create based on ground truth, 'NN' based on segmentation created by 2D CNN
 mode = 'GT'
 
@@ -8,15 +8,15 @@ nn_weight_file = 'model/Mdecoder2Unet_withDilatConv_in_3_chs_Dataset-CRIME-All_a
 use_gpu    = true
 
 [network]
-model = 'MDUnetDilat'
+model = 'MaskMDnetDialat'
 model_save_dir = 'model'
 load_train_iter = 0
 #trained_file  = 'model/MdecoderUnetDilatConv_in_5_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_iter_9099.model'
-model_save_step = 250
-batch_size      = 6
+model_save_step = 200
+batch_size      = 10
 patch_size      = [320,320,3]
 use_gpu         = true
-
+#MaskMDnetDialat
 
 [train]
 learning_rate   = 0.01

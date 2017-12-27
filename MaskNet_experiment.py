@@ -3,12 +3,21 @@ import torch
 from experiment import experiment, experiment_config
 from utils.instance_mask_dataloader \
     import CRIME_Dataset_3D_labels, instance_mask_GTproc_DataLoader, instance_mask_NNproc_DataLoader
+from torch_networks.networks import Unet, DUnet, MdecoderUnet, Mdecoder2Unet, \
+     MdecoderUnet_withDilatConv, Mdecoder2Unet_withDilatConv, MaskMdecoderUnet_withDilatConv
 from utils.torch_loss_functions import *
 from utils.printProgressBar import printProgressBar
 from torch.autograd import Variable
 import time
 import torchvision.utils as vutils
 from tensorboardX import SummaryWriter
+import numpy as np
+# from matplotlib import pyplot as plt
+import matplotlib
+from matplotlib import pyplot as plt
+import pytoml as toml
+import torch.optim as optim
+import os
 
 
 # from utils.torch_loss_functions import dice_loss
@@ -21,7 +30,8 @@ class masknet_experiment_config(experiment_config):
 
         self.aviable_networks_dict = \
             {'Unet': Unet, 'DUnet': DUnet, 'MDUnet': MdecoderUnet,
-             'MDUnetDilat': MdecoderUnet_withDilatConv}
+             'MDUnetDilat': MdecoderUnet_withDilatConv, \
+             'MaskMDnetDialat': MaskMdecoderUnet_withDilatConv}
 
         self.data_transform = self.data_Transform(self.data_aug_conf['transform'])
         # self.label_generator = self.label_Generator()
@@ -29,25 +39,30 @@ class masknet_experiment_config(experiment_config):
         self.train_dataset, self.valid_dataset \
             = self.dataset(self.net_conf['patch_size'], self.data_transform)
 
-        data_out_labels = self.train_dataset.output_labels()
+        target_label = self.train_dataset.output_labels()
 
-        in_ch = self.net_conf['patch_size'][2]
+        in_ch = self.net_conf['patch_size'][2]+1
+
+
+        print(in_ch)
+        print(self.net_conf['model'])
+        print(target_label)
 
         net_model = self.aviable_networks_dict[self.net_conf['model']]
-        self.net_model = net_model(data_out_labels, in_ch=in_ch)
-
+        print(net_model)
+        self.network = net_model(target_label=target_label, in_ch=in_ch)
         # if self.conf_net['trained_file'] != 'None':
         #     print('loading pretrained weights from {}'.format(self.conf_net['trained_file']))
         #     self.net_modelload_state_dict(torch.load(self.conf_net['trained_file']))
 
     def get_mask_dataloader(self, phase='train'):
-        if phase == 'valid':
-            batch_size = self.net_conf['batcg_size']
+        if phase == 'train':
+            batch_size = self.net_conf['batch_size']
             dataset = self.train_dataset
         else:
             batch_size = 1
             dataset = self.valid_dataset
-        return self.__mask_loader__(conf_mask=self.conf_mask, dataset=dataset, batch_size=batch_size,
+        return self.__mask_loader__(conf_mask=self.masker_conf, dataset=dataset, batch_size=batch_size,
                                     num_workers=1, use_gpu=self.net_conf['use_gpu'])
 
     def __mask_loader__(self, conf_mask, dataset, batch_size, num_workers=1, use_gpu=True):
@@ -81,7 +96,8 @@ class masknet_experiment_config(experiment_config):
     def parse_toml(self, file):
         with open(file, 'rb') as fi:
             conf = toml.load(fi)
-            masker_conf = conf['masker_loader']
+            print (conf)
+            masker_conf = conf['mask_loader']
 
             masker_conf['mode'] = masker_conf.get('mode', 'NN')
             masker_conf['nn_model'] = masker_conf.get('nn_model', 'MDUnetDilat')
@@ -128,32 +144,17 @@ class masknet_experiment_config(experiment_config):
                                                 sub_dataset=sub_dataset)
         return train_dataset, valid_dataset
 
-
-def compute_loss(preds, targets):
-    def compute_loss(self, preds, targets):
-        def compute_loss_foreach_label(preds, targets):
-            outputs = {}
-
-            if 'mask' in preds:
-                center_loss = self.mse_loss(preds['mask'], targets['mask'])
-                pred_size = np.prod(preds['mask'].data.shape)
-                outputs['mask_loss'] = center_loss / float(pred_size)
-            return outputs
-
-        outputs = compute_loss_foreach_label(preds, targets)
-        loss = sum(outputs.values())
-        outputs['mask'] = loss
-        return outputs
-
-    loss = dice_loss(preds['mask'], targets['mask'])
-    return loss
-
+    @property
+    def name(self):
+        nstr = self.network.name + '_' \
+               + self.train_dataset.name + '_' \
+               + 'mask_' \
+               + self.data_transform.name
+        return nstr
 
 class masknet_experiment():
-    def __int__(self, masknet_experiment_config):
-
-        self.exp_cfg = experiment_config
-
+    def __init__(self, masknet_experiment_config):
+        self.exp_cfg = masknet_experiment_config
         self.model_saved_dir = self.exp_cfg.net_conf['model_save_dir']
         self.model_save_steps = self.exp_cfg.net_conf['model_save_step']
         self.model = self.exp_cfg.network.float()
@@ -191,7 +192,7 @@ class masknet_experiment():
                                  length=50)
 
             else:
-                loss_str = 'loss : {:.2f}'.format(merged_loss.data[0])
+                loss_str = 'loss : {:.2f}'.format(loss.data[0])
                 # print ('show merged_loss = {}'.format(merged_loss.data))
                 loss_str = loss_str + ', time : {:.2}s'.format(time_elaps)
                 printProgressBar(iters, self.model_save_steps, prefix=iter_str, suffix=loss_str, length=50)
@@ -217,19 +218,20 @@ class masknet_experiment():
                 # target = Variable(targets).flaot()
                 if self.use_gpu:
                     data = data.cuda().float()
-                    targets = dict(map(lambda (k, v): (k, v.cudata().float()), targets.iteritems()))
+                    targets = dict(map(lambda (k, v): (k, v.cuda().float()), targets.iteritems()))
                     # targets = targets.cuda().float()
 
                 self.optimizer.zero_grad()
                 # print ('data shape ={}'.format(data.data[0].shape))
                 preds = self.model(data)
-                loss = compute_loss(preds, targets)
+                losses = self.compute_loss(preds, targets)
+                loss = losses['mask_loss']
                 loss.backward()
                 self.optimizer.step()
 
                 runing_loss += loss.data[0]
                 time_elaps = time.time() - start_time
-                train_losses_acumulator.append_losses(loss)
+                train_losses_acumulator.append_losses(losses)
 
                 steps, iter_str = get_iter_info(i)
 
@@ -268,7 +270,7 @@ class masknet_experiment():
 
             preds = self.model(data)
             losses = self.compute_loss(preds, targets)
-            loss += losses['mask'].data[0]
+            loss += losses['mask_loss'].data[0]
             valid_losses_acumulator.append_losses(losses)
             # loss += self.mse_loss(dist_pred,distance).data[0]
             # label_conf['labels']=label_conf.get('labels',['gradient','sizemap','affinity','centermap','distance'])
@@ -290,6 +292,23 @@ class masknet_experiment():
         model_save_file = self.model_saved_dir + '/' \
                           + '{}_iter_{}.model'.format(self.exp_cfg.name, iters)
         return model_save_file
+
+    def compute_loss(self,preds, targets):
+        def compute_loss_foreach_label(preds, targets):
+            outputs = {}
+            #print(preds.keys())
+            if 'mask' in preds:
+                d_loss = dice_loss(preds['mask'], targets['mask'])
+                outputs['mask_loss'] = d_loss
+                #pred_size = np.prod(preds['mask'].data.shape)
+                #outputs['mask_loss'] = dice_loss / float(pred_size)
+            return outputs
+
+        outputs = compute_loss_foreach_label(preds, targets)
+        loss = sum(outputs.values())
+        outputs['merged_loss'] = loss
+        #print(outputs.keys())
+        return outputs
 
 
 class losses_acumulator():
@@ -325,15 +344,13 @@ class tensorBoardWriter():
     def wirte_model_graph(self, model, lastvar):
         self.writer.add_graph(model, lastvar)
 
-    def write(self, iters, train_loss, valid_loss, data, preds, targets):
-        # for key, value in train_loss_dict.iteritems():
-        #     self.writer.add_scalar('train_loss/{}'.format(key), value, iters)
-        #
-        # for key, value in valid_loss_dict.iteritems():
-        #     self.writer.add_scalar('valid_loss/{}'.format(key), value, iters)
-        self.writer.add_scalar('train_loss', train_loss, iters)
-        self.writer.add_scalar('valid_loss', vaid_loss, iters)
-
+    def write(self, iters, train_losses, valid_losses, data, preds, targets):
+        for key, value in train_losses.iteritems():
+            self.writer.add_scalar('train_loss/{}'.format(key), value, iters)
+        
+        for key, value in valid_losses.iteritems():
+            self.writer.add_scalar('valid_loss/{}'.format(key), value, iters)
+       
         self.write_images(preds, 'pred', iters)
         self.write_images(targets, 'targets', iters)
 
@@ -350,8 +367,9 @@ class tensorBoardWriter():
 
     def write_images(self, output, name, iters):
 
-        if isinstance(output, Variable):
-            im = output.data
+        im = output['mask']
+        if isinstance(im, Variable):
+            im = im.data
         im2 = np.squeeze(im.cpu().numpy())
         if im2.ndim == 2:
             im2 = np.expand_dims(im2, 0)
@@ -359,3 +377,5 @@ class tensorBoardWriter():
         im = torch.FloatTensor(np.stack(im2, axis=0))
         im = vutils.make_grid(im, normalize=True, scale_each=True)
         self.writer.add_image(name, im, iters)
+
+

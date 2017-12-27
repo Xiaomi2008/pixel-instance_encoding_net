@@ -512,6 +512,18 @@ class MdecoderUnet_withDilatConv(nn.Module):
         return 'MdecoderUnetDilatConv' + '_in_{}_chs'.format(self.in_ch)
 
 
+class MaskMdecoderUnet_withDilatConv(MdecoderUnet_withDilatConv):
+    def __init(self,**kwarg):
+        super(MaskMdecoderUnet_withDilatConv,self).__init__(**kwarg)
+    def forword(self,x):
+        encoder_outputs = self.encoder(x)
+        outputs = {}
+        for name, decoder in self.decoders.iteritems():
+            outputs[name] = torch.sigmoid(decoder(encoder_outputs))
+        return outputs
+
+
+
 class Mdecoder2Unet_withDilatConv(nn.Module):
     def __init__(self, mnet=None, freeze_net1=False, target_label={'unassigned': 1}, in_ch=3, out_ch=1, first_out_ch=16, \
                  number_bolck=4, num_conv_in_block=2, ch_change_rate=2, kernel_size=3):

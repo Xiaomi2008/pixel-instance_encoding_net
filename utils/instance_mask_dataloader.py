@@ -66,7 +66,7 @@ class NN_proc_DataLoaderIter(Proc_DataLoaderIter):
         # print('Mask_gt shape ={}'.format(Mask_gt.shape) )
         #input_data = torch.cat([input_data, Mask_in, pred_seg], dim=1)
         input_data = torch.cat([input_data, Mask_in], dim=1)
-        targets['mask'] = Mask_in
+        targets['mask'] = Mask_gt
         return input_data, targets
 
     next = __next__  # ''' Compatible with Pyton 2.x '''
@@ -208,7 +208,7 @@ class CRIME_Dataset_3D_labels(CRIME_Dataset):
                  subtract_mean=True,
                  phase='train',
                  transform=None,
-                 data_config='../conf/cremi_datasets.toml'):
+                 data_config='conf/cremi_datasets_with_tflabels.toml'):
         super(CRIME_Dataset_3D_labels, self).__init__(sub_dataset=sub_dataset,
                                                       out_patch_size=out_patch_size,
                                                       subtract_mean=subtract_mean,
@@ -327,7 +327,7 @@ def test(masker):
                                       subtract_mean=True,
                                       phase='train',
                                       transform=transform,
-                                      data_config='../conf/cremi_datasets_with_tflabels.toml')
+                                      data_config='conf/cremi_datasets_with_tflabels.toml')
 
     if masker == 'GT_Mask':
         data_loader = instance_mask_GTproc_DataLoader(dataset=dataset,

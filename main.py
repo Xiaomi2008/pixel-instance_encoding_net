@@ -1,7 +1,7 @@
 import os
 import argparse
 from experiment import experiment_config, experiment
-from MaskNet_experiment import masknet_experiment, m
+from MaskNet_experiment import masknet_experiment, masknet_experiment_config
 
 
 def main():
@@ -23,8 +23,9 @@ def main():
         exp_obj.train()
         exp_obj.predict()
     elif args.action == 'Train_mask':
-        exp_obj.train
-
+        exp_cfg = masknet_experiment_config(args.exp_cfg)
+        exp_obj = masknet_experiment(exp_cfg)
+        exp_obj.train()
 
 if __name__ == '__main__':
     # configure which gpu or cpu to use
