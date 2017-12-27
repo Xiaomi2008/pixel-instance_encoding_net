@@ -24,12 +24,17 @@ from torch_networks.networks import Unet, DUnet, MdecoderUnet, Mdecoder2Unet, \
 class Proc_DataLoaderIter(DataLoaderIter):
     def __init__(self, loader):
         super(Proc_DataLoaderIter, self).__init__(loader)
+        self.label_cat_in = loader.label_cat_in
 
     def __make_input_data__(self, data, preds):
         '''we can concate preds into data as etra channels
            for noew, we just return data
 	 	'''
-        return data
+        concat_preds_with_input = []
+        for k in self.label_cat_in:
+            concat_preds_with_input.append(preds[k])
+        concat_preds_with_input.append(data)
+        return torch.cat(concat_preds_with_input, dim=1)
 
 
 class NN_proc_DataLoaderIter(Proc_DataLoaderIter):
@@ -64,7 +69,7 @@ class NN_proc_DataLoaderIter(Proc_DataLoaderIter):
         # print('input_data shape ={}'.format(input_data.shape) )
         # print('Mask_in shape ={}'.format(Mask_in.shape) )
         # print('Mask_gt shape ={}'.format(Mask_gt.shape) )
-        #input_data = torch.cat([input_data, Mask_in, pred_seg], dim=1)
+        # input_data = torch.cat([input_data, Mask_in, pred_seg], dim=1)
         input_data = torch.cat([input_data, Mask_in], dim=1)
         targets['mask'] = Mask_gt
         return input_data, targets
@@ -133,7 +138,7 @@ class GT_proc_DataLoaderIter(Proc_DataLoaderIter):
         # input_data      = torch.cat([input_data,Mask_in],dim =1)
         # input_data      = torch.cat([input_data,Mask_in,pred_seg],dim =1)
         # pdb.set_trace()
-        #input_data = torch.cat([input_data, Mask_in, seg_label.float()], dim=1)
+        # input_data = torch.cat([input_data, Mask_in, seg_label.float()], dim=1)
         input_data = torch.cat([input_data, Mask_in], dim=1)
         targets['mask'] = Mask_gt
         return input_data, targets
@@ -168,8 +173,11 @@ class GT_proc_DataLoaderIter(Proc_DataLoaderIter):
 
 
 class instance_mask_Dataloader(DataLoader):
-    def __init__(self, **kwargs):
+    def __init__(self, label_cat_in, **kwargs):
         super(instance_mask_Dataloader, self).__init__(**kwargs)
+        self.label_cat_in = label_cat_in
+        dataset = kwargs['dataset']
+        self.dataset_output_labels = dataset.output_labels()
 
         # def __iter__(self):
         '''subclass should return different Dataloaderiter'''
@@ -182,8 +190,8 @@ class instance_mask_Dataloader(DataLoader):
 
 
 class instance_mask_NNproc_DataLoader(instance_mask_Dataloader):
-    def __init__(self, nn_model, use_gpu=False, **kwargs):
-        super(instance_mask_NNproc_DataLoader, self).__init__(**kwargs)
+    def __init__(self, label_cat_in, nn_model, use_gpu=False, **kwargs):
+        super(instance_mask_NNproc_DataLoader, self).__init__(lable_cat_in, **kwargs)
         self.nn_model = nn_model
         self.nn_model_use_gpu = use_gpu
 
@@ -192,8 +200,8 @@ class instance_mask_NNproc_DataLoader(instance_mask_Dataloader):
 
 
 class instance_mask_GTproc_DataLoader(instance_mask_Dataloader):
-    def __init__(self, **kwargs):
-        super(instance_mask_GTproc_DataLoader, self).__init__(**kwargs)
+    def __init__(self, label_cat_in, **kwargs):
+        super(instance_mask_GTproc_DataLoader, self).__init__(label_cat_in, **kwargs)
 
     # self.CRIME_Dataset_3D = CRIME_Dataset_3D_labels(kwargs)
     # self.data_loader = DataLoader
@@ -237,9 +245,9 @@ class CRIME_Dataset_3D_labels(CRIME_Dataset):
                 lb_dict[k] = torch.cat([slice_tgDict_list[i][k] for i in range(len(slice_seg_list))], dim=0)
             return lb_dict
 
-    def output_labels(self):
-        ''' output: diction, Key = name of label, value = channel of output '''
-        return {'mask': 3}
+    # def output_labels(self):
+    #     ''' output: diction, Key = name of label, value = channel of output '''
+    #     return {'mask': 3}
 
 
 def watershed_seg2D(distance):
@@ -275,7 +283,7 @@ def find_max_coverage_id(mask, seg):
     # print('seg shape ={}'.format(seg.shape))
     bool_mask = mask.astype(np.bool)
     converted_ids = seg[bool_mask]
-    unique_ids, count = np.unique(converted_ids, return_counts = True)
+    unique_ids, count = np.unique(converted_ids, return_counts=True)
     # print(unique_ids)
     idex = np.argmax(count)
     return unique_ids[idex]

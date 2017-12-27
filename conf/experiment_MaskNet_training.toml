@@ -6,6 +6,11 @@ mode = 'GT'
 nn_model = 'Mdecoder2Unet_withDilatConv'
 nn_weight_file = 'model/Mdecoder2Unet_withDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_freeze_net1=True_iter_32499.model'
 use_gpu    = true
+labels_cat_in = ['affinity',
+            'sizemap',
+            'centermap',
+            'gradient',
+            'final']
 
 [network]
 model = 'MaskMDnetDialat'

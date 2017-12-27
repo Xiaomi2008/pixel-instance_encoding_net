@@ -4,7 +4,7 @@ from experiment import experiment, experiment_config
 from utils.instance_mask_dataloader \
     import CRIME_Dataset_3D_labels, instance_mask_GTproc_DataLoader, instance_mask_NNproc_DataLoader
 from torch_networks.networks import Unet, DUnet, MdecoderUnet, Mdecoder2Unet, \
-     MdecoderUnet_withDilatConv, Mdecoder2Unet_withDilatConv, MaskMdecoderUnet_withDilatConv
+    MdecoderUnet_withDilatConv, Mdecoder2Unet_withDilatConv, MaskMdecoderUnet_withDilatConv
 from utils.torch_loss_functions import *
 from utils.printProgressBar import printProgressBar
 from torch.autograd import Variable
@@ -41,19 +41,21 @@ class masknet_experiment_config(experiment_config):
 
         target_label = self.train_dataset.output_labels()
 
-        in_ch = self.net_conf['patch_size'][2]+1
+        # in_ch = self.net_conf['patch_size'][2]+ sum(self.train_dataset.output_labels().values())
 
-
-        print(in_ch)
-        print(self.net_conf['model'])
-        print(target_label)
+        in_ch = self.net_conf['patch_size'][2] + self.masker_out_chs
 
         net_model = self.aviable_networks_dict[self.net_conf['model']]
         print(net_model)
         self.network = net_model(target_label=target_label, in_ch=in_ch)
-        # if self.conf_net['trained_file'] != 'None':
-        #     print('loading pretrained weights from {}'.format(self.conf_net['trained_file']))
-        #     self.net_modelload_state_dict(torch.load(self.conf_net['trained_file']))
+
+    @property
+    def masker_out_chs(self):
+        out_lable_dict_from_dataset = self.train_dataset.output_labels()
+        ch_count = 0
+        for lb in self.masker_conf['labels_cat_in']:
+            ch_count += out_lable_dict_from_dataset[lb]
+        return ch_count
 
     def get_mask_dataloader(self, phase='train'):
         if phase == 'train':
@@ -62,15 +64,18 @@ class masknet_experiment_config(experiment_config):
         else:
             batch_size = 1
             dataset = self.valid_dataset
-        return self.__mask_loader__(conf_mask=self.masker_conf, dataset=dataset, batch_size=batch_size,
-                                    num_workers=1, use_gpu=self.net_conf['use_gpu'])
+        return self.__mask_loader__(conf_mask=self.masker_conf,
+                                    dataset=dataset,
+                                    batch_size=batch_size,
+                                    num_workers=1,
+                                    use_gpu=self.net_conf['use_gpu'])
 
     def __mask_loader__(self, conf_mask, dataset, batch_size, num_workers=1, use_gpu=True):
-        # type: (dict, dataset, int, int, bool) -> data_loader
         mode = conf_mask['mode']
         assert (mode == 'GT' or mode == 'NN')
         if mode == 'GT':
-            data_loader = instance_mask_GTproc_DataLoader(dataset=dataset,
+            data_loader = instance_mask_GTproc_DataLoader(abel_cat_in=conf_mask['labels_cat_in'],
+                                                          dataset=dataset,
                                                           batch_size=batch_size,
                                                           shuffle=True,
                                                           num_workers=num_workers)
@@ -84,7 +89,8 @@ class masknet_experiment_config(experiment_config):
             #     '../model/Mdecoder2Unet_withDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance' \
             #     '-gradient_VFlip-HFlip-Rot90_freeze_net1=True_iter_32499.model'
             nn_model.load_state_dict(torch.load(pre_trained_weights))
-            data_loader = instance_mask_NNproc_DataLoader(nn_model=nn_model,
+            data_loader = instance_mask_NNproc_DataLoader(label_cat_in=conf_mask['labels_cat_in'],
+                                                          nn_model=nn_model,
                                                           use_gpu=use_gpu,
                                                           dataset=dataset,
                                                           batch_size=batch_size,
@@ -151,6 +157,7 @@ class masknet_experiment_config(experiment_config):
                + 'mask_' \
                + self.data_transform.name
         return nstr
+
 
 class masknet_experiment():
     def __init__(self, masknet_experiment_config):
@@ -251,7 +258,6 @@ class masknet_experiment():
                     # loss_str =  loss_str + ', time : {:.2}s'.format(elaps_time)
                     # printProgressBar(steps, self.model_save_steps, prefix = iters, suffix = loss_str, length = 50)
 
-
     def valid(self):
         # from torchvision.utils import save_image
         valid_losses_acumulator = losses_acumulator()
@@ -262,11 +268,11 @@ class masknet_experiment():
             # print data.shape
             data = Variable(data).float()
             targets = dict(map(lambda (k, v): (k, Variable(v)), targets.iteritems()))
-            #targets = self.make_variable(targets)
+            # targets = self.make_variable(targets)
             if self.use_gpu:
                 data = data.cuda().float()
-                targets = dict(map(lambda (k, v): (k, v.cuda().float()),targets.iteritems()))
-                #targets = self.make_cuda_data(targets)
+                targets = dict(map(lambda (k, v): (k, v.cuda().float()), targets.iteritems()))
+                # targets = self.make_cuda_data(targets)
 
             preds = self.model(data)
             losses = self.compute_loss(preds, targets)
@@ -282,7 +288,6 @@ class masknet_experiment():
         print (' valid loss : {:.2f}'.format(loss))
         return valid_losses_acumulator.get_ave_losses(), (data, preds, targets)
 
-
     def save_model(self, iters):
         model_save_file = self.get_model_save_filename(iters)
         torch.save(self.model.state_dict(), model_save_file)
@@ -293,21 +298,21 @@ class masknet_experiment():
                           + '{}_iter_{}.model'.format(self.exp_cfg.name, iters)
         return model_save_file
 
-    def compute_loss(self,preds, targets):
+    def compute_loss(self, preds, targets):
         def compute_loss_foreach_label(preds, targets):
             outputs = {}
-            #print(preds.keys())
+            # print(preds.keys())
             if 'mask' in preds:
                 d_loss = dice_loss(preds['mask'], targets['mask'])
                 outputs['mask_loss'] = d_loss
-                #pred_size = np.prod(preds['mask'].data.shape)
-                #outputs['mask_loss'] = dice_loss / float(pred_size)
+                # pred_size = np.prod(preds['mask'].data.shape)
+                # outputs['mask_loss'] = dice_loss / float(pred_size)
             return outputs
 
         outputs = compute_loss_foreach_label(preds, targets)
         loss = sum(outputs.values())
         outputs['merged_loss'] = loss
-        #print(outputs.keys())
+        # print(outputs.keys())
         return outputs
 
 
@@ -347,10 +352,10 @@ class tensorBoardWriter():
     def write(self, iters, train_losses, valid_losses, data, preds, targets):
         for key, value in train_losses.iteritems():
             self.writer.add_scalar('train_loss/{}'.format(key), value, iters)
-        
+
         for key, value in valid_losses.iteritems():
             self.writer.add_scalar('valid_loss/{}'.format(key), value, iters)
-       
+
         self.write_images(preds, 'pred', iters)
         self.write_images(targets, 'targets', iters)
 
@@ -377,5 +382,3 @@ class tensorBoardWriter():
         im = torch.FloatTensor(np.stack(im2, axis=0))
         im = vutils.make_grid(im, normalize=True, scale_each=True)
         self.writer.add_image(name, im, iters)
-
-
