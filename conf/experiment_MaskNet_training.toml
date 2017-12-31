@@ -1,6 +1,6 @@
 [mask_loader]
 # options {'GT' , 'NN'}. 'GT' mask create based on ground truth, 'NN' based on segmentation created by 2D CNN
-mode = 'GT'
+mode = 'NN'
 
 # which network model to use to generate segmentation/ mask
 nn_model = 'Mdecoder2Unet_withDilatConv'
@@ -14,18 +14,25 @@ labels_cat_in = ['affinity',
 
 [network]
 model = 'MaskMDnetDialat'
+#model ='GCN'
 model_save_dir = 'model'
 load_train_iter = 0
-#trained_file  = 'model/MdecoderUnetDilatConv_in_5_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_iter_9099.model'
+#trained_file  = 'model/NN_MdecoderUnetDilatConv_in_11_chs_Dataset-CRIME-All_mask_VFlip-HFlip-Rot90_iter_2479.model'
+#trained_file ='model/NN_MdecoderUnetDilatConv_in_11_chs_Dataset-CRIME-All_mask_bce_loss_VFlip-HFlip-Rot90_iter_4399.model'
 model_save_step = 200
-batch_size      = 10
+batch_size      = 5
 patch_size      = [320,320,3]
 use_gpu         = true
+valid_iters     = 150
 #MaskMDnetDialat
 
 [train]
 learning_rate   = 0.01
-tensorboard_folder = 'runs/dialet_mask_unet_3ch_320x320'
+tensorboard_folder = 'runs/mask_DialetUnet_3ch_320x320_MASK_BCELoss_first_ch=32'
+loss_fn = 'mask_bce'
+#option {bce, dice, mse,bce_logit,mask_bce}
+optimizer = 'Adagrad'
+#option{'SGD','Adagrad'}
 
 [dataset]
 sub_dataset = 'All'

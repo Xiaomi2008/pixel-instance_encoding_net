@@ -1,5 +1,5 @@
 import os, sys
-
+import pdb
 sys.path.append('../')
 # import pdb
 import numpy as np
@@ -30,9 +30,12 @@ class Proc_DataLoaderIter(DataLoaderIter):
         '''we can concate preds into data as etra channels
            for noew, we just return data
 	 	'''
+
+        #print('preds keys = {}'.format(preds.keys()))
         concat_preds_with_input = []
         for k in self.label_cat_in:
             concat_preds_with_input.append(preds[k])
+            #print('{} shape  = {}'.format(k,preds[k].shape))
         concat_preds_with_input.append(data)
         return torch.cat(concat_preds_with_input, dim=1)
 
@@ -132,13 +135,6 @@ class GT_proc_DataLoaderIter(Proc_DataLoaderIter):
         input_data = self.__make_input_data__(data, targets)
         Mask_in = torch.from_numpy(Mask_in).float()
         Mask_gt = torch.from_numpy(Mask_gt).float()
-
-        # print ('input shape ={}'.format(input_data.shape))
-        # print('Mask_in shape ={}'.format(Mask_in.shape))
-        # input_data      = torch.cat([input_data,Mask_in],dim =1)
-        # input_data      = torch.cat([input_data,Mask_in,pred_seg],dim =1)
-        # pdb.set_trace()
-        # input_data = torch.cat([input_data, Mask_in, seg_label.float()], dim=1)
         input_data = torch.cat([input_data, Mask_in], dim=1)
         targets['mask'] = Mask_gt
         return input_data, targets
@@ -191,7 +187,7 @@ class instance_mask_Dataloader(DataLoader):
 
 class instance_mask_NNproc_DataLoader(instance_mask_Dataloader):
     def __init__(self, label_cat_in, nn_model, use_gpu=False, **kwargs):
-        super(instance_mask_NNproc_DataLoader, self).__init__(lable_cat_in, **kwargs)
+        super(instance_mask_NNproc_DataLoader, self).__init__(label_cat_in, **kwargs)
         self.nn_model = nn_model
         self.nn_model_use_gpu = use_gpu
 
@@ -232,6 +228,8 @@ class CRIME_Dataset_3D_labels(CRIME_Dataset):
 		the network only output the prediction of sigle slice in the center of Z dim'''
         tc_data = torch.from_numpy(data).float()
         tc_label_dict = self.gen_label_per_slice(seg_label)
+        # for k,v in tc_label_dict.iteritems():
+        #     print( '{} shape = {}'.format(k,v.shape))
         return tc_data, seg_label, tc_label_dict
 
     def gen_label_per_slice(self, seg):
@@ -242,7 +240,15 @@ class CRIME_Dataset_3D_labels(CRIME_Dataset):
             slice_tgDict_list = self.label_generator(*slice_seg_list)
             lb_dict = {}
             for k in slice_tgDict_list[0].keys():
-                lb_dict[k] = torch.cat([slice_tgDict_list[i][k] for i in range(len(slice_seg_list))], dim=0)
+                data_list  =[]
+                for i in range(len(slice_seg_list)):
+                    d  = slice_tgDict_list[i][k]
+                    if d.dim() ==2:
+                        d =torch.unsqueeze(d,0)
+                    assert(d.dim() ==3)
+                    data_list.append(d)
+                lb_dict[k] = torch.cat(data_list,dim =0)
+                #lb_dict[k] = torch.cat([slice_tgDict_list[i][k] for i in range(len(slice_seg_list))], dim=0)
             return lb_dict
 
     # def output_labels(self):
@@ -335,10 +341,11 @@ def test(masker):
                                       subtract_mean=True,
                                       phase='train',
                                       transform=transform,
-                                      data_config='conf/cremi_datasets_with_tflabels.toml')
+                                      data_config='../conf/cremi_datasets_with_tflabels.toml')
 
     if masker == 'GT_Mask':
-        data_loader = instance_mask_GTproc_DataLoader(dataset=dataset,
+        data_loader = instance_mask_GTproc_DataLoader(label_cat_in=['affinity','final','gradient'],
+                                                      dataset=dataset,
                                                       batch_size=10,
                                                       shuffle=True,
                                                       num_workers=1)
@@ -350,7 +357,8 @@ def test(masker):
             '../model/Mdecoder2Unet_withDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance' \
             '-gradient_VFlip-HFlip-Rot90_freeze_net1=True_iter_32499.model'
         nn_model.load_state_dict(torch.load(pre_trained_weights))
-        data_loader = instance_mask_NNproc_DataLoader(nn_model=nn_model,
+        data_loader = instance_mask_NNproc_DataLoader(label_cat_in = ['affinity','distance','gradient'],
+                                                      nn_model=nn_model,
                                                       use_gpu=True,
                                                       dataset=dataset,
                                                       batch_size=1,
@@ -364,9 +372,11 @@ def test(masker):
         end_time = time.time() - start_time
 
         print('time  = {:2} s'.format(end_time))
-        print('size of obj = {}'.format(torch.sum(mask_target)))
+        print('maks keys = {}'.format(mask_target.keys()))
 
-        view_output(input_data, mask_target)
+        print('input_data shape = {}'.format(input_data.shape))
+
+        #view_output(input_data, mask_target)
         start_time = time.time()
 
         if i > 20:
@@ -374,4 +384,4 @@ def test(masker):
 
 
 if __name__ == '__main__':
-    test(masker='NN_Mask')
+    test(masker='GT_Mask')

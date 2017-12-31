@@ -180,13 +180,13 @@ class Upblock(nn.Module):
     def build_layer_block(self):
         layers = []
         same_padding = self.kernel_size // 2
-        print (self.num_conv)
+        #print (self.num_conv)
         for i in range(self.num_conv):
             if i == 0:
                 out_ch = self.in_ch // self.ch_down_rate
             else:
                 self.in_ch = out_ch
-            print(self.in_ch, self.kernel_size, same_padding)
+            #print(self.in_ch, self.kernel_size, same_padding)
             layers.append(nn.Conv2d(self.in_ch, out_ch, kernel_size=self.kernel_size, padding=same_padding))
             layers.append(nn.BatchNorm2d(out_ch))
             layers.append(nn.ReLU6())

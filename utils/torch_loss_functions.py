@@ -17,15 +17,15 @@ def l2_norm(x):
     return x / sqrt_x
 
 
-def dice_loss(input, target):
-    smooth = 1.0
+# def dice_loss(input, target):
+#     smooth = 1.0
 
-    iflat = input.view(-1)
-    tflat = target.view(-1)
-    intersection = (iflat * tflat).sum()
+#     iflat = input.view(-1)
+#     tflat = target.view(-1)
+#     intersection = (iflat * tflat).sum()
 
-    return 1.0 - (((2. * intersection + smooth) /
-                   (iflat.sum() + tflat.sum() + smooth)))
+#     return 1.0 - (((2. * intersection + smooth) /
+#                    (iflat.sum() + tflat.sum() + smooth)))
 
 
 def weighted_mse_loss(input, target, weight):
@@ -49,6 +49,53 @@ def angularLoss(pred, gt, weight=0, outputChannels=2):
     angle_err = torch.acos(prod_sum)
     loss = torch.sum(angle_err * angle_err)
     return loss
+class DiceLoss(nn.Module):
+    def __init__(self):
+            super(DiceLoss,self).__init__()
+
+    def forward(self, input, target):
+            smooth = 5.0
+            iflat = input.view(-1)
+            tflat = target.view(-1)
+            intersection = (iflat * tflat).sum()
+            return 1.0 - (((2. * intersection + smooth) /
+                   (iflat.sum() + tflat.sum() + smooth)))
+
+class StableBCELoss(nn.Module):
+       def __init__(self):
+             super(StableBCELoss, self).__init__()
+       def forward(self, input, target):
+             neg_abs = - input.abs()
+             loss = input.clamp(min=0) - input * target + (1 + neg_abs.exp()).log()
+             return loss.mean()
+
+
+def StableBalancedMaskedBCE(out, target, balance_weight = None):
+    """
+    Args:
+        target: A Variable containing a LongTensor of size
+            (batch, N) which contains the true binary mask.
+        out: A Variable containing a FloatTensor of size
+            (batch, N) which contains the logits for each pixel in the output mask.
+        sw: A Variable containing a LongTensor of size (batch,)
+            which contains the mask to apply to each element in a batch.
+    Returns:
+        loss: Sum of losses with applied sample weight
+    """
+    if balance_weight is None:
+        num_positive = target.sum()
+        num_negative = (1 - target).sum()
+        total = num_positive + num_negative
+        balance_weight = num_positive / total
+
+    max_val = (-out).clamp(min=0)
+    # bce with logits
+    loss_values =  out - out * target + max_val + ((-max_val).exp() + (-out - max_val).exp()).log()
+    loss_positive = loss_values*target
+    loss_negative = loss_values*(1-target)
+    losses = (1-balance_weight)*loss_positive + balance_weight*loss_negative
+
+    return losses.squeeze().mean()
 
 
 # Recommend

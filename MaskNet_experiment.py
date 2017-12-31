@@ -5,6 +5,7 @@ from utils.instance_mask_dataloader \
     import CRIME_Dataset_3D_labels, instance_mask_GTproc_DataLoader, instance_mask_NNproc_DataLoader
 from torch_networks.networks import Unet, DUnet, MdecoderUnet, Mdecoder2Unet, \
     MdecoderUnet_withDilatConv, Mdecoder2Unet_withDilatConv, MaskMdecoderUnet_withDilatConv
+from torch_networks.gcn import GCN
 from utils.torch_loss_functions import *
 from utils.printProgressBar import printProgressBar
 from torch.autograd import Variable
@@ -12,6 +13,7 @@ import time
 import torchvision.utils as vutils
 from tensorboardX import SummaryWriter
 import numpy as np
+import pdb
 # from matplotlib import pyplot as plt
 import matplotlib
 from matplotlib import pyplot as plt
@@ -31,7 +33,9 @@ class masknet_experiment_config(experiment_config):
         self.aviable_networks_dict = \
             {'Unet': Unet, 'DUnet': DUnet, 'MDUnet': MdecoderUnet,
              'MDUnetDilat': MdecoderUnet_withDilatConv, \
-             'MaskMDnetDialat': MaskMdecoderUnet_withDilatConv}
+             'MaskMDnetDialat': MaskMdecoderUnet_withDilatConv,
+             'Mdecoder2Unet_withDilatConv': Mdecoder2Unet_withDilatConv,
+             'GCN': GCN}
 
         self.data_transform = self.data_Transform(self.data_aug_conf['transform'])
         # self.label_generator = self.label_Generator()
@@ -39,21 +43,26 @@ class masknet_experiment_config(experiment_config):
         self.train_dataset, self.valid_dataset \
             = self.dataset(self.net_conf['patch_size'], self.data_transform)
 
-        target_label = self.train_dataset.output_labels()
+       #target_label = self.train_dataset.output_labels()
 
         # in_ch = self.net_conf['patch_size'][2]+ sum(self.train_dataset.output_labels().values())
 
-        in_ch = self.net_conf['patch_size'][2] + self.masker_out_chs
+        ''' total output channel is consisted of z patch( =3), 1 object mask channel, and total channels of predicted label'''
+        in_ch = self.net_conf['patch_size'][2] +1 + self.masker_out_chs
+
+        #print('mask_out_chs = {}',self.masker_out_chs)
 
         net_model = self.aviable_networks_dict[self.net_conf['model']]
         print(net_model)
-        self.network = net_model(target_label=target_label, in_ch=in_ch)
+        self.network = net_model(target_label={'mask': 3}, in_ch=in_ch,BatchNorm_final=False,first_out_ch=32)
 
     @property
     def masker_out_chs(self):
         out_lable_dict_from_dataset = self.train_dataset.output_labels()
         ch_count = 0
         for lb in self.masker_conf['labels_cat_in']:
+            if lb == 'final':
+                lb = 'distance'
             ch_count += out_lable_dict_from_dataset[lb]
         return ch_count
 
@@ -72,9 +81,13 @@ class masknet_experiment_config(experiment_config):
 
     def __mask_loader__(self, conf_mask, dataset, batch_size, num_workers=1, use_gpu=True):
         mode = conf_mask['mode']
+
+        #print(conf_mask)
         assert (mode == 'GT' or mode == 'NN')
+
+        #print ('mode = {}'.format(mode))
         if mode == 'GT':
-            data_loader = instance_mask_GTproc_DataLoader(abel_cat_in=conf_mask['labels_cat_in'],
+            data_loader = instance_mask_GTproc_DataLoader(label_cat_in=conf_mask['labels_cat_in'],
                                                           dataset=dataset,
                                                           batch_size=batch_size,
                                                           shuffle=True,
@@ -82,7 +95,7 @@ class masknet_experiment_config(experiment_config):
         elif mode == 'NN':
             data_out_labels = dataset.output_labels()
             nn_model = self.aviable_networks_dict[conf_mask['nn_model']]
-            in_ch = batch_size[2]
+            in_ch = self.net_conf['patch_size'][2]
             nn_model = nn_model(target_label=data_out_labels, in_ch=in_ch).float()
             pre_trained_weights = conf_mask['nn_weight_file']
             # pre_trained_weights = \
@@ -152,9 +165,11 @@ class masknet_experiment_config(experiment_config):
 
     @property
     def name(self):
-        nstr = self.network.name + '_' \
+        nstr = self.masker_conf['mode'] + '_' \
+               + self.network.name + '_' \
                + self.train_dataset.name + '_' \
                + 'mask_' \
+               + '{}_loss_'.format(self.train_conf['loss_fn']) \
                + self.data_transform.name
         return nstr
 
@@ -180,10 +195,16 @@ class masknet_experiment():
         if not os.path.exists(self.model_saved_dir):
             os.mkdir(self.model_saved_dir)
 
-        # self.mse_loss = torch.nn.MSELoss()
+       
         # self.bce_loss = torch.nn.BCELoss()
         # self.dice_loss =
         self.optimizer = self.exp_cfg.optimizer(self.model)
+        self.bce_loss = StableBCELoss()
+        self.bce_logit_loss=torch.nn.BCEWithLogitsLoss()
+        self.dice_loss = DiceLoss()
+        self.mse_loss = torch.nn.MSELoss()
+        self.mask_bce_loss = StableBalancedMaskedBCE
+        #self.bce_loss = torch.nn.BCELoss()
 
     def train(self):
         # set model to the train mode
@@ -235,7 +256,6 @@ class masknet_experiment():
                 loss = losses['mask_loss']
                 loss.backward()
                 self.optimizer.step()
-
                 runing_loss += loss.data[0]
                 time_elaps = time.time() - start_time
                 train_losses_acumulator.append_losses(losses)
@@ -263,7 +283,8 @@ class masknet_experiment():
         valid_losses_acumulator = losses_acumulator()
         valid_loader = self.exp_cfg.get_mask_dataloader('valid')
         loss = 0.0
-        iters = 120
+        iters = self.exp_cfg.net_conf['valid_iters']
+        self.model.eval()
         for i, (data, targets) in enumerate(valid_loader, 0):
             # print data.shape
             data = Variable(data).float()
@@ -301,10 +322,22 @@ class masknet_experiment():
     def compute_loss(self, preds, targets):
         def compute_loss_foreach_label(preds, targets):
             outputs = {}
-            # print(preds.keys())
+            #print(preds.keys())
+            loss_func_dict ={'dice':self.dice_loss,'bce': self.bce_loss, 
+                            'mse': self.mse_loss,'bce_logit': self.bce_logit_loss,
+                            'mask_bce': self.mask_bce_loss}
+
+            my_loss=loss_func_dict[self.exp_cfg.train_conf['loss_fn']]
             if 'mask' in preds:
-                d_loss = dice_loss(preds['mask'], targets['mask'])
-                outputs['mask_loss'] = d_loss
+                
+                #d_loss = dice_loss(preds['mask'], targets['mask'])
+                d_loss = my_loss(preds['mask'], targets['mask'])
+                #d_loss = self.bce_loss(preds['mask'], targets['mask'])
+                #pred_size = np.prod(preds['mask'].data.shape)
+                outputs['mask_loss'] = d_loss 
+                #/ float(pred_size)
+
+                #outputs['mask_loss'] = d_loss
                 # pred_size = np.prod(preds['mask'].data.shape)
                 # outputs['mask_loss'] = dice_loss / float(pred_size)
             return outputs
@@ -356,19 +389,52 @@ class tensorBoardWriter():
         for key, value in valid_losses.iteritems():
             self.writer.add_scalar('valid_loss/{}'.format(key), value, iters)
 
-        self.write_images(preds, 'pred', iters)
-        self.write_images(targets, 'targets', iters)
 
+        pred_mask = preds['mask']
+        self.write_ch_slice_images(pred_mask,'preds',iters)
+
+        targ_mask = targets['mask']
+        self.write_ch_slice_images(targ_mask,'targets',iters)
+
+
+        self.write_ch_slice_images(data,'inputs',iters)
+
+
+
+        # self.write_images(preds, 'pred', iters)
+        # self.write_images(targets, 'targets', iters)
+
+        # if isinstance(data, Variable):
+        #     data = data.data
+        # z_dim = data.shape[1]
+
+
+
+        # raw_im_list = []
+        # for i in range(z_dim):
+        #     raw_im_list.append(data[:, i, :, :])
+        # raw_images = torch.stack(raw_im_list, dim=0)
+        # raw_im = vutils.make_grid(raw_images, normalize=True, scale_each=True)
+        # #print('raw_im shape = {}'.format(raw_im.shape))
+        # self.writer.add_image('raw_{}'.format(i), raw_im, iters)
+
+    def write_ch_slice_images(self, data, name, iters):
         if isinstance(data, Variable):
             data = data.data
         z_dim = data.shape[1]
-        raw_im_list = []
-        for i in range(max(1, z_dim - 3 + 1)):
-            raw_im_list.append(data[:, i:i + 3, :, :])
-        raw_images = torch.cat(raw_im_list, dim=0)
 
-        raw_im = vutils.make_grid(raw_images, normalize=True, scale_each=True)
-        self.writer.add_image('raw_{}'.format(i), raw_im, iters)
+
+
+        raw_im_list = []
+        for i in range(z_dim):
+            im = data[:, i, :, :]
+            if torch.max(im) - torch.min(im) > 0:
+                raw_im_list.append(im)
+        raw_images = torch.stack(raw_im_list, dim=0)
+        raw_im = vutils.make_grid(raw_images,normalize =True, scale_each=True)
+        #raw_im = vutils.make_grid(raw_images, normalize=True, scale_each=True)
+        #print('raw_im shape = {}'.format(raw_im.shape))
+        self.writer.add_image(name, raw_im, iters)
 
     def write_images(self, output, name, iters):
 

@@ -49,13 +49,16 @@ class _BoundaryRefineModule(nn.Module):
 
 
 class GCN(nn.Module):
-    def __init__(self, num_classes, input_size, pretrained=False):
+    #def __init__(self, num_classes, input_size, pretrained=False):
+    def __init__(self,target_label={'mask': 3}, in_ch=3, input_size=[320,320], first_out_ch = 64,BatchNorm_final=False):
         super(GCN, self).__init__()
         self.input_size = input_size
+        num_classes = target_label['mask']
         resnet = models.resnet152()
-        if pretrained:
-            resnet.load_state_dict(torch.load(res152_path))
-        EM_conv1=nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+        # if pretrained:
+        #     resnet.load_state_dict(torch.load(res152_path))
+        EM_conv1=nn.Conv2d(in_ch, first_out_ch, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+        self.sigmoid = nn.Sigmoid()
         
         self.layer0 = nn.Sequential(EM_conv1, resnet.bn1, resnet.relu)
         self.layer1 = nn.Sequential(resnet.maxpool, resnet.layer1)
@@ -101,5 +104,9 @@ class GCN(nn.Module):
         fs3 = self.brm7(F.upsample_bilinear(fs2, fm1.size()[2:]) + gcfm4)  # 128
         fs4 = self.brm8(F.upsample_bilinear(fs3, fm0.size()[2:]))  # 256
         out = self.brm9(F.upsample_bilinear(fs4, self.input_size))  # 512
+        out = self.sigmoid(out)
+        output ={}
+        output['mask'] = out
+        return output
 
-        return out
+        #return out

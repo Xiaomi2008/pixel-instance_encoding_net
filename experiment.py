@@ -130,10 +130,16 @@ class experiment_config():
         return labelGenerator()
 
     def optimizer(self, model):
-        return optim.Adagrad(filter(lambda x: x.requires_grad, model.parameters()),
+        print('op learning_Rate = {}'.format(self.train_conf['learning_rate']))
+        model_param = filter(lambda x: x.requires_grad, model.parameters())
+        optimizer_dict = {'Adgrad':optim.Adagrad, 'SGD':optim.SGD}
+        if self.train_conf['optimizer'] == 'Adagrad':
+            return optim.Adagrad(model_param,
                              lr=self.train_conf['learning_rate'],
                              lr_decay=0,
                              weight_decay=0)
+        elif self.train_conf['optimizer'] =='SGD':
+            return optim.SGD(model_param, lr=self.train_conf['learning_rate'], momentum=0.9)
 
     @property
     def name(self):
@@ -144,7 +150,6 @@ class experiment_config():
         if 'sub_net' in self.conf:
             nstr = nstr + '_' + 'freeze_net1={}'.format(self.conf['sub_net']['freeze_weight'])
         return nstr
-
 
 class experiment():
     def __init__(self, experiment_config):
