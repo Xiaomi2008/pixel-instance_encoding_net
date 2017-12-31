@@ -305,6 +305,7 @@ class _Unet_encoder_withDilatConv(nn.Module):
                  num_conv_in_block=2, ch_change_rate=2, kernel_size=3):
         super(_Unet_encoder_withDilatConv, self).__init__()
         self.in_ch = in_ch
+        self.first_out_ch =first_out_ch
         # self.out_ch = out_ch
 
         # self.conv_2d_1 = nn.Conv2d(in_ch, first_out_ch, kernel_size=kernel_size, padding=kernel_size // 2)
@@ -521,6 +522,11 @@ class MaskMdecoderUnet_withDilatConv(MdecoderUnet_withDilatConv):
         for name, decoder in self.decoders.iteritems():
             outputs[name] = torch.sigmoid(decoder(encoder_outputs))
         return outputs
+    @property
+    def namse(self):
+        return 'MaskMdecoderDilatUnet' \
+               + '-In_{}_CHS'.formart(self.in_ch) \
+               +'-FisrtConv_{}_CHS'.formart(self.first_out_ch)
 
 
 

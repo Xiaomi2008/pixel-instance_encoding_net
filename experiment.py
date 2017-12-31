@@ -132,14 +132,17 @@ class experiment_config():
     def optimizer(self, model):
         print('op learning_Rate = {}'.format(self.train_conf['learning_rate']))
         model_param = filter(lambda x: x.requires_grad, model.parameters())
-        optimizer_dict = {'Adgrad':optim.Adagrad, 'SGD':optim.SGD}
+        optimizer_dict = {'Adgrad':optim.Adagrad, 'SGD':optim.SGD, 'Adam':optim.Adam}
+        lr = self.train_conf['learning_rate']
         if self.train_conf['optimizer'] == 'Adagrad':
             return optim.Adagrad(model_param,
-                             lr=self.train_conf['learning_rate'],
+                             lr=lr,
                              lr_decay=0,
                              weight_decay=0)
         elif self.train_conf['optimizer'] =='SGD':
-            return optim.SGD(model_param, lr=self.train_conf['learning_rate'], momentum=0.9)
+            return optim.SGD(model_param, lr=lr, momentum=0.9)
+        elif self.train_conf['optimizer'] =='Adam':
+            return optim.Adam(model_param,lr = lr)
 
     @property
     def name(self):

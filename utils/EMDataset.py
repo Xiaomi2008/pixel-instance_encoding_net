@@ -200,6 +200,109 @@ class CRIME_Dataset(exp_Dataset):
         return im_lb_pair
 
 
+class slice_dataset(Dataset):
+    def __init__(self, sub_dataset='Set_A',
+                 subtract_mean=True,
+                 split='valid',
+                 slices = 3,
+                 data_config='conf/cremi_datasets_with_tflabels.toml'):
+        self.slices = slices
+        self.subtract_mean = subtract_mean
+        self.data_config   = data_config
+        self.starting_slice = 99 if split == 'valid' else 0
+        self.im_lb_pair = self.load_data()
+        im_data = self.im_lb_pair[self.im_lb_pair.keys()[0]]['image']
+        self.data_shape = im_data.shape
+        self.y_size = self.data_shape[2]
+        self.x_size = self.data_shape[1]
+        self.z_size = self.data_shape[0]
+
+    def set_current_subDataset(self,data_name):
+        self.current_subDataset =data_name
+
+    @property
+    def subset(self):
+        return self.im_lb_pair.keys()
+
+    def output_labels(self):
+        ''' output: diction, Key = name of label, value = channel of output '''
+        return {'gradient': 2, 'affinity': 1, 'centermap': 2, 'sizemap': 1, 'distance': 1}
+
+    def get_data(self):
+        return self.im_lb_pair[self.current_subDataset]['image'][self.starting_slice:,:,:]
+    def get_label(self):
+        if not 'label' in self.im_lb_pair[self.current_subDataset]:
+            return None
+        else:
+            return self.im_lb_pair[self.current_subDataset]['label'][self.starting_slice:,:,:]
+
+
+    def __getitem__(self, index):
+        cur_set = self.im_lb_pair[self.current_subDataset]
+        im_data = cur_set['image']
+        start_idx = index - self.slices // 2
+        end_idx   = start_idx + self.slices
+        def get_slice_data(input_array,start_idx,end_idx):
+            if start_idx < self.starting_slice:
+                start_idx = self.starting_slice
+                r_slice = input_array[start_idx:start_idx+1, :,:]
+                d_slice = input_array[start_idx:end_idx,:,:]
+                for i in range(self.slices - end_idx-1):
+                  d_slice  =  np.concatenate([r_slice,d_slice],0)
+            elif end_idx > self.z_size -1:
+                end_idx = self.z_size
+                r_slice = input_array[-1:, :,:]
+                d_slice = input_array[start_idx:-1,:,:]
+                for i in range(self.slices - (self.z_size-start_idx)):
+                  d_slice  =  np.concatenate([d_slice,r_slice],0)
+            else:
+                d_slice = input_array[start_idx:end_idx,:,:]
+            return d_slice
+
+        output ={}
+        im_slice=get_slice_data(im_data,start_idx,end_idx)
+        if self.subtract_mean:
+            im_data -= 127.0
+        im_slice = np.expand_dims(im_slice,axis=0)
+        output['data'] = torch.from_numpy(im_slice).float()
+
+        if 'label' in cur_set:
+            lb_data= cur_set['label']
+            ib_slice=get_slice_data(lb_data,start_idx,end_idx)
+            ib_slice = np.expand_dims(ib_slice,axis=0)
+            output['label'] = torch.from_numpy(im_slice).float()
+        return output
+
+    def __len__(slef):
+        return self.z_size - self.starting_slice
+
+
+    def load_data(self):
+
+        # data_config = 'conf/cremi_datasets.toml'
+        volumes = HDF5Volume.from_toml(self.data_config)
+        data_name = {'Set_A': 'Sample A with extra transformed labels',
+                     'Set_B': 'Sample B with extra transformed labels',
+                     'Set_C': 'Sample C with extra transformed labels'
+                     }
+        # data_name = {'Set_A':'Sample A',
+        #              'Set_B':'Sample B',
+        #              'Set_C':'Sample C'
+        #             }
+        im_lb_pair = {}
+        if self.sub_dataset == 'All':
+            for k, v in data_name.iteritems():
+                V = volumes[data_name[k]]
+                im_lb_pair[k] = {'image': V.data_dict['image_dataset'],
+                                 'label': V.data_dict['label_dataset']}
+        else:
+            k = self.sub_dataset
+            V = volumes[data_name[k]]
+            im_lb_pair[k] = {'image': V.data_dict['image_dataset'],
+                             'label': V.data_dict['label_dataset']}
+
+        return im_lb_pair
+
 class labelGenerator(object):
     def __init__(self):
         self.label_generator = label_transform(objSizeMap=True)
@@ -322,7 +425,7 @@ def test_transform():
     data_config = '../conf/cremi_datasets_with_tflabels.toml'
     # data_config = '../conf/cremi_datasets.toml'
     trans = random_transform(VFlip(), HFlip(), Rot90())
-    dataset = CRIME_Dataset(data_config=data_config, phase='valid', transform=trans, out_size=512, dataset='Set_A')
+    dataset = CRIME_Dataset(data_config=data_config, phase='valid', transform=trans)
     train_loader = DataLoader(dataset=dataset,
                               batch_size=1,
                               shuffle=True,
