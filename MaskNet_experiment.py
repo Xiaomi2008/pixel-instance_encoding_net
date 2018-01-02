@@ -33,7 +33,7 @@ class masknet_experiment_config(experiment_config):
         self.aviable_networks_dict = \
             {'Unet': Unet, 'DUnet': DUnet, 'MDUnet': MdecoderUnet,
              'MDUnetDilat': MdecoderUnet_withDilatConv, \
-             'MaskMDnetDialat': MaskMdecoderUnet_withDilatConv,
+             'MaskMDnetDilat': MaskMdecoderUnet_withDilatConv,
              'Mdecoder2Unet_withDilatConv': Mdecoder2Unet_withDilatConv,
              'GCN': GCN}
 
@@ -43,18 +43,17 @@ class masknet_experiment_config(experiment_config):
         self.train_dataset, self.valid_dataset \
             = self.dataset(self.net_conf['patch_size'], self.data_transform)
 
-       #target_label = self.train_dataset.output_labels()
-
-        # in_ch = self.net_conf['patch_size'][2]+ sum(self.train_dataset.output_labels().values())
 
         ''' total output channel is consisted of z patch( =3), 1 object mask channel, and total channels of predicted label'''
         in_ch = self.net_conf['patch_size'][2] +1 + self.masker_out_chs
+        first_out_ch = self.net_conf['first_out_ch']
 
         #print('mask_out_chs = {}',self.masker_out_chs)
 
+        print (self.net_conf['model'])
         net_model = self.aviable_networks_dict[self.net_conf['model']]
-        print(net_model)
-        self.network = net_model(target_label={'mask': 3}, in_ch=in_ch,BatchNorm_final=False,first_out_ch=32)
+
+        self.network = net_model(target_label={'mask': 3}, in_ch=in_ch,BatchNorm_final=False,first_out_ch=first_out_ch)
 
     @property
     def masker_out_chs(self):
@@ -125,6 +124,7 @@ class masknet_experiment_config(experiment_config):
 
             net_conf = conf['network']
             net_conf['model'] = net_conf.get('model', 'DUnet')
+            net_conf['first_out_ch']= net_conf.get('first_out_ch',32)
             net_conf['model_saved_dir'] = net_conf.get('model_saved_dir', 'model')
             net_conf['load_train_iter'] = net_conf.get('load_train_iter', None)
             net_conf['model_save_steps'] = net_conf.get('model_save_steps', 500)

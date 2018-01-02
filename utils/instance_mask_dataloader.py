@@ -8,10 +8,10 @@ import torch.nn.functional as F
 from matplotlib import pyplot as plt
 #from evalution import adapted_rand
 from EMDataset import labelGenerator
-from utils.EMDataset import CRIME_Dataset
+from EMDataset import CRIME_Dataset
 from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import DataLoaderIter
-from utils.transform import VFlip, HFlip, Rot90, random_transform
+from transform import VFlip, HFlip, Rot90, random_transform
 import matplotlib
 import time
 from skimage.color import label2rgb
@@ -19,6 +19,7 @@ from skimage.color import label2rgb
 from matplotlib import pyplot as plt
 from torch_networks.networks import Unet, DUnet, MdecoderUnet, Mdecoder2Unet, \
     MdecoderUnet_withDilatConv, Mdecoder2Unet_withDilatConv
+from utils import watershed_seg2D
 
 
 class Proc_DataLoaderIter(DataLoaderIter):
@@ -256,22 +257,22 @@ class CRIME_Dataset_3D_labels(CRIME_Dataset):
     #     return {'mask': 3}
 
 
-def watershed_seg2D(distance):
-    from scipy import ndimage
-    from skimage.feature import peak_local_max
-    from skimage.segmentation import watershed
-    from skimage.color import label2rgb
-    from skimage.morphology import disk, skeletonize
-    import skimage
-    from skimage.filters import gaussian
-    if isinstance(distance, Variable):
-        distance = distance.data
-    distance = distance.cpu().numpy()
-    distance = np.squeeze(distance)
-    markers = distance > 3.5
-    markers = skimage.morphology.label(markers)
-    seg_labels = watershed(-distance, markers)
-    return seg_labels
+# def watershed_seg2D(distance):
+#     from scipy import ndimage
+#     from skimage.feature import peak_local_max
+#     from skimage.segmentation import watershed
+#     from skimage.color import label2rgb
+#     from skimage.morphology import disk, skeletonize
+#     import skimage
+#     from skimage.filters import gaussian
+#     if isinstance(distance, Variable):
+#         distance = distance.data
+#     distance = distance.cpu().numpy()
+#     distance = np.squeeze(distance)
+#     markers = distance > 3.5
+#     markers = skimage.morphology.label(markers)
+#     seg_labels = watershed(-distance, markers)
+#     return seg_labels
 
 
 def tensor_unique(t_tensor):

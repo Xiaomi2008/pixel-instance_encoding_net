@@ -15,11 +15,12 @@ labels_cat_in = ['affinity',
 [network]
 model = 'MaskMDnetDilat'
 model_save_dir = 'model'
+first_out_ch = 48
 load_train_iter = 0
 #trained_file  = 'model/NN_MdecoderUnetDilatConv_in_11_chs_Dataset-CRIME-All_mask_VFlip-HFlip-Rot90_iter_2479.model'
 #trained_file ='model/NN_MdecoderUnetDilatConv_in_11_chs_Dataset-CRIME-All_mask_bce_loss_VFlip-HFlip-Rot90_iter_4399.model'
-trained_file  ='model/NN_MdecoderUnetDilatConv_in_11_chs_Dataset-CRIME-All_mask_mask_bce_loss_VFlip-HFlip-Rot90_iter_4999.model'
-#trained_file  ='model/NN_MdecoderUnetDilatConv_in_11_chs_Dataset-CRIME-All_mask_mse_loss_VFlip-HFlip-Rot90_iter_12599.model'
+#trained_file  ='model/NN_MdecoderUnetDilatConv_in_11_chs_Dataset-CRIME-All_mask_mask_bce_loss_VFlip-HFlip-Rot90_iter_4999.model'
+#trained_file  ='model/NN_MdecoderUnetDilatConv_in_11_chs_Dataset-CRIME-All_mask_mask_bce_loss_VFlip-HFlip-Rot90_iter_3399.model'
 
 model_save_step = 200
 batch_size      = 5
@@ -29,7 +30,7 @@ valid_iters     = 150
 
 [train]
 learning_rate   = 0.01
-tensorboard_folder = 'runs_dec/mask_DialetUnet_3ch_320x320_MASK_BCELoss_first_ch=32'
+tensorboard_folder = 'runs_dec/mask_DialetUnet_3ch_320x320_MASK_BCELoss_first_ch=48'
 loss_fn = 'mask_bce'
 #option {bce, dice, mse, bce_logit, mask_bce}
 optimizer = 'Adam'

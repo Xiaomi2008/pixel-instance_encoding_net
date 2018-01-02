@@ -26,7 +26,7 @@ import torch.optim as optim
 import time
 import pdb
 import os
-
+import pdb
 
 class experiment_config():
     def __init__(self, config_file):
@@ -52,21 +52,36 @@ class experiment_config():
 
         # data_out_labels is a dict that stores "label name" as key and "# of channel for that label" as value
         data_out_labels = self.train_dataset.output_labels()
-
+        #pdb.set_trace()
         for lb in label_in_use:
             label_ch_pair[lb] = data_out_labels[lb]
 
         in_ch = self.net_conf['patch_size'][2]
 
+        input_lbCHs_cat_for_net2 = self.label_conf['label_catin_net2']
+
+        self.sub_network = None
+        freeze_net1 = True
         if 'sub_net' in self.conf:
             subnet_model = networks[self.conf['sub_net']['model']]
             self.sub_network = subnet_model(target_label=label_ch_pair, in_ch=in_ch)
 
-            net_model = networks[self.net_conf['model']]
-            self.network = net_model(self.sub_network, freeze_net1=self.conf['sub_net']['freeze_weight'])
+            #net_model = networks[self.net_conf['model']]
+            #self.network = net_model(self.sub_network, freeze_net1=self.conf['sub_net']['freeze_weight'])
+        
+
+        net_model = networks[self.net_conf['model']]
+        if self.net_conf['model'] == 'M2DUnet_withDilatConv':
+            self.network = net_model(self.sub_network, freeze_net1=freeze_net1,
+                                        target_label=label_ch_pair, 
+                                          label_catin_net2=input_lbCHs_cat_for_net2, 
+                                          in_ch=in_ch)
+            print(net_model)
         else:
-            net_model = networks[self.net_conf['model']]
-            self.network = net_model(target_label=label_ch_pair, in_ch=in_ch)
+            self.network = net_model(target_label=label_ch_pair,in_ch=in_ch)
+
+
+        print(self.network.name)
 
     def parse_toml(self, file):
         with open(file, 'rb') as fi:
@@ -240,9 +255,9 @@ class experiment():
                 preds = self.model(data)
                 losses = self.compute_loss(preds, targets)
 
-                if not graph_write_done:
-                    boardwriter.wirte_model_graph(self.model, preds['gradient'])
-                    graph_write_done = True
+                # if not graph_write_done:
+                #     boardwriter.wirte_model_graph(self.model, preds['gradient'])
+                #     graph_write_done = True
 
                 merged_loss = losses['merged_loss']
 

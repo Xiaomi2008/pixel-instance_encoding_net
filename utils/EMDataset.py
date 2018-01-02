@@ -14,6 +14,7 @@ from label_transform.volumes import Volume
 from label_transform.volumes import HDF5Volume
 from label_transform.volumes import bounds_generator
 from label_transform.volumes import SubvolumeGenerator
+import pdb
 
 
 class exp_Dataset(Dataset):
@@ -159,7 +160,6 @@ class CRIME_Dataset(exp_Dataset):
             seg_label = np.expand_dims(seg_label[m_slice_idx, :, :], axis=0)
         tc_data = torch.from_numpy(data).float()
         tc_label_dict = self.label_generator(seg_label)[0]
-        print tc_label_dict['sizemap'].shape
         return tc_data, tc_label_dict
 
     def set_phase(self, phase):
@@ -206,10 +206,12 @@ class slice_dataset(Dataset):
                  split='valid',
                  slices = 3,
                  data_config='conf/cremi_datasets_with_tflabels.toml'):
+        self.sub_dataset = sub_dataset
         self.slices = slices
         self.subtract_mean = subtract_mean
         self.data_config   = data_config
-        self.starting_slice = 99 if split == 'valid' else 0
+        self.starting_slice = 100 if split == 'valid' else 0
+        #self.starting_slice =0
         self.im_lb_pair = self.load_data()
         im_data = self.im_lb_pair[self.im_lb_pair.keys()[0]]['image']
         self.data_shape = im_data.shape
@@ -240,19 +242,23 @@ class slice_dataset(Dataset):
     def __getitem__(self, index):
         cur_set = self.im_lb_pair[self.current_subDataset]
         im_data = cur_set['image']
-        start_idx = index - self.slices // 2
+        start_idx = index - self.slices // 2 + self.starting_slice
         end_idx   = start_idx + self.slices
         def get_slice_data(input_array,start_idx,end_idx):
             if start_idx < self.starting_slice:
                 start_idx = self.starting_slice
                 r_slice = input_array[start_idx:start_idx+1, :,:]
                 d_slice = input_array[start_idx:end_idx,:,:]
-                for i in range(self.slices - end_idx-1):
+                for i in range(self.slices - (end_idx-start_idx)):
                   d_slice  =  np.concatenate([r_slice,d_slice],0)
-            elif end_idx > self.z_size -1:
+                print('after d shape = {}'.format(d_slice.shape))
+            elif end_idx > self.z_size:
                 end_idx = self.z_size
                 r_slice = input_array[-1:, :,:]
-                d_slice = input_array[start_idx:-1,:,:]
+                d_slice = input_array[start_idx:,:,:]
+                print('d shape = {}'.format(d_slice.shape))
+                print('r shape = {}'.format(r_slice.shape))
+                print('start idx = {}, end_idx ={} z_size= {}'.format(start_idx,end_idx,self.z_size))
                 for i in range(self.slices - (self.z_size-start_idx)):
                   d_slice  =  np.concatenate([d_slice,r_slice],0)
             else:
@@ -261,19 +267,23 @@ class slice_dataset(Dataset):
 
         output ={}
         im_slice=get_slice_data(im_data,start_idx,end_idx)
+        im_slice=im_slice.astype(np.float)
         if self.subtract_mean:
-            im_data -= 127.0
+            im_slice -= 127.0
         im_slice = np.expand_dims(im_slice,axis=0)
         output['data'] = torch.from_numpy(im_slice).float()
+        # plt.imshow(np.squeeze(im_slice[0,1]))
+        # plt.show()
 
         if 'label' in cur_set:
-            lb_data= cur_set['label']
-            ib_slice=get_slice_data(lb_data,start_idx,end_idx)
-            ib_slice = np.expand_dims(ib_slice,axis=0)
-            output['label'] = torch.from_numpy(im_slice).float()
+            lb_data  = cur_set['label']
+            lb_slice = get_slice_data(lb_data,start_idx,end_idx)
+            lb_slice = np.expand_dims(lb_slice,axis=0)
+            lb_slice = lb_slice.astype(np.int)
+            output['label'] = torch.from_numpy(lb_slice).float()
         return output
 
-    def __len__(slef):
+    def __len__(self):
         return self.z_size - self.starting_slice
 
 

@@ -1,5 +1,4 @@
 import os, sys
-
 sys.path.append('../')
 import torch
 import torch.nn as nn
@@ -489,6 +488,7 @@ class MdecoderUnet_withDilatConv(nn.Module):
                  number_bolck=4, num_conv_in_block=2, ch_change_rate=2, kernel_size=3, BatchNorm_final=True):
         super(MdecoderUnet_withDilatConv, self).__init__()
         self.in_ch = in_ch
+        self.first_out_ch = first_out_ch
         self.encoder = _Unet_encoder_withDilatConv(in_ch, first_out_ch, number_bolck, num_conv_in_block,
                                                    ch_change_rate, kernel_size)
         # self.add_module('encoder',self.encoder)
@@ -522,24 +522,31 @@ class MaskMdecoderUnet_withDilatConv(MdecoderUnet_withDilatConv):
         for name, decoder in self.decoders.iteritems():
             outputs[name] = torch.sigmoid(decoder(encoder_outputs))
         return outputs
+    
     @property
-    def namse(self):
+    def name(self):
+        #print('name in first ch {}'.formart(self.first_out_ch))
         return 'MaskMdecoderDilatUnet' \
-               + '-In_{}_CHS'.formart(self.in_ch) \
-               +'-FisrtConv_{}_CHS'.formart(self.first_out_ch)
-
+               + '-In_{}_CHS'.format(self.in_ch) \
+               +'-FisrtConv_{}_CHS'.format(self.first_out_ch)
 
 
 class Mdecoder2Unet_withDilatConv(nn.Module):
-    def __init__(self, mnet=None, freeze_net1=False, target_label={'unassigned': 1}, in_ch=3, out_ch=1, first_out_ch=16, \
+    def __init__(self, mnet=None, freeze_net1=False, target_label={'unassigned': 1}, label_catin_net2=None, in_ch=3, out_ch=1, first_out_ch=16, \
                  number_bolck=4, num_conv_in_block=2, ch_change_rate=2, kernel_size=3):
         super(Mdecoder2Unet_withDilatConv, self).__init__()
+        self.label_catin_net2 =label_catin_net2
+        self.target_label = target_label
         if not mnet:
             mnet = MdecoderUnet_withDilatConv(target_label=target_label, in_ch=in_ch)
         self.net1 = mnet
-        total_input_ch = sum(self.net1.target_label.values()) + in_ch
-        # print total_input_ch
+        if not label_catin_net2:
+            total_input_ch = sum(self.net1.target_label.values()) + in_ch
+        else:
+            total_input_ch =sum([self.net1.target_label[lb] for lb in label_catin_net2]) +in_ch
 
+        #print total_input_ch
+        #print label_catin_net2
         # print target_label
         net2_target_label = {}
         net2_target_label['final'] = out_ch
@@ -564,9 +571,24 @@ class Mdecoder2Unet_withDilatConv(nn.Module):
         if freeze_net1:
             self.freezeWeight(self.net1)
 
+
+    # @property
+    # def name(self):
+    #     label_ch_list = self.label_catin_net2 \
+    #                if self.label_catin_net2 \
+    #                else self.target_label
+    #     cat_in_lable = '_['+'_'.joint(label_ch_list)+']'
+    #     return 'Mdecoder2Unet' \
+    #            + '_in_{}_chs'.format(self.in_ch) \
+    #            + cat_in_lable
+
     @property
     def name(self):
-        return 'Mdecoder2Unet_withDilatConv' + '_in_{}_chs'.format(self.in_ch)
+        return 'Mdecoder2Unet_in_{}_chs_'.format(self.in_ch) + \
+        '_['+ '-'.join(self.label_catin_net2 if self.label_catin_net2 else self.target_label.keys())
+        # label_ch_list = self.label_catin_net2 if self.label_catin_net2 else self.target_label.keys()
+        # cat_in_lable = '_['+'_'.joint(label_ch_list)+']'
+        # return 'Mdecoder2Unet_in_{}_chs_'.format(self.in_ch) + cat_in_lable
 
     def freezeWeight(self, net):
         for child in net.children():
@@ -575,12 +597,17 @@ class Mdecoder2Unet_withDilatConv(nn.Module):
 
     def forward(self, x):
         outputs = self.net1(x)
-        out_chs = outputs.values()
+        #out_chs = outputs.values()
+        
+        if not self.label_catin_net2:
+            out_chs = outputs.values()
+            #print('.  cat all')
+        else:
+            #print('.   cat some')
+            out_chs = [outputs[lb] for lb in self.label_catin_net2]
+
         out_chs.append(x)
         x_net2_in = torch.cat(out_chs, 1)
-        # outputs['final']   = self.net2(x_net2_in)
-        # return outputs
-
         final_dict = self.net2(x_net2_in)
         outputs['final'] = final_dict[final_dict.keys()[0]]
         return outputs
@@ -614,7 +641,7 @@ class MdecoderUnet(nn.Module):
 
 
 class Mdecoder2Unet(nn.Module):
-    def __init__(self, mnet=None, freeze_net1=False, target_label={'unassigned': 1}, in_ch=1, out_ch=1, first_out_ch=16, \
+    def __init__(self, mnet=None, freeze_net1=False, target_label={'unassigned': 1}, label_catin_net2=None, in_ch=1, out_ch=1, first_out_ch=16, \
                  number_bolck=4, num_conv_in_block=2, ch_change_rate=2, kernel_size=3):
         super(Mdecoder2Unet, self).__init__()
         if not mnet:
@@ -631,6 +658,8 @@ class Mdecoder2Unet(nn.Module):
         self.net2.finnal_conv2d = self.final_conv_in_net2
         self.out_ch = out_ch
         self.in_ch = in_ch
+        self.label_catin_net2 =label_catin_net2
+        self.target_label = target_label
         self.add_module('first_' + self.net1.name, self.net1)
         self.add_module('second_' + self.net2.name, self.net2)
         if freeze_net1:
@@ -638,7 +667,13 @@ class Mdecoder2Unet(nn.Module):
 
     @property
     def name(self):
-        return 'Mdecoder2Unet' + '_in_{}_chs'.format(self.in_ch)
+        label_ch_list = self.label_catin_net2 \
+                   if self.label_catin_net2 \
+                   else self.target_label
+        cat_in_lable = '_['+'_'.joint(label_ch_list)+']'
+        return 'Mdecoder2Unet' \
+               + '_in_{}_chs'.format(self.in_ch) \
+               + cat_in_lable
 
     def freezeWeight(self, net):
         for child in net.children():
@@ -649,7 +684,10 @@ class Mdecoder2Unet(nn.Module):
         # x=self.finnal_conv2d(x)
         # outputs ={}
         outputs = self.net1(x)
-        out_chs = outputs.values()
+        if not self.label_catin_net2:
+            out_chs = outputs.values()
+        else:
+            out_chs= [outputs[lb] for lb in self.label_catin_net2]
         out_chs.append(x)
         x_net2_in = torch.cat(out_chs, 1)
         # shape = x_net2.shape
