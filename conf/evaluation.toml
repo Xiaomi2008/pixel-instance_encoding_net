@@ -1,11 +1,17 @@
 [network]
 model = 'M2DUnet_withDilatConv'
 z_slices = 3
-trained_file = 'model/Mdecoder2Unet_withDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_freeze_net1=True_iter_32499.model'
-use_gpu = false
+
+#trained_file = 'model/Mdecoder2Unet_withDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_freeze_net1=True_iter_32499.model'
+trained_file = 'model/Mdecoder2Unet_in_3_chs__[affinity-sizemap-distance-gradient_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_freeze_net1=True_iter_325749.model'
+use_gpu = true
 
 [target_labels]
 labels = ['gradient', 'sizemap', 'affinity', 'centermap', 'distance']
+label_catin_net2 =['affinity',
+					'sizemap',
+				   'distance',
+				   'gradient']
 final_label = 'distance'
 
 [dataset]

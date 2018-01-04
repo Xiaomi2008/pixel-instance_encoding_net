@@ -14,7 +14,7 @@ def watershed_seg2D(distance):
         distance = distance.data
     distance = distance.cpu().numpy()
     distance = np.squeeze(distance)
-    markers = distance > 3.5
+    markers = distance > 2
     markers = skimage.morphology.label(markers)
     seg_labels = watershed(-distance, markers)
     return seg_labels

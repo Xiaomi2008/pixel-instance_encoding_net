@@ -25,6 +25,10 @@ learning_rate   = 0.01
             'centermap',
             'distance',
             'gradient']
+  label_catin_net2 =['affinity',
+					'sizemap',
+				   'distance',
+				   'gradient']
 [dataset]
 sub_dataset = 'All'
 # Options: {'Set_A','Set_B','Set_C','All'}

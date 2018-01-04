@@ -293,14 +293,14 @@ class experiment():
         dataset = self.exp_cfg.valid_dataset
         self.model.eval()
         valid_loader = DataLoader(dataset=dataset,
-                                  batch_size=1,
+                                  batch_size=5,
                                   shuffle=True,
-                                  num_workers=1)
+                                  num_workers=2)
         loss = 0.0
-        iters = 120
+        iters = 60
         for i, (data, targets) in enumerate(valid_loader, 0):
             # print data.shape
-            data = Variable(data).float()
+            data = Variable(data,volatile=True).float()
             targets = self.make_variable(targets)
             if self.use_gpu:
                 data = data.cuda().float()
