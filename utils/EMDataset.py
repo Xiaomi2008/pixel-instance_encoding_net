@@ -205,7 +205,8 @@ class slice_dataset(Dataset):
                  subtract_mean=True,
                  split='valid',
                  slices = 3,
-                 data_config='conf/cremi_datasets_with_tflabels.toml'):
+                 data_config='conf/cremi_datasets.toml'):
+                 #data_config='conf/cremi_datasets_with_tflabels.toml'):
         self.sub_dataset = sub_dataset
         self.slices = slices
         self.subtract_mean = subtract_mean
@@ -291,25 +292,35 @@ class slice_dataset(Dataset):
 
         # data_config = 'conf/cremi_datasets.toml'
         volumes = HDF5Volume.from_toml(self.data_config)
-        data_name = {'Set_A': 'Sample A with extra transformed labels',
-                     'Set_B': 'Sample B with extra transformed labels',
-                     'Set_C': 'Sample C with extra transformed labels'
-                     }
-        # data_name = {'Set_A':'Sample A',
-        #              'Set_B':'Sample B',
-        #              'Set_C':'Sample C'
-        #             }
+        # data_name = {'Set_A': 'Sample A with extra transformed labels',
+        #              'Set_B': 'Sample B with extra transformed labels',
+        #              'Set_C': 'Sample C with extra transformed labels'
+        #              }
+        data_name = {'Set_A':'Sample A',
+                     'Set_B':'Sample B',
+                     'Set_C':'Sample C'
+                    }
         im_lb_pair = {}
+        print('volume = {}'.format(volumes.keys()))
         if self.sub_dataset == 'All':
             for k, v in data_name.iteritems():
                 V = volumes[data_name[k]]
-                im_lb_pair[k] = {'image': V.data_dict['image_dataset'],
-                                 'label': V.data_dict['label_dataset']}
+                if 'label_dataset' in V.data_dict:
+                    im_lb_pair[k] = {'image': V.data_dict['image_dataset'],
+                    'label': V.data_dict['label_dataset']}
+                else:
+                     im_lb_pair[k] = {'image': V.data_dict['image_dataset']}
+
         else:
             k = self.sub_dataset
             V = volumes[data_name[k]]
-            im_lb_pair[k] = {'image': V.data_dict['image_dataset'],
-                             'label': V.data_dict['label_dataset']}
+            #im_lb_pair[k] = {'image': V.data_dict['image_dataset'],
+            #                 'label': V.data_dict['label_dataset']}
+            if 'label_dataset' in V.data_dict:
+                im_lb_pair[k] = {'image': V.data_dict['image_dataset'],
+                                'label': V.data_dict['label_dataset']}
+            else:
+                im_lb_pair[k] = {'image': V.data_dict['image_dataset']}
 
         return im_lb_pair
 

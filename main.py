@@ -60,6 +60,13 @@ def main():
         arand,voi = exp_obj.eval()
         print(arand)
         print(voi)
+    elif args.action == 'predict':
+        print ('predicting ...')
+        exp_cfg = predict_config(args.exp_cfg)
+        exp_obj = em_seg_eval(exp_cfg)
+        seg3D_dict = exp_obj.predict()
+        #print(arand)
+        #print(voi)
     elif args.action == 'train_mask':
         exp_cfg = masknet_experiment_config(args.exp_cfg)
         exp_obj = masknet_experiment(exp_cfg)

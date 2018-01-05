@@ -301,7 +301,7 @@ class experiment():
         for i, (data, targets) in enumerate(valid_loader, 0):
             # print data.shape
             data = Variable(data,volatile=True).float()
-            targets = self.make_variable(targets)
+            targets = self.make_variable(targets,volatile=True)
             if self.use_gpu:
                 data = data.cuda().float()
                 targets = self.make_cuda_data(targets)
@@ -312,38 +312,38 @@ class experiment():
             valid_losses_acumulator.append_losses(losses)
             # loss += self.mse_loss(dist_pred,distance).data[0]
             # label_conf['labels']=label_conf.get('labels',['gradient','sizemap','affinity','centermap','distance'])
-            if i % iters == 0:
-                exp_config_name = self.exp_cfg.name
-                # save2figure(i,'raw_img_'   + exp_config_name, data)
-                saveRawfigure(i, 'raw_img_' + exp_config_name, data)
+            # if i % iters == 0:
+            #     exp_config_name = self.exp_cfg.name
+            #     # save2figure(i,'raw_img_'   + exp_config_name, data)
+            #     saveRawfigure(i, 'raw_img_' + exp_config_name, data)
 
-                if 'distance' in preds:
-                    save2figure(i, 'dist_t_map_' + exp_config_name, targets['distance'], )
-                    save2figure(i, 'dist_p_map_' + exp_config_name, preds['distance'])
+            #     if 'distance' in preds:
+            #         save2figure(i, 'dist_t_map_' + exp_config_name, targets['distance'], )
+            #         save2figure(i, 'dist_p_map_' + exp_config_name, preds['distance'])
 
-                if 'sizemap' in preds:
-                    save2figure(i, 'size_p_img_' + exp_config_name, torch.log(preds['sizemap']), use_pyplot=True)
-                    save2figure(i, 'size_t_img_' + exp_config_name, torch.log(targets['sizemap']), use_pyplot=True)
+            #     if 'sizemap' in preds:
+            #         save2figure(i, 'size_p_img_' + exp_config_name, torch.log(preds['sizemap']), use_pyplot=True)
+            #         save2figure(i, 'size_t_img_' + exp_config_name, torch.log(targets['sizemap']), use_pyplot=True)
 
-                if 'affinity' in preds:
-                    save2figure(i, 'affin_t_img_' + exp_config_name, targets['affinity'])
-                    save2figure(i, 'affin_p_img_' + exp_config_name, preds['affinity'])
+            #     if 'affinity' in preds:
+            #         save2figure(i, 'affin_t_img_' + exp_config_name, targets['affinity'])
+            #         save2figure(i, 'affin_p_img_' + exp_config_name, preds['affinity'])
 
-                if 'gradient' in preds:
-                    ang_t_map = compute_angular(targets['gradient'])
-                    ang_p_map = compute_angular(preds['gradient'])
-                    save2figure(i, 'ang_t_img_' + exp_config_name, ang_t_map, use_pyplot=True)
-                    save2figure(i, 'ang_p_img_' + exp_config_name, ang_p_map, use_pyplot=True)
+            #     if 'gradient' in preds:
+            #         ang_t_map = compute_angular(targets['gradient'])
+            #         ang_p_map = compute_angular(preds['gradient'])
+            #         save2figure(i, 'ang_t_img_' + exp_config_name, ang_t_map, use_pyplot=True)
+            #         save2figure(i, 'ang_p_img_' + exp_config_name, ang_p_map, use_pyplot=True)
 
-                if 'centermap' in preds:
-                    save2figure(i, 'cent_t_img_x_' + exp_config_name, targets['centermap'][:, 0, :, :])
-                    save2figure(i, 'cent_p_img_x_' + exp_config_name, preds['centermap'][:, 0, :, :])
-                    save2figure(i, 'cent_t_img_y_' + exp_config_name, targets['centermap'][:, 1, :, :])
-                    save2figure(i, 'cent_p_img_y_' + exp_config_name, preds['centermap'][:, 1, :, :])
+            #     if 'centermap' in preds:
+            #         save2figure(i, 'cent_t_img_x_' + exp_config_name, targets['centermap'][:, 0, :, :])
+            #         save2figure(i, 'cent_p_img_x_' + exp_config_name, preds['centermap'][:, 0, :, :])
+            #         save2figure(i, 'cent_t_img_y_' + exp_config_name, targets['centermap'][:, 1, :, :])
+            #         save2figure(i, 'cent_p_img_y_' + exp_config_name, preds['centermap'][:, 1, :, :])
 
-                if 'final' in preds:
-                    save2figure(i, 'final_dist_t_map_' + exp_config_name, targets['distance'], )
-                    save2figure(i, 'final_dist_p_map_' + exp_config_name, preds['final'])
+            #     if 'final' in preds:
+            #         save2figure(i, 'final_dist_t_map_' + exp_config_name, targets['distance'], )
+            #         save2figure(i, 'final_dist_p_map_' + exp_config_name, preds['final'])
 
             if i >= iters - 1:
                 break
@@ -363,9 +363,9 @@ class experiment():
         print('Load weights  from {}'.format(self.model_file))
         self.model.load_state_dict(torch.load(self.model_file))
 
-    def make_variable(self, label_dict):
+    def make_variable(self, label_dict,volatile=False):
         for key, value in label_dict.iteritems():
-            label_dict[key] = Variable(value).float()
+            label_dict[key] = Variable(value,volatile=volatile).float()
         return label_dict
 
     def make_cuda_data(self, label_dict):
@@ -534,20 +534,24 @@ class tensorBoardWriter():
             if isinstance(im, Variable):
                 im = im.data
             # print('tensorb im shape {} = {}'.format(key, im.shape))
-            if key == 'centermap':
-                im = im.permute(1, 0, 2, 3)
+            
+            '''save only one image'''
+            im2 = np.squeeze(im[0].cpu().numpy())
+            # if key == 'centermap':
+            #     im = im.permute(1, 0, 2, 3)
 
-            # im2 = im.cpu().numpy()
-            im2 = np.squeeze(im.cpu().numpy())
             if im2.ndim == 2:
-                im2 = np.expand_dims(im2, 0)
-
+                 im2 = np.expand_dims(im2, 0)
             im_list = []
+            # print('im_2 shape ={}'.format(im2.shape))
+
+            '''stak over the channel'''
             for i in range(im2.shape[0]):
                 # cm_d  = matplotlib.cm.cm.gist_earth(im2[i])
                 denom = im2[i] - np.min(im2[i])
                 im = (denom / max(np.max(denom), 0.0000001))
                 cm_d = matplotlib.cm.gist_earth(im)[:, :, 0:3]
+                #print('cm_d shape ={}'.format(cm_d.shape))
                 im_list.append(np.transpose(cm_d, (2, 0, 1)))
 
             im = torch.FloatTensor(np.stack(im_list, axis=0))

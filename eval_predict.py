@@ -22,7 +22,8 @@ class predict_config():
                                 subtract_mean=True,
                                 split='valid',
                                 slices = self.net_conf['z_slices'],
-                                data_config='conf/cremi_datasets_with_tflabels.toml')
+                                data_config='conf/cremi_datasets_test.toml')
+                                #data_config='conf/cremi_datasets_with_tflabels.toml')
         data_out_labels = self.dataset.output_labels()
         input_lbCHs_cat_for_net2 = self.label_conf['label_catin_net2']
         
@@ -94,7 +95,9 @@ class em_seg_predict():
             out = self.dataset.__getitem__(i)
             out_data    = out['data'][:,:,:cut_size,:cut_size]
             #print(out['label'])
-            g_seg_data  =out['label'][:,:,:cut_size,:cut_size]
+            g_seg_data = None
+            if 'label' in out:
+                g_seg_data  =out['label'][:,:,:cut_size,:cut_size]
             #print('out_data shape = {}'.format(out_data) )
 
             data = Variable(out_data,volatile=True).float()
@@ -125,7 +128,10 @@ class em_seg_predict():
             # a.set_title('p_seg')
 
             #seg_d =np.squeeze(g_seg_data.cpu().numpy())
-            g_seg_in = np.squeeze(g_seg_data.cpu().numpy())[1]
+            if g_seg_data is not None:
+                g_seg_in = np.squeeze(g_seg_data.cpu().numpy())[1]
+                arand_eval=adapted_rand(watershed_d.astype(np.int),g_seg_in)
+                print('arand = {} '.format(arand_eval))
             #print('seg_d shape = {}'.format(seg_d.shape))
             # a = fig.add_subplot(3, 1, 3)
             # plt.imshow(label2rgb(g_seg_in), interpolation='nearest')
@@ -135,8 +141,6 @@ class em_seg_predict():
             #plt.close()
             #centermap = np.squeeze(preds['centermap'].data.cpu().numpy())
 
-            arand_eval=adapted_rand(watershed_d.astype(np.int),g_seg_in)
-            print('arand = {} '.format(arand_eval))
             #voi_d =voi(watershed_d.astype(np.int),g_seg_in)
             #print('arand = {} voi ={}'.format(arand_eval,void_d))
 
@@ -218,6 +222,17 @@ class em_seg_eval(object):
     def __init__(self,predict_config):
         self.exp_cfg =predict_config
         self.seg_predictor  = em_seg_predict(self.exp_cfg)
+    def predict(self):
+        seg_3d ={}
+        print('subset data = {}'.format(self.exp_cfg.dataset.subset))
+        for d_set in self.exp_cfg.dataset.subset:
+            #d_set = 'Set_A'
+            print('predicting {} ...'.format(d_set))
+            self.exp_cfg.dataset.set_current_subDataset(d_set)
+            seg_3d[d_set]=self.seg_predictor.predict()
+            self.show_figure( seg_3d[d_set])
+        return seg3d
+
 
     def eval(self):
         seg_3d ={}
@@ -235,25 +250,21 @@ class em_seg_eval(object):
             y_size = seg_3d[d_set].shape[2]
             seg_lbs= seg_lbs[:,:x_size,:y_size]
             arand_eval[d_set]=adapted_rand(seg_3d[d_set],seg_lbs)
-
-            my_dpi = 96
-            fig = plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
-
-            label2d_seg = label2rgb(seg_3d[d_set])
-            
-            a = fig.add_subplot(1, 2, 1)
-            #plt.imshow(label2rgb(np.squeeze(seg_3d[d_set][1])))
-            plt.imshow(label2d_seg [0], interpolation='nearest')
-            a.set_title('upper_seg')
-            
-            a = fig.add_subplot(1, 2, 2)
-            plt.imshow(label2d_seg [1], interpolation='nearest')
-            a.set_title('lower_seg')
-
-            plt.show()
-
-
             print('arand for {} = {}'.format(d_set,arand_eval[d_set]))
             #voi_eval[d_set] = voi(seg_3d[d_set],seg_lbs)
+            self.show_figure(seg_3d[d_set])
             void_eval = 0
         return arand_eval, voi_eval
+   
+    def show_figure(self,seg3D):
+        my_dpi = 96
+        fig = plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
+        label2d_seg = label2rgb(seg3D)    
+        a = fig.add_subplot(1, 2, 1)
+        plt.imshow(label2d_seg [0], interpolation='nearest')
+        a.set_title('upper_seg')    
+        a = fig.add_subplot(1, 2, 2)
+        plt.imshow(label2d_seg [1], interpolation='nearest')
+        a.set_title('lower_seg')
+        plt.show()
+
