@@ -1,4 +1,4 @@
-from experiment import experiment_config
+# from experiment import experiment_config
 from utils.EMDataset import slice_dataset
 from utils.utils import watershed_seg2D
 from utils.evaluation import adapted_rand, voi
@@ -10,7 +10,7 @@ from torch.autograd import Variable
 import numpy as np
 from matplotlib import pyplot as plt
 from skimage.color import label2rgb
-import pdb
+#import pdb
 class predict_config():
     def __init__(self, config_file):
         self.parse_toml(config_file)
@@ -18,25 +18,37 @@ class predict_config():
             {'Unet': Unet, 'DUnet': DUnet, 'MDUnet': MdecoderUnet,
              'MDUnetDilat': MdecoderUnet_withDilatConv, 'M2DUnet': Mdecoder2Unet,
              'M2DUnet_withDilatConv': Mdecoder2Unet_withDilatConv}
+
+        if self.dataset_conf['dataset'] == 'valid':
+            data_config = 'conf/cremi_datasets.toml'
+            split = 'valid'
+        elif self.dataset_conf['dataset'] == 'predict':
+            data_config = 'conf/cremi_datasets_test.toml'
+            split = 'predict'
+        else:
+            data_config = 'conf/cremi_datasets.toml'
+            split = 'valid'
+
+
+
         self.dataset = slice_dataset(sub_dataset=self.dataset_conf['sub_dataset'],
-                                subtract_mean=True,
-                                split='valid',
-                                slices = self.net_conf['z_slices'],
-                                data_config='conf/cremi_datasets_test.toml')
+                                     subtract_mean=True,
+                                     split=split,
+                                     slices=self.net_conf['z_slices'],
+                                     data_config=data_config)
                                 #data_config='conf/cremi_datasets_with_tflabels.toml')
         data_out_labels = self.dataset.output_labels()
         input_lbCHs_cat_for_net2 = self.label_conf['label_catin_net2']
-        
         # create network and load the weights
         net_model = NETWORKS[self.net_conf['model']]
         if self.net_conf['model'] == 'M2DUnet_withDilatConv':
             self.network = net_model(freeze_net1=True,
-                                        target_label=data_out_labels, 
-                                          label_catin_net2=input_lbCHs_cat_for_net2, 
-                                          in_ch=self.net_conf['z_slices'])
+                                     target_label=data_out_labels,
+                                     label_catin_net2=input_lbCHs_cat_for_net2,
+                                     in_ch=self.net_conf['z_slices'])
             print(net_model)
         else:
-            self.network = net_model(target_label=data_out_labels,in_ch=self.net_conf['z_slices'])
+            self.network = net_model(target_label=data_out_labels, in_ch=self.net_confn['z_slices'])
         #self.network = net_model(target_label=data_out_labels, in_ch=self.net_conf['z_slices'])
         pre_trained_file = self.net_conf['trained_file']
         print('load weights from {}'.format(pre_trained_file))
@@ -61,10 +73,9 @@ class predict_config():
 
 
 class em_seg_predict():
-    def __init__(self,predict_config, seg3D_connector =None):
+    def __init__(self, predict_config, seg3D_connector = None):
         self.exp_cfg = predict_config
-        self.use_gpu = self.exp_cfg.net_conf['use_gpu'] \
-                       and torch.cuda.is_available()
+        self.use_gpu = self.exp_cfg.net_conf['use_gpu'] and torch.cuda.is_available()
         self.model = self.exp_cfg.network
         self.dataset = self.exp_cfg.dataset
         self.seg3D_connector = seg3D_connector
@@ -72,38 +83,37 @@ class em_seg_predict():
 
     def predict(self):
         pred_seg_2d = self.__predict2D__()
+        print('connecting slices ids ...')
         pred_seg_3d = self.__make_3Dseg__(self.dataset.get_data(),pred_seg_2d.cpu().numpy())
         return pred_seg_3d
-
-
 
     def __predict2D__(self):
         if self.use_gpu:
             print ('model_set_cuda')
             self.model = self.model.cuda().float()
         self.model.eval()
-        pred_seg=torch.zeros_like(torch.from_numpy(self.dataset.get_data().astype(int)))
-        pred_seg=pred_seg.long()
+        pred_seg = torch.zeros_like(torch.from_numpy(self.dataset.get_data().astype(int)))
+        pred_seg = pred_seg.long()
         p_shape = pred_seg.shape
         cut_size = 1248
         print('pred_seg shape {}'.format(pred_seg.shape))
-        pred_seg=pred_seg[:p_shape[0],:cut_size,:cut_size]
-        raw_Data =self.dataset.get_data()
+        pred_seg = pred_seg[:p_shape[0],:cut_size,:cut_size]
+        raw_Data = self.dataset.get_data()
         #g_seg    =self.dataset.get_label()
         print('dataset len = {}'.format(len(self.dataset)))
         for i in range(len(self.dataset)):
             out = self.dataset.__getitem__(i)
-            out_data    = out['data'][:,:,:cut_size,:cut_size]
+            out_data = out['data'][:,:,:cut_size,:cut_size]
             #print(out['label'])
             g_seg_data = None
             if 'label' in out:
-                g_seg_data  =out['label'][:,:,:cut_size,:cut_size]
+                g_seg_data = out['label'][:,:,:cut_size,:cut_size]
             #print('out_data shape = {}'.format(out_data) )
 
             data = Variable(out_data,volatile=True).float()
-            print('data input shape {}'.format(data.data.shape))
+            print('predict slice {}, shape ={}'.format(i,data.data.shape))
             if self.use_gpu:
-               data = data.cuda().float()
+                data = data.cuda().float()
             preds = self.model(data)
             watershed_d = np.squeeze(watershed_seg2D(preds['distance']))
 
@@ -130,13 +140,12 @@ class em_seg_predict():
             #seg_d =np.squeeze(g_seg_data.cpu().numpy())
             if g_seg_data is not None:
                 g_seg_in = np.squeeze(g_seg_data.cpu().numpy())[1]
-                arand_eval=adapted_rand(watershed_d.astype(np.int),g_seg_in)
+                arand_eval = adapted_rand(watershed_d.astype(np.int), g_seg_in)
                 print('arand = {} '.format(arand_eval))
             #print('seg_d shape = {}'.format(seg_d.shape))
             # a = fig.add_subplot(3, 1, 3)
             # plt.imshow(label2rgb(g_seg_in), interpolation='nearest')
             # a.set_title('g_seg')
-            
             #plt.savefig('watershed_d_{}.png'.format(i))
             #plt.close()
             #centermap = np.squeeze(preds['centermap'].data.cpu().numpy())
@@ -148,7 +157,6 @@ class em_seg_predict():
         return pred_seg
 
     def __make_3Dseg__(self, data, pred_Seg2D):
-
         if self.seg3D_connector:
             return self.seg3D_connector(data, pred_Seg2D)
         seg_connector =Simple_MaxCoverage_3DSegConnector()
@@ -163,59 +171,89 @@ class Simple_MaxCoverage_3DSegConnector(object):
     def __call__(self,data,seg2d):
         '''first, we need make sure that there are no same ids between slices''' 
         seg2d = self.reset_slice_id(seg2d)
-        seg3d=self.update_sliceS_seg(seg2d,order ='down')
+        seg3d = self.update_sliceS_seg(seg2d,order ='down')
         #seg3d=self.update_sliceS_seg(seg3d,order ='up')
         return seg3d
-    def reset_slice_id(self,seg2d):
+
+    def reset_slice_id(self, seg2d):
         for i in range(len(seg2d)):
-            seg2d[i]+=(1300*i)
+            seg2d[i] += (3000 * i)
         return seg2d
+
+    def compute_iou(self, overlape_size, obj1_size, obj2_size, ):
+        iou = float(overlape_size) / float(obj1_size + obj2_size)
+        return iou
+
+
     def update_sliceS_seg(self,seg2d,order ='down'):
         seg3d = seg2d.copy()
         slice_idxs = range(len(seg2d)) if order == 'down' else range(len(seg2d))[::-1]
-        for i in range(len(slice_idxs)-1):
+        for i in range(len(slice_idxs) - 1):
             ref_idx = slice_idxs[i]
-            update_idx=slice_idxs[i+1]
-            
+            update_idx = slice_idxs[i + 1]
             seg_slice_1 = seg3d[ref_idx].copy()
             seg_slice_2 = seg3d[update_idx].copy()
-            unique_ids_1,count_1 = np.unique(seg_slice_1,return_counts = True)
-            unique_ids_2,count_2 = np.unique(seg_slice_2,return_counts = True)
-            s1_id_size = dict(zip(unique_ids_1,count_1))
-            s2_id_size = dict(zip(unique_ids_2,count_2))
+            unique_ids_1, count_1 = np.unique(seg_slice_1, return_counts = True)
+            unique_ids_2, count_2 = np.unique(seg_slice_2, return_counts = True)
+            s1_id_size = dict(zip(unique_ids_1, count_1))
+            s2_id_size = dict(zip(unique_ids_2, count_2))
             idx = np.argsort(count_1)
             '''first connect to small objects, and then larger ones,
                This will ensure that larger object can overide to make final connections
                .which is crutial to IOU based measurement'''
             #sort_uids =unique_ids_1[idx]
-            sort_uids =unique_ids_1[idx][::-1]
+            sort_uids = unique_ids_1[idx][::-1]
             '''-------------------------------------------------------------------------'''
-            connected_ids ={sid:False for sid in unique_ids_2}
+            connected_ids = {sid:False for sid in unique_ids_2}
             for uid in sort_uids:
-                bool_mask = (seg_slice_1==uid)
+                bool_mask = (seg_slice_1 == uid)
                 mask_ids = seg_slice_2[bool_mask]
-                uids_2, count = np.unique(mask_ids, return_counts=True)
-                idx = np.argmax(count)
-                max_cover_id = uids_2[idx]
+                uids_2, count_uid = np.unique(mask_ids, return_counts=True)
+                s2_cover_id_size = dict(zip(uids_2, count_uid))
+                #idx = np.argmax(count_uid)
+                #max_cover_id, max_cover_size = uids_2[idx], count_uid[idx]
+                uid_size = s1_id_size[uid]
+                ious ={}
+                for uid2 in uids_2:
+                    uid2_size = s2_id_size[uid2]
+                    over_lap  =  s2_cover_id_size[uid2]
+                    ious[uid2]=self.compute_iou(over_lap, uid2_size, uid2_size)
+
                 #max_cover_size = np.sum( seg3d[update_idx][seg3d[update_idx]==max_cover_id].astype(int))
 
                 #refer_id_size = np.sum(bool_mask.astype(np.int))
                 max_cover_size = s2_id_size[max_cover_id]
-                refer_id_size =  s1_id_size[uid]
+                refer_id_size = s1_id_size[uid]
                 # if abs(0.5 - float(max_cover_size)/float((max_cover_size+refer_id_size))) < 0.2:
                 #     seg3d[update_idx][seg3d[update_idx]==max_cover_id] =uid
                 if connected_ids[max_cover_id]:
 
                     #if order =='up':
                         #seg3d[seg3d==max_cover_id]=uid
-                    seg3d[seg3d==uid]=max_cover_id
+                    seg3d[seg3d==uid] = max_cover_id
                         #print('connected_ids occurs')
                 else:
-                    seg3d[update_idx][seg3d[update_idx]==max_cover_id] =uid
-                connected_ids[uid]=True
+                    seg3d[update_idx][seg3d[update_idx]==max_cover_id] = uid
+                connected_ids[uid] = True
         return seg3d
 
                 
+def extendSeg_to_1250(seg_vol):
+    v_shape =seg_vol.shape
+    print(v_shape)
+    x_ext_slice_num = 1250 - v_shape[1]
+    y_ext_slice_num = 1250 - v_shape[2]
+    print(x_ext_slice_num)
+    x_s_list=[seg_vol[::,-1:,::].copy() for i in range(x_ext_slice_num)]
+    x_s_list.insert(0,seg_vol)
+    seg_vol=np.concatenate(x_s_list,axis =1)
+
+    y_s_list=[seg_vol[::,::,-1:].copy() for i in range(y_ext_slice_num)]
+    y_s_list.insert(0,seg_vol)
+    seg_vol=np.concatenate(y_s_list,axis =2)
+    return seg_vol
+
+
 
 
 class em_seg_eval(object):
@@ -229,9 +267,10 @@ class em_seg_eval(object):
             #d_set = 'Set_A'
             print('predicting {} ...'.format(d_set))
             self.exp_cfg.dataset.set_current_subDataset(d_set)
-            seg_3d[d_set]=self.seg_predictor.predict()
-            self.show_figure( seg_3d[d_set])
-        return seg3d
+            seg_3d[d_set]=extendSeg_to_1250(self.seg_predictor.predict())
+            print('subimssion seg {} shape {}'.format(d_set,seg_3d[d_set].shape))
+            #self.show_figure( seg_3d[d_set])
+        return seg_3d
 
 
     def eval(self):
@@ -252,7 +291,7 @@ class em_seg_eval(object):
             arand_eval[d_set]=adapted_rand(seg_3d[d_set],seg_lbs)
             print('arand for {} = {}'.format(d_set,arand_eval[d_set]))
             #voi_eval[d_set] = voi(seg_3d[d_set],seg_lbs)
-            self.show_figure(seg_3d[d_set])
+            #self.show_figure(seg_3d[d_set])
             void_eval = 0
         return arand_eval, voi_eval
    
@@ -267,4 +306,3 @@ class em_seg_eval(object):
         plt.imshow(label2d_seg [1], interpolation='nearest')
         a.set_title('lower_seg')
         plt.show()
-

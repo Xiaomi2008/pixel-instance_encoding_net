@@ -1,32 +1,25 @@
 import torch
-from torch_networks.networks import Unet, DUnet, MdecoderUnet
-from matplotlib import pyplot as plt
-
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
+import torch.optim as optim
 from torch_networks.networks import Unet, DUnet, MdecoderUnet, Mdecoder2Unet, \
     MdecoderUnet_withDilatConv, Mdecoder2Unet_withDilatConv
-# from transform import *
 
 from utils.EMDataset import CRIME_Dataset, labelGenerator
 from utils.transform import VFlip, HFlip, Rot90, random_transform
 from utils.torch_loss_functions import *
 from utils.printProgressBar import printProgressBar
+from utils.utils import watershed_seg2D
 import torchvision.utils as vutils
 from tensorboardX import SummaryWriter
-
 import numpy as np
-# from matplotlib import pyplot as plt
 import matplotlib
-
-matplotlib.use('Agg')
+# matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 import pytoml as toml
-import torch.optim as optim
 import time
-import pdb
+# import pdb
 import os
-import pdb
 
 class experiment_config():
     def __init__(self, config_file):
@@ -50,7 +43,7 @@ class experiment_config():
 
         label_ch_pair = {}
 
-        # data_out_labels is a dict that stores "label name" as key and "# of channel for that label" as value
+        # data_out_labels is a dict that stores "label name" as key and # of channel for that label" as value
         data_out_labels = self.train_dataset.output_labels()
         #pdb.set_trace()
         for lb in label_in_use:
@@ -68,18 +61,16 @@ class experiment_config():
 
             #net_model = networks[self.net_conf['model']]
             #self.network = net_model(self.sub_network, freeze_net1=self.conf['sub_net']['freeze_weight'])
-        
 
         net_model = networks[self.net_conf['model']]
         if self.net_conf['model'] == 'M2DUnet_withDilatConv':
             self.network = net_model(self.sub_network, freeze_net1=freeze_net1,
-                                        target_label=label_ch_pair, 
-                                          label_catin_net2=input_lbCHs_cat_for_net2, 
-                                          in_ch=in_ch)
+                target_label=label_ch_pair, 
+                label_catin_net2=input_lbCHs_cat_for_net2,
+                in_ch=in_ch)
             print(net_model)
         else:
-            self.network = net_model(target_label=label_ch_pair,in_ch=in_ch)
-
+            self.network = net_model(target_label=label_ch_pair, in_ch=in_ch)
 
         print(self.network.name)
 
@@ -151,13 +142,13 @@ class experiment_config():
         lr = self.train_conf['learning_rate']
         if self.train_conf['optimizer'] == 'Adagrad':
             return optim.Adagrad(model_param,
-                             lr=lr,
-                             lr_decay=0,
-                             weight_decay=0)
+                                     lr=lr,
+                                     lr_decay=0,
+                                     weight_decay=0)
         elif self.train_conf['optimizer'] =='SGD':
             return optim.SGD(model_param, lr=lr, momentum=0.9)
         elif self.train_conf['optimizer'] =='Adam':
-            return optim.Adam(model_param,lr = lr)
+            return optim.Adam(model_param, lr = lr)
 
     @property
     def name(self):
@@ -240,7 +231,7 @@ class experiment():
         for epoch in range(5):
             runing_loss = 0.0
             start_time = time.time()
-            train_losses_acumulator = losses_acumulator()
+            train_losses_accumulator = losses_accumulator()
 
             for i, (data, targets) in enumerate(train_loader, 0):
                 # print (targets['distance'].shape)
@@ -266,7 +257,7 @@ class experiment():
 
                 runing_loss += merged_loss.data[0]
                 time_elaps = time.time() - start_time
-                train_losses_acumulator.append_losses(losses)
+                train_losses_accumulator.append_losses(losses)
 
                 steps, iter_str = get_iter_info(i)
 
@@ -276,10 +267,10 @@ class experiment():
                     start_time = time.time()
                     runing_loss = 0.0
 
-                    train_losses = train_losses_acumulator.get_ave_losses()
+                    train_losses = train_losses_accumulator.get_ave_losses()
                     valid_losses, (data, preds, targets) = self.valid()
                     boardwriter.write(i, train_losses, valid_losses, data, preds, targets)
-                    train_losses_acumulator.reset()
+                    train_losses_accumulator.reset()
 
                 else:
                     show_iter_info(steps, runing_loss, iter_str, time_elaps, end_of_iter=False)
@@ -289,7 +280,7 @@ class experiment():
 
     def valid(self):
         # from torchvision.utils import save_image
-        valid_losses_acumulator = losses_acumulator()
+        valid_losses_accumulator = losses_accumulator()
         dataset = self.exp_cfg.valid_dataset
         self.model.eval()
         valid_loader = DataLoader(dataset=dataset,
@@ -309,7 +300,7 @@ class experiment():
             preds = self.model(data)
             losses = self.compute_loss(preds, targets)
             loss += losses['merged_loss'].data[0]
-            valid_losses_acumulator.append_losses(losses)
+            valid_losses_accumulator.append_losses(losses)
             # loss += self.mse_loss(dist_pred,distance).data[0]
             # label_conf['labels']=label_conf.get('labels',['gradient','sizemap','affinity','centermap','distance'])
             # if i % iters == 0:
@@ -350,7 +341,7 @@ class experiment():
         loss = loss / iters
         self.model.train()
         print (' valid loss : {:.2f}'.format(loss))
-        return valid_losses_acumulator.get_ave_losses(), (data, preds, targets)
+        return valid_losses_accumulator.get_ave_losses(), (data, preds, targets)
 
     # def predict(self):
     #  pass
@@ -358,14 +349,14 @@ class experiment():
     def net_load_weight(self, iters):
         self.model_file = self.model_saved_dir + '/' \
                           + '{}_iter_{}.model'.format(
-            self.experiment_config.name,
-            pre_trained_iter)
+                            self.experiment_config.name,
+                            pre_trained_iter)
         print('Load weights  from {}'.format(self.model_file))
         self.model.load_state_dict(torch.load(self.model_file))
 
-    def make_variable(self, label_dict,volatile=False):
+    def make_variable(self, label_dict, volatile=False):
         for key, value in label_dict.iteritems():
-            label_dict[key] = Variable(value,volatile=volatile).float()
+            label_dict[key] = Variable(value, volatile=volatile).float()
         return label_dict
 
     def make_cuda_data(self, label_dict):
@@ -462,15 +453,15 @@ class experiment():
             dist_pred = preds['final']
             # loss = self.mse_loss(dist_pred, distance)
             # print('loss:{}'.format(loss.data[0]))
-            model_name = self.model.name
+            # model_name = self.model.name
             save2figure(i, 'dist_p_map_' + self.exp_cfg.name + '_predict', dist_pred, use_pyplot=True)
             save2figure(i, 'dist_t_map_' + self.exp_cfg.name + '_predict', distance, use_pyplot=True)
-            watershed_d(i, dist_pred)
+            watershed_seg2D(i, dist_pred)
             if i > 7:
                 break
 
 
-class losses_acumulator():
+class losses_accumulator():
     def __init__(self):
         self.reset()
 
@@ -541,7 +532,7 @@ class tensorBoardWriter():
             #     im = im.permute(1, 0, 2, 3)
 
             if im2.ndim == 2:
-                 im2 = np.expand_dims(im2, 0)
+                im2 = np.expand_dims(im2, 0)
             im_list = []
             # print('im_2 shape ={}'.format(im2.shape))
 
@@ -623,51 +614,51 @@ def save_image(tensor, filename, nrow=8, padding=2,
     im.save(filename)
 
 
-def watershed_d(i, distance):
-    from scipy import ndimage
-    from skimage.feature import peak_local_max
-    from skimage.segmentation import watershed
-    from skimage.color import label2rgb
-    from skimage.morphology import disk, skeletonize
-    import skimage
-    # from skimage.morphology.skeletonize
-    from skimage.filters import gaussian
+# def watershed_d(i, distance):
+#     from scipy import ndimage
+#     from skimage.feature import peak_local_max
+#     from skimage.segmentation import watershed
+#     from skimage.color import label2rgb
+#     from skimage.morphology import disk, skeletonize
+#     import skimage
+#     # from skimage.morphology.skeletonize
+#     from skimage.filters import gaussian
 
-    if isinstance(distance, Variable):
-        distance = distance.data
-    my_dpi = 96
-    plt.figure(figsize=(1250 / my_dpi, 1250 / my_dpi), dpi=my_dpi)
-    distance = distance.cpu().numpy()
-    distance = np.squeeze(distance)
+#     if isinstance(distance, Variable):
+#         distance = distance.data
+#     my_dpi = 96
+#     plt.figure(figsize=(1250 / my_dpi, 1250 / my_dpi), dpi=my_dpi)
+#     distance = distance.cpu().numpy()
+#     distance = np.squeeze(distance)
 
-    hat = ndimage.black_tophat(distance, 14)
-    # Combine with denoised image
-    hat -= 0.3 * distance
-    # Morphological dilation to try to remove some holes in hat image
-    hat = skimage.morphology.dilation(hat)
+#     hat = ndimage.black_tophat(distance, 14)
+#     # Combine with denoised image
+#     hat -= 0.3 * distance
+#     # Morphological dilation to try to remove some holes in hat image
+#     hat = skimage.morphology.dilation(hat)
 
-    # local_maxi = peak_local_max(distance, footprint=np.ones((3, 3)),indices=False)
-    # from skimage.filters.rank import mean_bilateral
-    markers = distance > 3.5
-    markers = skimage.morphology.label(markers)
-    # distance = mean_bilateral(distance.astype(np.uint16), disk(20), s0=10, s1=10)
-    # distance = gaussian((distance-np.mean(distance))/np.max(np.abs(distance)))
-    # local_maxi = peak_local_max(distance, indices=False, min_distance=5)
-    # markers = skimage.morphology.label(local_maxi)[0]
-    # markers = ndimage.label(local_maxi, structure=np.ones((3, 3)))[0]
-    labels = watershed(-distance, markers)
+#     # local_maxi = peak_local_max(distance, footprint=np.ones((3, 3)),indices=False)
+#     # from skimage.filters.rank import mean_bilateral
+#     markers = distance > 3.5
+#     markers = skimage.morphology.label(markers)
+#     # distance = mean_bilateral(distance.astype(np.uint16), disk(20), s0=10, s1=10)
+#     # distance = gaussian((distance-np.mean(distance))/np.max(np.abs(distance)))
+#     # local_maxi = peak_local_max(distance, indices=False, min_distance=5)
+#     # markers = skimage.morphology.label(local_maxi)[0]
+#     # markers = ndimage.label(local_maxi, structure=np.ones((3, 3)))[0]
+#     labels = watershed(-distance, markers)
 
-    # ccImage = (distance > 4)
-    # labels = skimage.morphology.label(ccImage)
-    # labels = skimage.morphology.remove_small_objects(labels, min_size=4)
-    # labels = skimage.morphology.remove_small_holes(labels)
-    plt.imshow(label2rgb(labels), interpolation='nearest')
-    # plt.imshow(labels)
-    plt.savefig('seg_{}.png'.format(i))
-    plt.imshow(labels, cmap=plt.cm.spectral)
-    # plt.imshow(labels)
-    plt.savefig('seg_{}_no.png'.format(i))
+#     # ccImage = (distance > 4)
+#     # labels = skimage.morphology.label(ccImage)
+#     # labels = skimage.morphology.remove_small_objects(labels, min_size=4)
+#     # labels = skimage.morphology.remove_small_holes(labels)
+#     plt.imshow(label2rgb(labels), interpolation='nearest')
+#     # plt.imshow(labels)
+#     plt.savefig('seg_{}.png'.format(i))
+#     plt.imshow(labels, cmap=plt.cm.spectral)
+#     # plt.imshow(labels)
+#     plt.savefig('seg_{}_no.png'.format(i))
 
-    plt.imshow(markers)
-    plt.savefig('marker_{}.png'.format(i))
-    plt.close('all')
+#     plt.imshow(markers)
+#     plt.savefig('marker_{}.png'.format(i))
+#     plt.close('all')

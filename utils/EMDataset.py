@@ -212,7 +212,6 @@ class slice_dataset(Dataset):
         self.subtract_mean = subtract_mean
         self.data_config   = data_config
         self.starting_slice = 100 if split == 'valid' else 0
-        #self.starting_slice =0
         self.im_lb_pair = self.load_data()
         im_data = self.im_lb_pair[self.im_lb_pair.keys()[0]]['image']
         self.data_shape = im_data.shape
@@ -299,7 +298,7 @@ class slice_dataset(Dataset):
         data_name = {'Set_A':'Sample A',
                      'Set_B':'Sample B',
                      'Set_C':'Sample C'
-                    }
+                     }
         im_lb_pair = {}
         print('volume = {}'.format(volumes.keys()))
         if self.sub_dataset == 'All':
@@ -318,7 +317,7 @@ class slice_dataset(Dataset):
             #                 'label': V.data_dict['label_dataset']}
             if 'label_dataset' in V.data_dict:
                 im_lb_pair[k] = {'image': V.data_dict['image_dataset'],
-                                'label': V.data_dict['label_dataset']}
+                                 'label': V.data_dict['label_dataset']}
             else:
                 im_lb_pair[k] = {'image': V.data_dict['image_dataset']}
 
