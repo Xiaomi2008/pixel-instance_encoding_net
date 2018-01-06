@@ -11,6 +11,7 @@ from skimage.filters import gaussian
 from torch.autograd import Variable
 from munkres import Munkres
 
+
 def watershed_seg2D(distance):
     if isinstance(distance, Variable):
         distance = distance.data
@@ -20,6 +21,7 @@ def watershed_seg2D(distance):
     markers = skimage.morphology.label(markers)
     seg_labels = watershed(-distance, markers)
     return seg_labels
+
 
 def match(masks, overlaps):
     """
@@ -50,5 +52,6 @@ def match(masks, overlaps):
             permute_indices[sample, column] = row
 
         # sort ground according to permutation
-        t_mask_cpu[sample] = t_mask_cpu[sample, permute_indices[sample],:]
+        t_mask_cpu[sample] = t_mask_cpu[sample, permute_indices[sample], :]
+    
     return t_mask_cpu, permute_indices

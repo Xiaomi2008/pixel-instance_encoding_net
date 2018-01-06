@@ -73,7 +73,7 @@ class predict_config():
 
 
 class em_seg_predict():
-    def __init__(self, predict_config, seg3D_connector = None):
+    def __init__(self, predict_config, seg3D_connector=None):
         self.exp_cfg = predict_config
         self.use_gpu = self.exp_cfg.net_conf['use_gpu'] and torch.cuda.is_available()
         self.model = self.exp_cfg.network
@@ -159,8 +159,8 @@ class em_seg_predict():
     def __make_3Dseg__(self, data, pred_Seg2D):
         if self.seg3D_connector:
             return self.seg3D_connector(data, pred_Seg2D)
-        seg_connector =Simple_MaxCoverage_3DSegConnector()
-        seg3d = seg_connector(data,pred_Seg2D)
+        seg_connector = Simple_MaxCoverage_3DSegConnector()
+        seg3d = seg_connector(data, pred_Seg2D)
         return seg3d
 
 
@@ -168,10 +168,10 @@ class Simple_MaxCoverage_3DSegConnector(object):
     # def __init__(self,data,seg2d):
     #   self.data = data
     #   self.seg2d =seg2d
-    def __call__(self,data,seg2d):
+    def __call__(self, data, seg2d):
         '''first, we need make sure that there are no same ids between slices''' 
         seg2d = self.reset_slice_id(seg2d)
-        seg3d = self.update_sliceS_seg(seg2d,order ='down')
+        seg3d = self.update_sliceS_seg(seg2d, order='down')
         #seg3d=self.update_sliceS_seg(seg3d,order ='up')
         return seg3d
 
@@ -184,8 +184,7 @@ class Simple_MaxCoverage_3DSegConnector(object):
         iou = float(overlape_size) / float(obj1_size + obj2_size)
         return iou
 
-
-    def update_sliceS_seg(self,seg2d,order ='down'):
+    def update_sliceS_seg(self, seg2d, order='down'):
         seg3d = seg2d.copy()
         slice_idxs = range(len(seg2d)) if order == 'down' else range(len(seg2d))[::-1]
         for i in range(len(slice_idxs) - 1):
@@ -193,8 +192,8 @@ class Simple_MaxCoverage_3DSegConnector(object):
             update_idx = slice_idxs[i + 1]
             seg_slice_1 = seg3d[ref_idx].copy()
             seg_slice_2 = seg3d[update_idx].copy()
-            unique_ids_1, count_1 = np.unique(seg_slice_1, return_counts = True)
-            unique_ids_2, count_2 = np.unique(seg_slice_2, return_counts = True)
+            unique_ids_1, count_1 = np.unique(seg_slice_1, return_counts=True)
+            unique_ids_2, count_2 = np.unique(seg_slice_2, return_counts=True)
             s1_id_size = dict(zip(unique_ids_1, count_1))
             s2_id_size = dict(zip(unique_ids_2, count_2))
             idx = np.argsort(count_1)
@@ -203,7 +202,7 @@ class Simple_MaxCoverage_3DSegConnector(object):
                .which is crutial to IOU based measurement'''
             #sort_uids =unique_ids_1[idx]
             sort_uids = unique_ids_1[idx][::-1]
-            '''-------------------------------------------------------------------------'''
+            ''' ----------------------------------------------------------------------- '''
             connected_ids = {sid:False for sid in unique_ids_2}
             for uid in sort_uids:
                 bool_mask = (seg_slice_1 == uid)
@@ -213,70 +212,61 @@ class Simple_MaxCoverage_3DSegConnector(object):
                 #idx = np.argmax(count_uid)
                 #max_cover_id, max_cover_size = uids_2[idx], count_uid[idx]
                 uid_size = s1_id_size[uid]
-                ious ={}
-                for uid2 in uids_2:
-                    uid2_size = s2_id_size[uid2]
-                    over_lap  =  s2_cover_id_size[uid2]
-                    ious[uid2]=self.compute_iou(over_lap, uid2_size, uid2_size)
+                ious = [self.compute_iou(s2_cover_id_size[id], s2_id_size[id], uid_size) for id in uids_2]
+                idxs = np.argsort(ious)
+                uids_2, ious = uids_2[idxs][::-1], ious[idxs][::-1]
 
-                #max_cover_size = np.sum( seg3d[update_idx][seg3d[update_idx]==max_cover_id].astype(int))
-
-                #refer_id_size = np.sum(bool_mask.astype(np.int))
-                max_cover_size = s2_id_size[max_cover_id]
-                refer_id_size = s1_id_size[uid]
+                # refer_id_size = np.sum(bool_mask.astype(np.int))
+                # max_cover_size = s2_id_size[max_cover_id]
+                # refer_id_size = s1_id_size[uid]
                 # if abs(0.5 - float(max_cover_size)/float((max_cover_size+refer_id_size))) < 0.2:
                 #     seg3d[update_idx][seg3d[update_idx]==max_cover_id] =uid
+                max_cover_id = uids_2[0]
                 if connected_ids[max_cover_id]:
-
-                    #if order =='up':
-                        #seg3d[seg3d==max_cover_id]=uid
-                    seg3d[seg3d==uid] = max_cover_id
-                        #print('connected_ids occurs')
+                    seg3d[seg3d == uid] = max_cover_id
                 else:
-                    seg3d[update_idx][seg3d[update_idx]==max_cover_id] = uid
+                    seg3d[update_idx][seg3d[update_idx] == max_cover_id] = uid
                 connected_ids[uid] = True
         return seg3d
-
                 
+
 def extendSeg_to_1250(seg_vol):
-    v_shape =seg_vol.shape
+    v_shape = seg_vol.shape
     print(v_shape)
     x_ext_slice_num = 1250 - v_shape[1]
     y_ext_slice_num = 1250 - v_shape[2]
     print(x_ext_slice_num)
-    x_s_list=[seg_vol[::,-1:,::].copy() for i in range(x_ext_slice_num)]
+    x_s_list=[seg_vol[::, -1:, ::].copy() for i in range(x_ext_slice_num)]
     x_s_list.insert(0,seg_vol)
-    seg_vol=np.concatenate(x_s_list,axis =1)
+    seg_vol=np.concatenate(x_s_list, axis=1)
 
-    y_s_list=[seg_vol[::,::,-1:].copy() for i in range(y_ext_slice_num)]
+    y_s_list=[seg_vol[::, ::, -1:].copy() for i in range(y_ext_slice_num)]
     y_s_list.insert(0,seg_vol)
-    seg_vol=np.concatenate(y_s_list,axis =2)
+    seg_vol=np.concatenate(y_s_list, axis=2)
     return seg_vol
 
 
-
-
 class em_seg_eval(object):
-    def __init__(self,predict_config):
-        self.exp_cfg =predict_config
-        self.seg_predictor  = em_seg_predict(self.exp_cfg)
+    def __init__(self, predict_config):
+        self.exp_cfg = predict_config
+        self.seg_predictor = em_seg_predict(self.exp_cfg)
+    
     def predict(self):
-        seg_3d ={}
+        seg_3d = {}
         print('subset data = {}'.format(self.exp_cfg.dataset.subset))
         for d_set in self.exp_cfg.dataset.subset:
             #d_set = 'Set_A'
             print('predicting {} ...'.format(d_set))
             self.exp_cfg.dataset.set_current_subDataset(d_set)
             seg_3d[d_set]=extendSeg_to_1250(self.seg_predictor.predict())
-            print('subimssion seg {} shape {}'.format(d_set,seg_3d[d_set].shape))
+            print('subimssion seg {} shape {}'.format(d_set, seg_3d[d_set].shape))
             #self.show_figure( seg_3d[d_set])
         return seg_3d
 
-
     def eval(self):
-        seg_3d ={}
-        arand_eval  ={}
-        voi_eval ={}
+        seg_3d = {}
+        arand_eval = {}
+        # voi_eval = {}
 
         print('subset data = {}'.format(self.exp_cfg.dataset.subset))
         for d_set in self.exp_cfg.dataset.subset:
@@ -284,25 +274,25 @@ class em_seg_eval(object):
             print('predicting {} ...'.format(d_set))
             self.exp_cfg.dataset.set_current_subDataset(d_set)
             seg_lbs = self.exp_cfg.dataset.get_label()
-            seg_3d[d_set]=self.seg_predictor.predict()
+            seg_3d[d_set] = self.seg_predictor.predict()
             x_size = seg_3d[d_set].shape[1]
             y_size = seg_3d[d_set].shape[2]
-            seg_lbs= seg_lbs[:,:x_size,:y_size]
-            arand_eval[d_set]=adapted_rand(seg_3d[d_set],seg_lbs)
-            print('arand for {} = {}'.format(d_set,arand_eval[d_set]))
+            seg_lbs = seg_lbs[:, :x_size, :y_size]
+            arand_eval[d_set] = adapted_rand(seg_3d[d_set], seg_lbs)
+            print('arand for {} = {}'.format(d_set, arand_eval[d_set]))
             #voi_eval[d_set] = voi(seg_3d[d_set],seg_lbs)
             #self.show_figure(seg_3d[d_set])
             void_eval = 0
-        return arand_eval, voi_eval
+        return arand_eval, void_eval
    
-    def show_figure(self,seg3D):
+    def show_figure(self, seg3D):
         my_dpi = 96
         fig = plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
         label2d_seg = label2rgb(seg3D)    
         a = fig.add_subplot(1, 2, 1)
-        plt.imshow(label2d_seg [0], interpolation='nearest')
+        plt.imshow(label2d_seg[0], interpolation='nearest')
         a.set_title('upper_seg')    
         a = fig.add_subplot(1, 2, 2)
-        plt.imshow(label2d_seg [1], interpolation='nearest')
+        plt.imshow(label2d_seg[1], interpolation='nearest')
         a.set_title('lower_seg')
         plt.show()
