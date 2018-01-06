@@ -172,7 +172,7 @@ class Simple_MaxCoverage_3DSegConnector(object):
         '''first, we need make sure that there are no same ids between slices''' 
         seg2d = self.reset_slice_id(seg2d)
         seg3d = self.update_sliceS_seg(seg2d, order='down')
-        #seg3d=self.update_sliceS_seg(seg3d,order ='up')
+        seg3d=self.update_sliceS_seg(seg3d,order ='up')
         return seg3d
 
     def reset_slice_id(self, seg2d):
@@ -186,6 +186,7 @@ class Simple_MaxCoverage_3DSegConnector(object):
 
     def update_sliceS_seg(self, seg2d, order='down'):
         seg3d = seg2d.copy()
+        max_IOU_cover_threshold = 0.2
         slice_idxs = range(len(seg2d)) if order == 'down' else range(len(seg2d))[::-1]
         for i in range(len(slice_idxs) - 1):
             ref_idx = slice_idxs[i]
@@ -204,6 +205,7 @@ class Simple_MaxCoverage_3DSegConnector(object):
             sort_uids = unique_ids_1[idx][::-1]
             ''' ----------------------------------------------------------------------- '''
             connected_ids = {sid:False for sid in unique_ids_2}
+            max_cover_new_uids ={}
             for uid in sort_uids:
                 bool_mask = (seg_slice_1 == uid)
                 mask_ids = seg_slice_2[bool_mask]
@@ -212,9 +214,11 @@ class Simple_MaxCoverage_3DSegConnector(object):
                 #idx = np.argmax(count_uid)
                 #max_cover_id, max_cover_size = uids_2[idx], count_uid[idx]
                 uid_size = s1_id_size[uid]
-                ious = [self.compute_iou(s2_cover_id_size[id], s2_id_size[id], uid_size) for id in uids_2]
+                ious = np.array([self.compute_iou(s2_cover_id_size[id], s2_id_size[id], uid_size) for id in uids_2])
                 idxs = np.argsort(ious)
-                uids_2, ious = uids_2[idxs][::-1], ious[idxs][::-1]
+                # print(ious)
+                uids_2= uids_2[idxs][::-1]
+                ious  = ious[idxs][::-1]
 
                 # refer_id_size = np.sum(bool_mask.astype(np.int))
                 # max_cover_size = s2_id_size[max_cover_id]
@@ -222,11 +226,15 @@ class Simple_MaxCoverage_3DSegConnector(object):
                 # if abs(0.5 - float(max_cover_size)/float((max_cover_size+refer_id_size))) < 0.2:
                 #     seg3d[update_idx][seg3d[update_idx]==max_cover_id] =uid
                 max_cover_id = uids_2[0]
-                if connected_ids[max_cover_id]:
-                    seg3d[seg3d == uid] = max_cover_id
-                else:
-                    seg3d[update_idx][seg3d[update_idx] == max_cover_id] = uid
-                connected_ids[uid] = True
+                if ious[0] > max_IOU_cover_threshold:
+                   if connected_ids[max_cover_id]:
+                      # print('found same id/connected_id')
+                       seg3d[seg3d == max_cover_new_uids[max_cover_id]] = uid
+                   else:
+                      # seg3d[update_idx][seg3d[update_idx] == max_cover_id] = uid
+                        seg3d[update_idx][seg_slice_2 == max_cover_id] = uid
+                   connected_ids[max_cover_id] = True
+                   max_cover_new_uids[max_cover_id]=uid
         return seg3d
                 
 
