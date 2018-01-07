@@ -26,11 +26,13 @@ class exp_Dataset(Dataset):
                  sub_dataset='All',
                  subtract_mean=True,
                  phase='train',
+                 channel_axis = 2,
                  transform=None,
                  label_gen=None):
 
         self.sub_dataset = sub_dataset
         self.phase = phase
+        self.channel_axis = channel_axis
 
         self.x_out_size = out_patch_size[0]
         self.y_out_size = out_patch_size[1]
@@ -136,6 +138,7 @@ class CRIME_Dataset(exp_Dataset):
                  sub_dataset='Set_A',
                  subtract_mean=True,
                  phase='train',
+                 channel_axis = 2,
                  transform=None,
                  data_config='conf/cremi_datasets_with_tflabels.toml'):
 
@@ -144,6 +147,7 @@ class CRIME_Dataset(exp_Dataset):
                                             out_patch_size=out_patch_size,
                                             subtract_mean=subtract_mean,
                                             phase=phase,
+                                            channel_axis =channel_axis,
                                             transform=transform)
 
     def __getitem__(self, index):
@@ -153,7 +157,7 @@ class CRIME_Dataset(exp_Dataset):
            while the input data have multiple slice as multi-channel input
            the network only output the prediction of sigle slice in the center of Z dim'''
         if seg_label.ndim == 3:
-            z_dim = seg_label.shape[0]
+            z_dim = seg_label.shape[seg_label.ndim - self.channel_axis-1]
             assert ((z_dim % 2) == 1)  # we will ensure that # slices is odd number
             m_slice_idx = z_dim // 2
             # seg_label      = seg_label[m_slice_idx,:,:]

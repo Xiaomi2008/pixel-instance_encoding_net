@@ -112,16 +112,19 @@ class experiment_config():
         sub_dataset = self.dataset_conf['sub_dataset']
         out_patch_size = self.net_conf['patch_size']
         print 'this out {}'.format(out_patch_size)
+        ch_axis = np.argmin(out_patch_size)
         train_dataset = CRIME_Dataset(out_patch_size=out_patch_size,
                                       phase='train',
                                       subtract_mean=True,
                                       transform=self.data_transform,
-                                      sub_dataset=sub_dataset)
+                                      sub_dataset=sub_dataset,
+                                      channel_axis=ch_axis)
 
         valid_dataset = CRIME_Dataset(out_patch_size=out_patch_size,
                                       phase='valid',
                                       subtract_mean=True,
-                                      sub_dataset=sub_dataset)
+                                      sub_dataset=sub_dataset,
+                                      channel_axis=ch_axis)
         return train_dataset, valid_dataset
 
     def data_Transform(self, op_list):
@@ -234,7 +237,7 @@ class experiment():
             train_losses_accumulator = losses_accumulator()
 
             for i, (data, targets) in enumerate(train_loader, 0):
-                # print (targets['distance'].shape)
+                print (data.shape)
                 data = Variable(data).float()
                 target = self.make_variable(targets)
                 if self.use_gpu:
