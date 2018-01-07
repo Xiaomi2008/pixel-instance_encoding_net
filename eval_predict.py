@@ -80,11 +80,10 @@ class em_seg_predict():
         self.dataset = self.exp_cfg.dataset
         self.seg3D_connector = seg3D_connector
 
-
     def predict(self):
         pred_seg_2d = self.__predict2D__()
         print('connecting slices ids ...')
-        pred_seg_3d = self.__make_3Dseg__(self.dataset.get_data(),pred_seg_2d.cpu().numpy())
+        pred_seg_3d = self.__make_3Dseg__(self.dataset.get_data(), pred_seg_2d.cpu().numpy())
         return pred_seg_3d
 
     def __predict2D__(self):
@@ -217,8 +216,8 @@ class Simple_MaxCoverage_3DSegConnector(object):
                 ious = np.array([self.compute_iou(s2_cover_id_size[id], s2_id_size[id], uid_size) for id in uids_2])
                 idxs = np.argsort(ious)
                 # print(ious)
-                uids_2= uids_2[idxs][::-1]
-                ious  = ious[idxs][::-1]
+                uids_2 = uids_2[idxs][::-1]
+                ious = ious[idxs][::-1]
 
                 # refer_id_size = np.sum(bool_mask.astype(np.int))
                 # max_cover_size = s2_id_size[max_cover_id]
@@ -228,13 +227,12 @@ class Simple_MaxCoverage_3DSegConnector(object):
                 max_cover_id = uids_2[0]
                 if ious[0] > max_IOU_cover_threshold:
                    if connected_ids[max_cover_id]:
-                      # print('found same id/connected_id')
                        seg3d[seg3d == max_cover_new_uids[max_cover_id]] = uid
                    else:
                       # seg3d[update_idx][seg3d[update_idx] == max_cover_id] = uid
                         seg3d[update_idx][seg_slice_2 == max_cover_id] = uid
                    connected_ids[max_cover_id] = True
-                   max_cover_new_uids[max_cover_id]=uid
+                   max_cover_new_uids[max_cover_id] = uid
         return seg3d
                 
 
@@ -292,7 +290,7 @@ class em_seg_eval(object):
             #self.show_figure(seg_3d[d_set])
             void_eval = 0
         return arand_eval, void_eval
-   
+
     def show_figure(self, seg3D):
         my_dpi = 96
         fig = plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)

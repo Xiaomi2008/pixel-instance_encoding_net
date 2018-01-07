@@ -13,9 +13,9 @@ import time
 import torchvision.utils as vutils
 from tensorboardX import SummaryWriter
 import numpy as np
-import pdb
+#import pdb
 # from matplotlib import pyplot as plt
-import matplotlib
+#import matplotlib
 from matplotlib import pyplot as plt
 import pytoml as toml
 import torch.optim as optim
@@ -97,9 +97,6 @@ class masknet_experiment_config(experiment_config):
             in_ch = self.net_conf['patch_size'][2]
             nn_model = nn_model(target_label=data_out_labels, in_ch=in_ch).float()
             pre_trained_weights = conf_mask['nn_weight_file']
-            # pre_trained_weights = \
-            #     '../model/Mdecoder2Unet_withDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance' \
-            #     '-gradient_VFlip-HFlip-Rot90_freeze_net1=True_iter_32499.model'
             nn_model.load_state_dict(torch.load(pre_trained_weights))
             data_loader = instance_mask_NNproc_DataLoader(label_cat_in=conf_mask['labels_cat_in'],
                                                           nn_model=nn_model,
