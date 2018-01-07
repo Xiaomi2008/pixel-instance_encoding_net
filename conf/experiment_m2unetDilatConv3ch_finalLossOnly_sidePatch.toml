@@ -3,7 +3,7 @@ model = 'M2DUnet_withDilatConv'
 model_save_dir = 'model'
 load_train_iter = 0
 #trained_file  = 'model/Mdecoder2Unet_withDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_freeze_net1=True_iter_11749.model'
-trained_file ='model/Mdecoder2Unet_in_3_chs__[affinity-sizemap-distance-gradient_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_freeze_net1=True_iter_327249.model'
+#trained_file ='model/Mdecoder2Unet_in_3_chs__[affinity-sizemap-distance-gradient_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_freeze_net1=True_iter_327249.model'
 model_save_step = 200
 batch_size      = 6
 patch_size      = [3,640,96]
