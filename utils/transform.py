@@ -92,9 +92,9 @@ class objCenterMap(object):
 class affinity(object):
     """
     Args:
-        2D numpy arrays whuch must be segmentation labels
+        2D numpy arrays, must be segmentation labels
     """
-    def __init__(self, axis=-1,distance=1):
+    def __init__(self, axis=-1, distance=1):
         self.distance = distance
         self.axis     = axis
     def __call__(self,*input):

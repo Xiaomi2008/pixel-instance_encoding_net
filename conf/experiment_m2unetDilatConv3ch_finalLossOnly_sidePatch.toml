@@ -17,11 +17,11 @@ optimizer = 'Adam'
 #option{'SGD','Adagrad','Adam'}
 final_loss_only = true
 learning_rate   = 0.01
-tensorboard_folder = 'runs_train2D/mDecoder2Unet_Dilat_3ch_480x480_lesscat_labels'
+tensorboard_folder = 'runs_train2D/mDecoder2Unet_Dilat_3ch_480x480_lesscat_labels_sidePatch'
 
 [sub_net]
 model = 'MDUnetDilat'
-freeze_weight = true
+freeze_weight = false
 #trained_file  = 'model/MdecoderUnetDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_iter_155049.model'
 
 
@@ -41,6 +41,7 @@ sub_dataset = 'All'
 # Options: {'Set_A','Set_B','Set_C','All'}
 
 [data_augmentation]
- transform =['vflip',
-            'hflip',
-            'rot90']
+#transform =['vflip',
+#            'hflip',
+#            'rot90']
+transform =['vflip','hflip',]

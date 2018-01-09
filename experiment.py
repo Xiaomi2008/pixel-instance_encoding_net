@@ -35,8 +35,11 @@ class experiment_config():
         self.data_transform = self.data_Transform(self.data_aug_conf['transform'])
         self.label_generator = self.label_Generator()
 
+
+        self.data_channel_axis = np.argmin(self.net_conf['patch_size'])
+
         self.train_dataset, self.valid_dataset \
-            = self.dataset(self.net_conf['patch_size'], self.data_transform)
+            = self.dataset(self.net_conf['patch_size'], self.data_transform,channel_axis=self.data_channel_axis)
 
         # labels_in_use = ['gradient','sizemap','affinity','centermap','distance']
         label_in_use = self.label_conf['labels']
@@ -49,9 +52,9 @@ class experiment_config():
         for lb in label_in_use:
             label_ch_pair[lb] = data_out_labels[lb]
 
-        in_ch = self.net_conf['patch_size'][2]
+        #in_ch = self.net_conf['patch_size'][2]
+        in_ch = self.net_conf['patch_size'][self.data_channel_axis]
 
-        input_lbCHs_cat_for_net2 = self.label_conf['label_catin_net2']
 
         self.sub_network = None
         freeze_net1 = True
@@ -64,6 +67,7 @@ class experiment_config():
 
         net_model = networks[self.net_conf['model']]
         if self.net_conf['model'] == 'M2DUnet_withDilatConv':
+            input_lbCHs_cat_for_net2 = self.label_conf['label_catin_net2']
             self.network = net_model(self.sub_network, freeze_net1=freeze_net1,
                 target_label=label_ch_pair, 
                 label_catin_net2=input_lbCHs_cat_for_net2,
@@ -108,23 +112,24 @@ class experiment_config():
             self.train_conf = train_conf
             self.conf = conf
 
-    def dataset(self, out_patch_size, transform):
+    def dataset(self, out_patch_size, transform, channel_axis =None):
         sub_dataset = self.dataset_conf['sub_dataset']
         out_patch_size = self.net_conf['patch_size']
         print 'this out {}'.format(out_patch_size)
-        ch_axis = np.argmin(out_patch_size)
+        if not channel_axis:
+            channel_axis = np.argmin(out_patch_size)
         train_dataset = CRIME_Dataset(out_patch_size=out_patch_size,
                                       phase='train',
                                       subtract_mean=True,
                                       transform=self.data_transform,
                                       sub_dataset=sub_dataset,
-                                      channel_axis=ch_axis)
+                                      channel_axis=channel_axis)
 
         valid_dataset = CRIME_Dataset(out_patch_size=out_patch_size,
                                       phase='valid',
                                       subtract_mean=True,
                                       sub_dataset=sub_dataset,
-                                      channel_axis=ch_axis)
+                                      channel_axis=channel_axis)
         return train_dataset, valid_dataset
 
     def data_Transform(self, op_list):
@@ -158,7 +163,9 @@ class experiment_config():
         nstr = self.network.name + '_' \
                + self.train_dataset.name + '_' \
                + '-'.join(self.label_conf['labels']) + '_' \
-               + self.data_transform.name
+               + self.data_transform.name +'_' \
+               + 'patch ='+str(self.net_conf['patch_size'])
+
         if 'sub_net' in self.conf:
             nstr = nstr + '_' + 'freeze_net1={}'.format(self.conf['sub_net']['freeze_weight'])
         return nstr
@@ -237,7 +244,6 @@ class experiment():
             train_losses_accumulator = losses_accumulator()
 
             for i, (data, targets) in enumerate(train_loader, 0):
-                print (data.shape)
                 data = Variable(data).float()
                 target = self.make_variable(targets)
                 if self.use_gpu:

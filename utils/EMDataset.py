@@ -1,4 +1,4 @@
-mport os, sys
+import os, sys
 
 sys.path.append('../')
 import pdb
@@ -32,7 +32,7 @@ class exp_Dataset(Dataset):
 
         self.sub_dataset = sub_dataset
         self.phase = phase
-        self.channel_axis = channel_axis
+        self.channel_axis = (channel_axis + 1) % 3
 
         self.x_out_size = out_patch_size[0]
         self.y_out_size = out_patch_size[1]
@@ -80,27 +80,46 @@ class exp_Dataset(Dataset):
         return im_data, lb_data
 
     def get_random_patch(self, index, im_data, lb_data):
-        z_start = index // (self.x_size * self.y_size) + self.slice_start_z
-        remain = index % (self.x_size * self.y_size)
-        x_start = remain // self.y_size
-        y_start = remain % self.y_size
+        #z_start = index // (self.x_size * self.y_size) + self.slice_start_z
+        #remain = index % (self.x_size * self.y_size)
+        #x_start = remain // self.y_size
+        #y_start = remain % self.y_size
 
-        if z_start > 125 - self.z_out_size:
-            z_start = 125 - self.z_out_size
-            # print 'z_start = {}'.format(z_start)
+        im_z_size, im_x_size, im_y_size = im_data.shape[0], im_data.shape[1], im_data.shape[2]
+        if im_z_size - self.slice_start_z -1 < self.z_out_size:
+            z_start = self.slice_start_z
+            z_end   = im_z_size
+        else:
+            z_start = np.random.randint(self.slice_start_z, self.slice_end_z - self.z_out_size -1)
+            z_end   = z_start +  self.z_out_size
+       
+        x_start = np.random.randint(im_x_size - self.x_in_size - 1)
+        y_start = np.random.randint(im_y_size - self.y_in_size - 1)
 
-        z_end = z_start + self.z_out_size
+
+        if z_start > im_z_size - self.z_out_size:
+            z_start = im_z_size - self.z_out_size
+
+       
         x_end = x_start + self.x_out_size
         y_end = y_start + self.y_out_size
 
-        # print ('z_e={}, z_s ={}'.format(z_end,z_start))
         # assert (z_end - z_start == 3)
+        #print ('y_e={}, y_s ={}'.format(y_start, y_end))
+        if self.channel_axis >0:
+            idx=np.random.randint(2)
+            if idx == 0:
+                data = np.array(im_data[z_start:z_end, x_start:x_end, y_start:y_end]).astype(np.float)
+                seg_label = np.array(lb_data[z_start:z_end, x_start:x_end, y_start:y_end]).astype(np.int)
+            else:
+                data = np.array(im_data[x_start:x_end, z_start:z_end, y_start:y_end]).astype(np.float)
+                seg_label = np.array(lb_data[x_start:x_end, z_start:z_end, y_start:y_end]).astype(np.int)
+                data = data.transpose(1,0,2)
+                seg_label = seg_label.transpose(1,0,2)
 
-        data = np.array(im_data[z_start:z_end, x_start:x_end, y_start:y_end]).astype(np.float)
         if self.subtract_mean:
             data -= 127.0
 
-        seg_label = np.array(lb_data[z_start:z_end, x_start:x_end, y_start:y_end]).astype(np.int)
 
         if self.transform:
             data, seg_label = self.transform(data, seg_label)
@@ -153,13 +172,22 @@ class CRIME_Dataset(exp_Dataset):
     def __getitem__(self, index):
         im_data, lb_data = self.random_choice_dataset(self.im_lb_pair)
         data, seg_label = self.get_random_patch(index, im_data, lb_data)
+        if self.channel_axis ==1:
+            transpose_d =  [self.channel_axis,0,2]
+        elif self.channel_axis ==2:
+            transpose_d =  [self.channel_axis,0,1]
+        
+        if self.channel_axis >0:
+            data=data.transpose(transpose_d)
+            seg_label=seg_label.transpose(transpose_d)
         '''Convert seg_label to 2D by obtaining only intermedia slice 
            while the input data have multiple slice as multi-channel input
            the network only output the prediction of sigle slice in the center of Z dim'''
         if seg_label.ndim == 3:
-            z_dim = seg_label.shape[seg_label.ndim - self.channel_axis-1]
-            assert ((z_dim % 2) == 1)  # we will ensure that # slices is odd number
-            m_slice_idx = z_dim // 2
+            #z_dim = seg_label.shape[self.channel_axis]
+            ch_dim = seg_label.shape[0]
+            assert ((ch_dim % 2) == 1)  # we will ensure that # slices is odd number
+            m_slice_idx = ch_dim // 2
             # seg_label      = seg_label[m_slice_idx,:,:]
             seg_label = np.expand_dims(seg_label[m_slice_idx, :, :], axis=0)
         tc_data = torch.from_numpy(data).float()
@@ -247,7 +275,7 @@ class slice_dataset(Dataset):
         cur_set = self.im_lb_pair[self.current_subDataset]
         im_data = cur_set['image']
         start_idx = index - self.slices // 2 + self.starting_slice
-        end_idx   = start_idx + self.slices
+        end_idx  = start_idx + self.slices
         def get_slice_data(input_array,start_idx,end_idx):
             if start_idx < self.starting_slice:
                 start_idx = self.starting_slice
