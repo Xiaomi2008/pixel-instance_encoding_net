@@ -1,26 +1,28 @@
 [network]
 model = 'M2DUnet_withDilatConv'
-z_slices = 3
+z_slices = 5
 
 #trained_file = 'model/Mdecoder2Unet_withDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_freeze_net1=True_iter_32499.model'
 #trained_file = 'model/Mdecoder2Unet_in_3_chs__[affinity-sizemap-distance-gradient_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_freeze_net1=True_iter_325749.model'
-#trained_file = 'model_back/Mdecoder2Unet_in_3_chs__[affinity-sizemap-distance-gradient_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_freeze_net1=True_iter_4399.model'
+#trained_file = 'model/Mdecoder2Unet_in_3_chs__[affinity-sizemap-distance-gradient_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_freeze_net1=True_iter_4399.model'
 #train_file = 'model/Mdecoder2Unet_in_3_chs__[affinity-sizemap-distance-gradient_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_freeze_net1=True_iter_24199.model'
-trained_file ='model/Mdecoder2Unet_in_3_chs__[affinity-sizemap-distance-gradient_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_patch =[320, 320, 3]_freeze_net1=True_iter_206249.model'
 
-#trained_file ='model_back/Mdecoder2Unet_in_3_chs__[affinity-sizemap-distance-gradient_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_freeze_net1=True_iter_43999.model'
-
+trained_file ='model/Mdecoder2Unet_in_5_chs__[affinity-sizemap-distance-gradient_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip_patch =[5, 640, 96]_freeze_net1=True_iter_100249.model'
 use_gpu = true
 
 [target_labels]
 labels = ['gradient', 'sizemap', 'affinity', 'centermap', 'distance']
 label_catin_net2 =['affinity',
-		           'sizemap',
-                   'distance',
-                   'gradient']
+					'sizemap',
+				   'distance',
+				   'gradient']
 final_label = 'distance'
 
 [dataset]
 dataset     = 'valid'
 #option 'valid, predict' 
 sub_dataset = 'All'
+
+[slice_direction]
+direction ='low_res'
+#option 'low_res','high_res'

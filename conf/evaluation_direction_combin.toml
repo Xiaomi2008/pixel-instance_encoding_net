@@ -1,0 +1,32 @@
+[fontslice_network]
+model = 'M2DUnet_withDilatConv'
+slices = 3
+trained_file ='model/Mdecoder2Unet_in_3_chs__[affinity-sizemap-distance-gradient_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_patch =[320, 320, 3]_freeze_net1=True_iter_206249.model'
+use_gpu = true
+
+[sideslice_network]
+model = 'M2DUnet_withDilatConv'
+slices = 5
+trained_file ='model/Mdecoder2Unet_in_5_chs__[affinity-sizemap-distance-gradient_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip_patch =[5, 640, 96]_freeze_net1=True_iter_100249.model'
+use_gpu = true
+
+[fronslice_target_labels]
+labels = ['gradient', 'sizemap', 'affinity', 'centermap', 'distance']
+label_catin_net2 =['affinity',
+		           'sizemap',
+                   'distance',
+                   'gradient']
+final_label = 'distance'
+
+[sideslice_target_labels]
+labels = ['gradient', 'sizemap', 'affinity', 'centermap', 'distance']
+label_catin_net2 =['affinity',
+		           'sizemap',
+                   'distance',
+                   'gradient']
+final_label = 'distance'
+
+[dataset]
+dataset     = 'valid'
+#option 'valid, predict' 
+sub_dataset = 'All'

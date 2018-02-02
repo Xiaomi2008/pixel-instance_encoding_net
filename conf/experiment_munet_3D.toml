@@ -1,0 +1,45 @@
+[network]
+model = 'MDUnet3D'
+model_save_dir = 'model'
+load_train_iter = 0
+#trained_file  = 'model/MdecoderUnetDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_iter_155049.model'
+#trained_file ='model/MdecoderUnetDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_patch =[320, 320, 3]_iter_21299.model'
+#trained_file ='model/MdecoderUnetDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_patch =[320, 320, 3]_iter_61199.model'
+model_save_step = 100
+batch_size      = 2
+patch_size      = [240,240,24]
+use_gpu         = true
+
+
+[train]
+final_loss_only = false
+learning_rate   = 0.01
+#tensorboard_folder = 'runs_train2D/dialet_mnet_3ch_320_320_resum_155049_iters'
+tensorboard_folder = 'runs_train2D/mdunet3D_240_240_24_noSizemap'
+optimizer = 'Adagrad'
+#option{'SGD','Adagrad','Adam'}
+
+#[sub_net]
+#model = 'MDUnet'
+#freeze_weight = false
+#trained_file  = 'model/MdecoderUnet_Dataset-CRIME-All__iter_29999.model'
+
+
+# [target_labels]
+#   labels = ['affinity',
+#             'sizemap',
+#             'centermap',
+#             'distance',
+#             'gradient']
+[target_labels]
+  labels = ['distance']
+  final_label = 'distance'
+[dataset]
+sub_dataset = 'All'
+output_3D = true
+# Options: {'Set_A','Set_B','Set_C','All'}
+
+[data_augmentation]
+ transform =['vflip',
+            'hflip',
+            'rot90']

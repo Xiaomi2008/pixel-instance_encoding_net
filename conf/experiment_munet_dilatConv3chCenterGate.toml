@@ -1,19 +1,21 @@
 [network]
-model = 'MDUnetDilat'
+model = 'MDUnetDilatCenterGate'
 model_save_dir = 'model'
 load_train_iter = 0
-#trained_file  = 'model/MdecoderUnetDilatConv_in_5_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_iter_9099.model'
-model_save_step = 300
-batch_size      = 6
-patch_size      = [320,320,5]
+#trained_file  = 'model/MdecoderUnetDilatConvCenterGate_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_patch =[320, 320, 3]_iter_5399.model'
+model_save_step = 500
+batch_size      = 3
+patch_size      = [320,320,3]
 use_gpu         = true
+cgate_compress  = true
 
 
 [train]
 final_loss_only = false
 learning_rate   = 0.01
-tensorboard_folder = 'runs_train2D/dialet_mnet_5ch_320x320_new'
-optimizer = 'Adagrad'
+tensorboard_folder = 'runs_train2D/dialet_mnet_3ch_centerGate_resume_non_batchnorm_compressed'
+optimizer = 'Adam'
+#option{'SGD','Adagrad','Adam'}
 
 #[sub_net]
 #model = 'MDUnet'

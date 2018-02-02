@@ -2,18 +2,19 @@
 model = 'MDUnetDilat'
 model_save_dir = 'model'
 load_train_iter = 0
-#trained_file  = 'model/MdecoderUnetDilatConv_in_5_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_iter_9099.model'
+#trained_file  = 'model/MdecoderUnetDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_iter_155049.model'
 model_save_step = 300
-batch_size      = 6
-patch_size      = [320,320,5]
+batch_size      = 8
+patch_size      = [5,640,96]
 use_gpu         = true
 
 
 [train]
 final_loss_only = false
 learning_rate   = 0.01
-tensorboard_folder = 'runs_train2D/dialet_mnet_5ch_320x320_new'
-optimizer = 'Adagrad'
+tensorboard_folder = 'runs_train2D/dialet_mnet_5ch_480_480_sidePatch'
+optimizer = 'Adam'
+#option{'SGD','Adagrad','Adam'}
 
 #[sub_net]
 #model = 'MDUnet'
@@ -23,6 +24,7 @@ optimizer = 'Adagrad'
 
 [target_labels]
   labels = ['affinity',
+            'sizemap',
             'centermap',
             'distance',
             'gradient']
@@ -33,5 +35,4 @@ sub_dataset = 'All'
 
 [data_augmentation]
  transform =['vflip',
-            'hflip',
-            'rot90']
+            'hflip']
