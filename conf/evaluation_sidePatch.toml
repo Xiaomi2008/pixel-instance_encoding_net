@@ -1,6 +1,6 @@
 [network]
 model = 'M2DUnet_withDilatConv'
-z_slices = 5
+z_slices = 2
 
 #trained_file = 'model/Mdecoder2Unet_withDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_freeze_net1=True_iter_32499.model'
 #trained_file = 'model/Mdecoder2Unet_in_3_chs__[affinity-sizemap-distance-gradient_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_freeze_net1=True_iter_325749.model'

@@ -13,12 +13,15 @@ trained_file ='model/Mdecoder2Unet_in_3_chs__[affinity-sizemap-distance-gradient
 use_gpu = true
 
 [target_labels]
-labels = ['gradient', 'sizemap', 'affinity', 'centermap', 'distance']
-label_catin_net2 =['affinity',
-		           'sizemap',
-                   'distance',
-                   'gradient']
-final_label = 'distance'
+  labels = ['affinityX',
+            'affinityY',
+            'affinityZ',
+            'distance2D',
+            'distance3D']
+  final_label = 'distance'
+[dataset]
+sub_dataset = 'All'
+output_3D = true
 
 [dataset]
 dataset     = 'valid'

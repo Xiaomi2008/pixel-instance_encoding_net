@@ -1,14 +1,15 @@
 [network]
-model = 'MDUnet3D'
+model = 'MDUnet3D_mhead'
 model_save_dir = 'model'
 load_train_iter = 0
 #trained_file  = 'model/MdecoderUnetDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_iter_155049.model'
 #trained_file ='model/MdecoderUnetDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_patch =[320, 320, 3]_iter_21299.model'
 #trained_file ='model/MdecoderUnetDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_patch =[320, 320, 3]_iter_61199.model'
 #trained_file = 'model/Res_3D_2D_HybribUnet_Dataset-CRIME-All_distance_VFlip-HFlip-Rot90-NRot90_patch =[256, 256, 22]_iter_7799.model'
-#trained_file ='model/Res_3D_2D_HybribUnet_Dataset-CRIME-All_distance_VFlip-HFlip-Rot90-NRot90_patch =[256, 256, 22]_iter_1.model'
+#trained_file ='model/Res_3D_2D_HybribUnet_multiHead_selfGated_act_Dataset-CRIME-All_affinityX-affinityY-affinityZ-distance2D-distance3D_VFlip-HFlip-Rot90-NRot90_patch =[256, 256, 22]_iter_12599.model'
+#trained_file ='model/Res_3D_2D_HybribUnet_multiHead_selfGated_act_Dataset-CRIME-All_affinityX-affinityY-affinityZ-distance2D-distance3D_VFlip-HFlip-Rot90-NRot90_patch =[256, 256, 22]_iter_147199.model'
 model_save_step = 200
-batch_size      = 6
+batch_size      = 4
 patch_size      = [256,256,22]
 use_gpu         = true
 
@@ -16,8 +17,8 @@ use_gpu         = true
 [train]
 final_loss_only = false
 learning_rate   = 0.01
-#tensorboard_folder = 'runs_train2D/dialet_mnet_3ch_320_320_resum_155049_iters'
-tensorboard_folder = 'runs_train2D/mdunet3D_256_256_22_ReLu6'
+tensorboard_folder = 'runs_train2D/mdunet3D_mheadSectionConv_affinity_misalign_distance_conv_upsample_selfgate'
+#tensorboard_folder = 'runs_train2D/mdunet3D_mhead(deconv)_256_256_22_selfgate'
 optimizer = 'Adam'
 #option{'SGD','Adagrad','Adam'}
 
@@ -34,7 +35,11 @@ optimizer = 'Adam'
 #             'distance',
 #             'gradient']
 [target_labels]
-  labels = ['distance']
+  labels = ['affinityX',
+            'affinityY',
+            'affinityZ',
+            'distance2D',
+            'distance3D']
   final_label = 'distance'
 [dataset]
 sub_dataset = 'All'
