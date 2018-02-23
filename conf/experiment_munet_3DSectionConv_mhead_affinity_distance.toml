@@ -1,5 +1,5 @@
 [network]
-model = 'MDUnet3D_mhead'
+model = 'MDUnet3D_sectionConv_mhead'
 model_save_dir = 'model'
 load_train_iter = 0
 #trained_file  = 'model/MdecoderUnetDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_iter_155049.model'
@@ -17,7 +17,7 @@ use_gpu         = true
 [train]
 final_loss_only = false
 learning_rate   = 0.01
-tensorboard_folder = 'runs_train2D/mdunet3D_mheadSectionConv_affinity_misalign_distance_conv_upsample_selfgate'
+tensorboard_folder = 'runs_train2D/mdunet3D_mheadSectionConv_affinity_misalign_distance_selfgate'
 #tensorboard_folder = 'runs_train2D/mdunet3D_mhead(deconv)_256_256_22_selfgate'
 optimizer = 'Adam'
 #option{'SGD','Adagrad','Adam'}

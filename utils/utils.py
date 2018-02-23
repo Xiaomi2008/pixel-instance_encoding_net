@@ -1,5 +1,8 @@
 
+import os, sys
+sys.path.insert(0,'../')
 import numpy as np
+import torch
 import scipy.sparse as sparse
 from scipy import ndimage
 from skimage.feature import peak_local_max
@@ -10,48 +13,63 @@ import skimage
 from skimage.filters import gaussian
 from torch.autograd import Variable
 from munkres import Munkres
+from evaluation import adapted_rand
+from orig_cremi_evaluation import voi
+import pdb
 
+def evalute_pred_dist_with_threshold(seg_t,distance, thresholds=None):
+    thresholds = np.linspace(0.5,15,10) if thresholds is None else thresholds
+    for th in thresholds:
+        #d_seg= watershed_seg2(d_orig[100:,:,:], d_combine[100:,:,:], threshold = th)
+        d_seg= watershed_seg(distance, threshold = th)
+        #pdb.set_trace()
+        #d_seg= watershed_seg(d_orig[100:,:,:], threshold = th)
+        arand = adapted_rand(d_seg.astype(np.int), seg_t)
+        split, merge = voi(d_seg.astype(np.int), seg_t)
+        #arands.append(arand)
+        print('arand, split, merge = {:.3f}, {:.3f}, {:.3f} \
+            for threshold = {:.3f}'.format(arand,split,merge,th))
 
-def watershed_seg2D(distance):
+def watershed_seg(distance,threshold = 2.0):
     if isinstance(distance, Variable):
         distance = distance.data
-    distance = distance.cpu().numpy()
+    if isinstance(distance, torch.FloatTensor):
+        distance = distance.cpu().numpy()
     distance = np.squeeze(distance)
-    markers = distance > 2
+    markers = distance > threshold
     markers = skimage.morphology.label(markers)
     seg_labels = watershed(-distance, markers)
     return seg_labels
 
 
-def match(masks, overlaps):
-    """
-    Code reference from 'https://github.com/Xiaomi2008/rsis/blob/master/src/utils/hungarian.py'
-    Args:
-        masks - list containing [true_masks, pred_masks], both being [batch_size,T,N]
-        overlaps - [batch_size,T,T] - matrix of costs between all pairs
-    Returns:
-        t_mask_cpu - [batch_size,T,N] permuted ground truth masks
-        permute_indices - permutation indices used to sort the above
-    """
-
-    overlaps = (overlaps.data).cpu().numpy().tolist()
-    m = Munkres()
-
-    t_mask, p_mask = masks
-
-    # get true mask values to cpu as well
-    t_mask_cpu = (t_mask.data).cpu().numpy()
-    # init matrix of permutations
-    permute_indices = np.zeros((t_mask.size(0), t_mask.size(1)), dtype=int)
-    # we will loop over all samples in batch (must apply munkres independently)
-    for sample in range(p_mask.size(0)):
-        # get the indexes of minimum cost
-        indexes = m.compute(overlaps[sample])
-        for row, column in indexes:
-            # put them in the permutation matrix
-            permute_indices[sample, column] = row
-
-        # sort ground according to permutation
-        t_mask_cpu[sample] = t_mask_cpu[sample, permute_indices[sample], :]
+def watershed_seg2(distance_1,distance_fuse,threshold = 2.0):
+    if isinstance(distance_1, Variable):
+        distance_1 = distance_1.data
+    if isinstance(distance_fuse, Variable):
+        distance_fuse = distance_fuse.data
     
-    return t_mask_cpu, permute_indices
+    if isinstance(distance_fuse, torch.FloatTensor):
+        distance_fuse = distance_fuse.cpu().numpy()
+    if isinstance(distance_1, torch.FloatTensor):
+        distance_1 = distance_1.cpu().numpy()
+    #distance_fuse = distance_fuse.cpu().numpy()
+    distance_fuse = np.squeeze(distance_fuse)
+    markers = distance_fuse > threshold
+    markers = skimage.morphology.label(markers)
+
+    #distance_1 = distance_1.cpu().numpy()
+    distance_1 = np.squeeze(distance_1)
+    
+
+
+    seg_labels = watershed(-distance_1, markers)
+    return seg_labels
+
+
+if __name__ == '__main__':
+    A =np.ones([22,1250,1250])
+    B =np.ones([22,1250,1250])
+    B[10:20,:,:]=6
+    evalute_pred_dist_with_threshold(A,B)
+
+

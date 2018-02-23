@@ -6,8 +6,8 @@ distance = hdf5read(hd5_file,'/Set_A_d2');
 gt       = hdf5read(hd5_file,'/Set_A_t1');
 h =22;
 slcie = 80
-d1 = distance(:,:,100:125);
-g1 = gt(:,:,100:125);
+d1 = distance(:,:,1:125);
+g1 = gt(:,:,1:125);
 
 h = [6:0.5:30];
 %h = [22.5];

@@ -3,13 +3,17 @@ from torch.utils.data import DataLoader
 from torch.autograd import Variable
 import torch.optim as optim
 from torch_networks.networks import Unet, DUnet, MdecoderUnet, Mdecoder2Unet, \
-    MdecoderUnet_withDilatConv, Mdecoder2Unet_withDilatConv
+    MdecoderUnet_withDilatConv,  MdecoderUnet_withFullDilatConv, Mdecoder2Unet_withDilatConv,\
+    Mdecoder2Unet_withDilatConv_LSTM_on_singleOBJ, MdecoderUnet_withDilatConv_centerGate
 
-from utils.EMDataset import CRIME_Dataset, labelGenerator
-from utils.transform import VFlip, HFlip, Rot90, random_transform
+#from torch_networks.unet3D import MdecoderUnet3D
+from torch_networks.res_3D2Dhybrid_unet import \
+     hybrid_2d3d_unet, hybrid_2d3d_unet_mutlihead, hybrid_2d3d_unet_mutlihead_with_3section_conv
+from utils.EMDataset import CRIME_Dataset, labelGenerator, CRIME_Dataset3D, labelGenerator3D
+from utils.transform import VFlip, HFlip, ZFlip, Rot90, NRot90, random_transform, RandomContrast
 from utils.torch_loss_functions import *
 from utils.printProgressBar import printProgressBar
-from utils.utils import watershed_seg2D
+from utils.utils import watershed_seg
 import torchvision.utils as vutils
 from tensorboardX import SummaryWriter
 import numpy as np
@@ -18,19 +22,27 @@ import matplotlib
 from matplotlib import pyplot as plt
 import pytoml as toml
 import time
-# import pdb
+#import pdb
 import os
 
 class experiment_config():
     def __init__(self, config_file):
         self.parse_toml(config_file)
+        print('=====================******===================')
 
         print self.label_conf['labels']
         print '_'.join(self.label_conf['labels'])
         networks = \
             {'Unet': Unet, 'DUnet': DUnet, 'MDUnet': MdecoderUnet,
-             'MDUnetDilat': MdecoderUnet_withDilatConv, 'M2DUnet': Mdecoder2Unet,
-             'M2DUnet_withDilatConv': Mdecoder2Unet_withDilatConv}
+             'MDUnetDilat': MdecoderUnet_withDilatConv, 
+             'MDUnet_FullDilat':MdecoderUnet_withFullDilatConv,
+             'M2DUnet': Mdecoder2Unet,
+             'M2DUnet_withDilatConv': Mdecoder2Unet_withDilatConv,
+             'M2DUnet_withDilatConv_CLSTM_ObjOut':Mdecoder2Unet_withDilatConv_LSTM_on_singleOBJ,
+             'MDUnetDilatCenterGate': MdecoderUnet_withDilatConv_centerGate,
+             'MDUnet3D':hybrid_2d3d_unet,
+             'MDUnet3D_mhead':hybrid_2d3d_unet_mutlihead,
+             'MDUnet3D_sectionConv_mhead': hybrid_2d3d_unet_mutlihead_with_3section_conv}
 
         self.data_transform = self.data_Transform(self.data_aug_conf['transform'])
         self.label_generator = self.label_Generator()
@@ -38,22 +50,31 @@ class experiment_config():
 
         self.data_channel_axis = np.argmin(self.net_conf['patch_size'])
 
-        self.train_dataset, self.valid_dataset \
-            = self.dataset(self.net_conf['patch_size'], self.data_transform,channel_axis=self.data_channel_axis)
 
-        # labels_in_use = ['gradient','sizemap','affinity','centermap','distance']
         label_in_use = self.label_conf['labels']
 
-        label_ch_pair = {}
+        self.train_dataset, self.valid_dataset \
+            = self.dataset(self.net_conf['patch_size'], 
+                           self.data_transform,
+                           label_config = label_in_use,
+                           channel_axis=self.data_channel_axis, 
+                           output_3D=self.dataset_conf['output_3D'])
 
+        # labels_in_use = ['gradient','sizemap','affinity','centermap','distance']
+
+        label_ch_pair = {}
         # data_out_labels is a dict that stores "label name" as key and # of channel for that label" as value
         data_out_labels = self.train_dataset.output_labels()
         #pdb.set_trace()
         for lb in label_in_use:
             label_ch_pair[lb] = data_out_labels[lb]
 
+
+        print ('label and ch = {}'.format(label_ch_pair))
+
         #in_ch = self.net_conf['patch_size'][2]
-        in_ch = self.net_conf['patch_size'][self.data_channel_axis]
+        
+        in_ch = 1 if self.dataset_conf['output_3D'] else self.net_conf['patch_size'][self.data_channel_axis]
 
 
         self.sub_network = None
@@ -66,17 +87,26 @@ class experiment_config():
             #self.network = net_model(self.sub_network, freeze_net1=self.conf['sub_net']['freeze_weight'])
 
         net_model = networks[self.net_conf['model']]
-        if self.net_conf['model'] == 'M2DUnet_withDilatConv':
+        #print(net_model)
+        out_ch =1
+        print(self.label_conf['final_label'])
+        if self.label_conf['final_label'] == 'softmask':
+            out_ch =24
+        print('out_ch = {}'.format(out_ch))
+        print('==================================================')
+        if self.net_conf['model'] in ['M2DUnet_withDilatConv','M2DUnet_withDilatConv_CLSTM_ObjOut']:
             input_lbCHs_cat_for_net2 = self.label_conf['label_catin_net2']
-            self.network = net_model(self.sub_network, freeze_net1=freeze_net1,
-                target_label=label_ch_pair, 
-                label_catin_net2=input_lbCHs_cat_for_net2,
-                in_ch=in_ch)
-            print(net_model)
+            self.network = net_model(self.sub_network, 
+                                     freeze_net1=freeze_net1,
+                                     target_label=label_ch_pair, 
+                                     label_catin_net2=input_lbCHs_cat_for_net2,
+                                     in_ch=in_ch,
+                                     out_ch=out_ch,
+                                     first_out_ch=16)
         else:
-            self.network = net_model(target_label=label_ch_pair, in_ch=in_ch)
-
-        print(self.network.name)
+            self.network = net_model(target_label=label_ch_pair, 
+                                     in_ch=in_ch, 
+                                     BatchNorm_final=False)
 
     def parse_toml(self, file):
         with open(file, 'rb') as fi:
@@ -99,49 +129,59 @@ class experiment_config():
 
             label_conf['labels'] = label_conf.get('labels',
                                                   ['gradient', 'sizemap', 'affinity', 'centermap', 'distance'])
-            label_conf['final_label'] = label_conf.get('final_labels', 'distance')
+            label_conf['final_label'] = label_conf.get('final_label', 'distance')
             data_aug_conf = conf['data_augmentation']
 
             # print data_aug_conf
-            data_aug_conf['transform'] = data_aug_conf.get('transform', ['vflip', 'hflip', 'rot90'])
+            data_aug_conf['transform'] = data_aug_conf.get('transform', ['vflip', 'hflip', 'rot90','nrot90'])
+
+            self.dataset_conf = conf['dataset']
+            self.dataset_conf['output_3D'] = self.dataset_conf.get('output_3D',False)
 
             self.label_conf = label_conf
             self.data_aug_conf = data_aug_conf
             self.net_conf = net_conf
-            self.dataset_conf = conf['dataset']
+            
             self.train_conf = train_conf
             self.conf = conf
 
-    def dataset(self, out_patch_size, transform, channel_axis =None):
+    def dataset(self, out_patch_size, transform, label_config=None, channel_axis =None, output_3D = False):
         sub_dataset = self.dataset_conf['sub_dataset']
         out_patch_size = self.net_conf['patch_size']
         print 'this out {}'.format(out_patch_size)
         if not channel_axis:
             channel_axis = np.argmin(out_patch_size)
-        train_dataset = CRIME_Dataset(out_patch_size=out_patch_size,
-                                      phase='train',
-                                      subtract_mean=True,
-                                      transform=self.data_transform,
-                                      sub_dataset=sub_dataset,
-                                      channel_axis=channel_axis)
 
-        valid_dataset = CRIME_Dataset(out_patch_size=out_patch_size,
-                                      phase='valid',
-                                      subtract_mean=True,
-                                      sub_dataset=sub_dataset,
-                                      channel_axis=channel_axis)
+        dataset_class = CRIME_Dataset3D if output_3D else CRIME_Dataset
+
+        train_dataset = dataset_class(out_patch_size=out_patch_size,
+                                          phase='train',
+                                          subtract_mean=True,
+                                          transform=self.data_transform,
+                                          sub_dataset=sub_dataset,
+                                          channel_axis=channel_axis,
+                                          label_config = label_config)
+
+        valid_dataset = dataset_class(out_patch_size=out_patch_size,
+                                          phase='valid',
+                                          subtract_mean=True,
+                                          sub_dataset=sub_dataset,
+                                          channel_axis=channel_axis,
+                                          label_config = label_config)
         return train_dataset, valid_dataset
 
     def data_Transform(self, op_list):
         cur_list = []
-        ops = {'vflip': VFlip(), 'hflip': HFlip(), 'rot90': Rot90()}
+        ops = {'vflip': VFlip(), 'hflip': HFlip(), 'zflip':ZFlip(), 'rot90': Rot90(),'nrot90':NRot90()}
         for op_str in op_list:
             cur_list.append(ops[op_str])
+        #contrast_transform = RandomContrast(0.15,1.5)
         print ('op_list  = {}'.format(cur_list))
-        return random_transform(*cur_list)
+        return random_transform(cur_list)
 
     def label_Generator(self):
-        return labelGenerator()
+        lb_gen = labelGenerator3D() if self.dataset_conf['output_3D'] else labelGenerator()
+        return lb_gen
 
     def optimizer(self, model):
         print('op learning_Rate = {}'.format(self.train_conf['learning_rate']))
@@ -160,6 +200,7 @@ class experiment_config():
 
     @property
     def name(self):
+        #pdb.set_trace()
         nstr = self.network.name + '_' \
                + self.train_dataset.name + '_' \
                + '-'.join(self.label_conf['labels']) + '_' \
@@ -197,20 +238,24 @@ class experiment():
         if 'trained_file' in self.exp_cfg.net_conf:
             pre_trained_file = self.exp_cfg.net_conf['trained_file']
             print('load weights from {}'.format(pre_trained_file))
+            #if hasattr(self.model, 'set_multi_gpus'):
+            #    self.model.set_multi_gpus([0,1])
             self.model.load_state_dict(torch.load(pre_trained_file))
 
         if not os.path.exists(self.model_saved_dir):
             os.mkdir(self.model_saved_dir)
 
         self.mse_loss = torch.nn.MSELoss()
-        self.bce_loss = torch.nn.BCELoss()
+        #self.bce_loss = torch.nn.BCELoss()
+        self.bce_loss = torch.nn.BCEWithLogitsLoss()
+        self.softIOU_match_loss = softIOU_match_loss()
         self.optimizer = self.exp_cfg.optimizer(self.model)
 
     def train(self):
         # set model to the train mode
         boardwriter = tensorBoardWriter(self.exp_cfg.train_conf['tensorboard_folder'])
         self.model.train()
-        self.set_parallel_model()
+        #self.set_parallel_model()
         graph_write_done = False
         train_loader = DataLoader(dataset=self.exp_cfg.train_dataset,
                                   batch_size=self.exp_cfg.net_conf['batch_size'],
@@ -244,6 +289,7 @@ class experiment():
             train_losses_accumulator = losses_accumulator()
 
             for i, (data, targets) in enumerate(train_loader, 0):
+                #print(data.size())
                 data = Variable(data).float()
                 target = self.make_variable(targets)
                 if self.use_gpu:
@@ -253,8 +299,7 @@ class experiment():
                 self.optimizer.zero_grad()
                 # print ('data shape ={}'.format(data.data[0].shape))
                 preds = self.model(data)
-                losses = self.compute_loss(preds, targets)
-
+                losses,t_masks = self.compute_loss(preds, targets)
                 # if not graph_write_done:
                 #     boardwriter.wirte_model_graph(self.model, preds['gradient'])
                 #     graph_write_done = True
@@ -297,7 +342,7 @@ class experiment():
                                   shuffle=True,
                                   num_workers=2)
         loss = 0.0
-        iters = 60
+        iters = 35
         for i, (data, targets) in enumerate(valid_loader, 0):
             # print data.shape
             data = Variable(data,volatile=True).float()
@@ -307,9 +352,12 @@ class experiment():
                 targets = self.make_cuda_data(targets)
 
             preds = self.model(data)
-            losses = self.compute_loss(preds, targets)
+            losses,t_masks = self.compute_loss(preds, targets)
+
             loss += losses['merged_loss'].data[0]
             valid_losses_accumulator.append_losses(losses)
+            if not isinstance(t_masks,int):
+                targets['t_masks'] = t_masks
             # loss += self.mse_loss(dist_pred,distance).data[0]
             # label_conf['labels']=label_conf.get('labels',['gradient','sizemap','affinity','centermap','distance'])
             # if i % iters == 0:
@@ -374,7 +422,7 @@ class experiment():
         return label_dict
 
     def set_parallel_model(self):
-        gpus = [0]
+        gpus = [0,1]
         use_parallel = True if len(gpus) > 1 else False
         if use_parallel:
             self.model = torch.nn.DataParallel(self.model, device_ids=gpus)
@@ -383,6 +431,7 @@ class experiment():
         def compute_loss_foreach_label(preds, targets):
             outputs = {}
             # print 'key = {}'.format(preds.keys())
+            t_masks = 0
             if 'gradient' in preds:
                 ang_loss = angularLoss(preds['gradient'], targets['gradient'])
                 pred_size = np.prod(preds['gradient'].data.shape)
@@ -394,42 +443,94 @@ class experiment():
                 distance = targets['distance'] * (1 - targets['affinity'])
                 # print 'distance = {}'.format(distance.data.shape)
                 dist_loss = boundary_sensitive_loss(preds['distance'], distance, targets['affinity'])
-                pred_size = np.prod(preds['distance'].data.shape)
-                outputs['dist_loss'] = dist_loss / float(pred_size)
+                #pred_size = np.prod(preds['distance'].data.shape)
+                outputs['dist_loss'] = dist_loss #/ float(pred_size)
 
+            if 'distance2D' in preds:
+                target_affinity2D = ((targets['affinityX'] + targets['affinityY'])>0).float()
+                target_distance = targets['distance2D'] * (1-target_affinity2D)
+                dist_loss = boundary_sensitive_loss(preds['distance2D'],  target_distance, target_affinity2D)
+                #pred_size = np.prod(preds['distance2D'].data.shape)
+                outputs['dist2D_loss'] = dist_loss #/ float(pred_size)
+
+            if 'distance3D' in preds:
+                #target_affinity3D = ((targets['affinityX'] + targets['affinityY'] + targets['affinityZ'])>2).astype(np.int)
+
+                affinity2D = ((targets['affinityX'] + targets['affinityY'])>0).float()
+
+                #print('affinity 2D shape ={}'.format(affinity2D.shape))
+
+
+                affinity_2D_list =[((affinity2D[:,i] + targets['affinityZ'][:,1])>0).float() for i in range(affinity2D.shape[1])]
+                target_affinity3D =  torch.stack(affinity_2D_list,1)
+
+
+                #print('target af3d shape ={}'.format(target_affinity3D.shape))
+                #print('pred af3d shape ={}'.format(targets['distance3D'].shape))
+                
+                target_distance = targets['distance3D'] * (1-target_affinity3D)
+                dist_loss = boundary_sensitive_loss(preds['distance3D'],  target_distance, target_affinity3D)
+                #pred_size = np.prod(preds['distance3D'].data.shape)
+                outputs['dist3D_loss'] = dist_loss #/ float(pred_size)
             # 'labels',['gradient','sizemap','affinity','centermap','distance']
             # if 'affinity' in self.exp_cfg.label_conf:
             if 'affinity' in preds:
-                affin_loss = self.bce_loss(torch.sigmoid(preds['affinity']), targets['affinity'])
-                pred_size = np.prod(preds['affinity'].data.shape)
-                outputs['affinty_loss'] = affin_loss / float(pred_size)
+                #affin_loss = self.bce_loss(torch.sigmoid(preds['affinity']), targets['affinity'])
+                affin_loss = self.bce_loss(preds['affinity'], targets['affinity'])
+                outputs['affinty_loss'] =  affin_loss
+                # pred_size = np.prod(preds['affinity'].data.shape)
+                # outputs['affinty_loss'] = affin_loss / float(pred_size)
 
+            if 'affinityX' in preds:
+                affin_loss = self.bce_loss(preds['affinityX'], targets['affinityX'])
+                outputs['affinty_lossX'] =  affin_loss
+
+            if 'affinityY' in preds:
+                affin_loss = self.bce_loss(preds['affinityY'], targets['affinityY'])
+                outputs['affinty_lossY'] =  affin_loss
+
+            if 'affinityZ' in preds:
+                affin_loss = self.bce_loss(preds['affinityZ'], targets['affinityZ'])
+                outputs['affinty_lossZ'] =  affin_loss
+            
+            if 'skeleton' in preds:
+                skel_loss = self.bce_loss(preds['skeleton'], targets['skeleton'])
+                outputs['skeleton_loss'] =  skel_loss * 10
+            
             if 'sizemap' in preds:
                 size_loss = self.mse_loss(preds['sizemap'], targets['sizemap'])
-                pred_size = np.prod(preds['sizemap'].data.shape)
-                outputs['size_loss'] = size_loss / float(pred_size)
+                #outputs['size_loss'] = size_loss
+                #pred_size = np.prod(preds['sizemap'].data.shape)
+                outputs['size_loss'] = size_loss / 200.0
 
             if 'centermap' in preds:
                 center_loss = self.mse_loss(preds['centermap'], targets['centermap'])
-                pred_size = np.prod(preds['centermap'].data.shape)
-                outputs['center_loss'] = center_loss / float(pred_size)
-            return outputs
+                outputs['center_loss'] = center_loss
+                #pred_size = np.prod(preds['centermap'].data.shape)
+                #outputs['center_loss'] = center_loss / float(pred_size)
+            
+            if 'softmask' in preds:
+                #softmask_loss,t_masks= self.softIOU_match_loss(preds['softmask'],targets['seg'])
+                #print ('softmask output shape ={}'.format(preds['softmask'].shape))
+                softmask_loss,t_masks= self.softIOU_match_loss(preds['softmask'],targets['seg'])
+                outputs['softmask_loss'] = softmask_loss
+            return outputs, t_masks
 
         outputs = {}
         if not self.exp_cfg.train_conf['final_loss_only'] or not 'final' in preds:
-            outputs = compute_loss_foreach_label(preds, targets)
+            outputs,t_masks = compute_loss_foreach_label(preds, targets)
 
         if 'final' in preds:
             m_preds = {}
             final_lb = self.exp_cfg.label_conf['final_label']
             m_preds[final_lb] = preds['final']
             # print preds['final'].data.shape
-            fin_loss = compute_loss_foreach_label(m_preds, targets)
+            fin_loss,t_masks = compute_loss_foreach_label(m_preds, targets)
             outputs['final_loss'] = fin_loss[fin_loss.keys()[0]]
 
         loss = sum(outputs.values())
         outputs['merged_loss'] = loss
-        return outputs
+        return outputs,t_masks
 
     def save_model(self, iters):
         model_save_file = self.get_model_save_filename(iters)
@@ -465,7 +566,7 @@ class experiment():
             # model_name = self.model.name
             save2figure(i, 'dist_p_map_' + self.exp_cfg.name + '_predict', dist_pred, use_pyplot=True)
             save2figure(i, 'dist_t_map_' + self.exp_cfg.name + '_predict', distance, use_pyplot=True)
-            watershed_seg2D(i, dist_pred)
+            watershed_seg(i, dist_pred)
             if i > 7:
                 break
 
@@ -503,6 +604,7 @@ class tensorBoardWriter():
     def wirte_model_graph(self, model, lastvar):
         self.writer.add_graph(model, lastvar)
 
+
     def write(self, iters, train_loss_dict, valid_loss_dict, data, preds, targets):
         for key, value in train_loss_dict.iteritems():
             self.writer.add_scalar('train_loss/{}'.format(key), value, iters)
@@ -515,25 +617,48 @@ class tensorBoardWriter():
 
         if isinstance(data, Variable):
             data = data.data
+        #print('data dim = {}'.format(data.dim))
         z_dim = data.shape[1]
         raw_im_list = []
-        for i in range(max(1, z_dim - 3 + 1)):
-            raw_im_list.append(data[:, i:i + 3, :, :])
-        raw_images = torch.cat(raw_im_list, dim=0)
-
-        raw_im = vutils.make_grid(raw_images, normalize=True, scale_each=True)
-        self.writer.add_image('raw_{}'.format(i), raw_im, iters)
+        if data.dim() == 4:
+            for i in range(max(1, z_dim - 3 + 1)):
+                raw_im_list.append(data[:, i:i + 3, :, :])
+            raw_images = torch.cat(raw_im_list, dim=0)
+        elif data.dim() ==5:
+            raw_images = data[0]
+            raw_images = raw_images.permute(1,0,2,3)
+        raw_images = vutils.make_grid(raw_images, normalize=True, scale_each=True)
+        self.writer.add_image('raw_img', raw_images, iters)
 
     def write_images(self, output_dict, dict_name, iters):
+        
+        def add_slice_image(x):
+            assert x.ndim ==3
+            im_list =[]
+            for i in range(x.shape[0]):
+                denom = x[i] - np.min(x[i])
+                im = (denom / max(np.max(denom), 0.0000001))
+                cm_d = matplotlib.cm.gist_earth(im)[:, :, 0:3]
+                im_list.append(np.transpose(cm_d, (2, 0, 1)))
+
+            return im_list
+
+
+
         for key, value in output_dict.iteritems():
             if key == 'gradient':
                 im = compute_angular(value)
             else:
                 im = value
 
+            if key in['skeleton','affinity','affinityX','affinityY','affinityZ']:
+                im = torch.sigmoid(im)
+                im = im if key =='affinity' else 1 -im 
+
             if isinstance(im, Variable):
                 im = im.data
-            # print('tensorb im shape {} = {}'.format(key, im.shape))
+            #print('tensorb key = {}'.format(key))
+            #print('tensorb im shape {} = {}'.format(key, im.shape))
             
             '''save only one image'''
             im2 = np.squeeze(im[0].cpu().numpy())
@@ -542,22 +667,25 @@ class tensorBoardWriter():
 
             if im2.ndim == 2:
                 im2 = np.expand_dims(im2, 0)
+            
             im_list = []
-            # print('im_2 shape ={}'.format(im2.shape))
-
+            
             '''stak over the channel'''
-            for i in range(im2.shape[0]):
-                # cm_d  = matplotlib.cm.cm.gist_earth(im2[i])
-                denom = im2[i] - np.min(im2[i])
-                im = (denom / max(np.max(denom), 0.0000001))
-                cm_d = matplotlib.cm.gist_earth(im)[:, :, 0:3]
-                #print('cm_d shape ={}'.format(cm_d.shape))
-                im_list.append(np.transpose(cm_d, (2, 0, 1)))
+            if im2.ndim == 4:
+                # im is 4 D image where each channel is a 3D image
+                for ch_im in range(im2.shape[0]):
+                    im_list+=add_slice_image(im2[ch_im])
+            elif im2.ndim ==3:
+                im_list=add_slice_image(im2)
+            # for i in range(im2.shape[0]):
+            #     denom = im2[i] - np.min(im2[i])
+            #     im = (denom / max(np.max(denom), 0.0000001))
+            #     cm_d = matplotlib.cm.gist_earth(im)[:, :, 0:3]
+            #     im_list.append(np.transpose(cm_d, (2, 0, 1)))
 
             im = torch.FloatTensor(np.stack(im_list, axis=0))
             im = vutils.make_grid(im, normalize=True, scale_each=True)
             self.writer.add_image('{}/{}'.format(dict_name, key), im, iters)
-
 
 def saveRawfigure(iters, file_prefix, output):
     if isinstance(output, Variable):

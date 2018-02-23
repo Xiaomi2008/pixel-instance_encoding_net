@@ -1,6 +1,6 @@
 # from experiment import experiment_config
 from utils.EMDataset import slice_dataset
-from utils.utils import watershed_seg2D
+from utils.utils import watershed_seg
 from utils.evaluation import adapted_rand, voi
 import pytoml as toml
 import torch
@@ -30,15 +30,20 @@ class predict_config():
             split = 'valid'
 
 
-
+        '''' create dataset which is able to iteratively obtain slices of image 
+        (3,5 slice with stride 1) from either z-direction ir xy-direction
+        '''
         self.dataset = slice_dataset(sub_dataset=self.dataset_conf['sub_dataset'],
                                      subtract_mean=True,
                                      split=split,
                                      slices=self.net_conf['z_slices'],
+                                     slice_direction = self.conf['slice_direction']['direction'],
                                      data_config=data_config)
                                 #data_config='conf/cremi_datasets_with_tflabels.toml')
         data_out_labels = self.dataset.output_labels()
         input_lbCHs_cat_for_net2 = self.label_conf['label_catin_net2']
+        
+
         # create network and load the weights
         net_model = NETWORKS[self.net_conf['model']]
         if self.net_conf['model'] == 'M2DUnet_withDilatConv':
@@ -81,12 +86,14 @@ class em_seg_predict():
         self.seg3D_connector = seg3D_connector
 
     def predict(self):
-        pred_seg_2d = self.__predict2D__()
+        pred_seg_2d, pred_dist_2d = self.__predict2D__()
         print('connecting slices ids ...')
-        pred_seg_3d = self.__make_3Dseg__(self.dataset.get_data(), pred_seg_2d.cpu().numpy())
-        return pred_seg_3d
+        pred_seg_3dconn= self.__make_3Dseg__(self.dataset.get_data(), pred_seg_2d.cpu().numpy())
+        pred_seg_3dWS  = watershed_seg(pred_dist_2d,threshold=1.5)
 
-    def __predict2D__(self):
+        return pred_seg_3dconn, pred_seg_3dWS
+
+    def __predict2D__(self, direction ='low_res'):
         if self.use_gpu:
             print ('model_set_cuda')
             self.model = self.model.cuda().float()
@@ -94,66 +101,43 @@ class em_seg_predict():
         pred_seg = torch.zeros_like(torch.from_numpy(self.dataset.get_data().astype(int)))
         pred_seg = pred_seg.long()
         p_shape = pred_seg.shape
+
+        pred_dist = torch.zeros_like(torch.from_numpy(self.dataset.get_data().astype(int)))
         cut_size = 1248
         print('pred_seg shape {}'.format(pred_seg.shape))
-        pred_seg = pred_seg[:p_shape[0],:cut_size,:cut_size]
+        if direction == 'low_res':
+             pred_seg = pred_seg[:p_shape[0],::,:cut_size]
+             pred_dist = pred_dist[:p_shape[0],::,:cut_size]
+             #pred_seg = np.transpose(pred_seg,[])
+
+        else:
+             pred_seg = pred_seg[:p_shape[0],:,:cut_size]
+             pred_dist = pred_dist[:p_shape[0],:cut_size,:cut_size]
         raw_Data = self.dataset.get_data()
-        #g_seg    =self.dataset.get_label()
-        print('dataset len = {}'.format(len(self.dataset)))
         for i in range(len(self.dataset)):
-            out = self.dataset.__getitem__(i)
-            out_data = out['data'][:,:,:cut_size,:cut_size]
-            #print(out['label'])
+            out = self.dataset.__getitem__(i,direction='low_res')
+            out_data = out['data'][:,:,::,:cut_size]
             g_seg_data = None
             if 'label' in out:
-                g_seg_data = out['label'][:,:,:cut_size,:cut_size]
-            #print('out_data shape = {}'.format(out_data) )
-
+                g_seg_data = out['label'][:,:,::,:cut_size]
             data = Variable(out_data,volatile=True).float()
-            print('predict slice {}, shape ={}'.format(i,data.data.shape))
             if self.use_gpu:
                 data = data.cuda().float()
             preds = self.model(data)
-            watershed_d = np.squeeze(watershed_seg2D(preds['distance']))
+            watershed_d = np.squeeze(watershed_seg((preds['final'] + preds['distance'])/2.0))
 
-            # gradient_d = np.squeeze(preds['gradient'].data.cpu().numpy())
-            # print('w shape = {}'.format(watershed_d.shape))
-            # print('g shape = {}'.format(gradient_d.shape))
-            # #plt.imshow(watershed_d.astype(np.int))
-            # plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
-            my_dpi = 96
-            # fig = plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
-            
-            # a = fig.add_subplot(3, 1, 1)
-            # d =np.squeeze(out_data.cpu().numpy())
-            
-            # print('d shape = {}'.format(d.shape))
-            
-            # imgplot = plt.imshow(d[1])
-            # a.set_title('im')
-            
-            # a = fig.add_subplot(3, 1, 2)
-            # plt.imshow(label2rgb(watershed_d.astype(np.int)), interpolation='nearest')
-            # a.set_title('p_seg')
+            distance_d  = (preds['final'].data +  preds['distance'].data)/2.0
 
-            #seg_d =np.squeeze(g_seg_data.cpu().numpy())
+            #my_dpi = 96
             if g_seg_data is not None:
                 g_seg_in = np.squeeze(g_seg_data.cpu().numpy())[1]
+                #print('g_seg = shape {}'.format(np.squeeze(g_seg_data.cpu().numpy()).shape))
                 arand_eval = adapted_rand(watershed_d.astype(np.int), g_seg_in)
                 print('arand = {} '.format(arand_eval))
-            #print('seg_d shape = {}'.format(seg_d.shape))
-            # a = fig.add_subplot(3, 1, 3)
-            # plt.imshow(label2rgb(g_seg_in), interpolation='nearest')
-            # a.set_title('g_seg')
-            #plt.savefig('watershed_d_{}.png'.format(i))
-            #plt.close()
-            #centermap = np.squeeze(preds['centermap'].data.cpu().numpy())
-
-            #voi_d =voi(watershed_d.astype(np.int),g_seg_in)
-            #print('arand = {} voi ={}'.format(arand_eval,void_d))
-
-            pred_seg[i]= torch.from_numpy(watershed_d)
-        return pred_seg
+                #show_figure2(watershed_d,g_seg_in)
+            pred_seg[:,i,:]= torch.from_numpy(watershed_d)
+            pred_dist[:,i,:]= distance_d
+        return pred_seg, pred_dist
 
     def __make_3Dseg__(self, data, pred_Seg2D):
         if self.seg3D_connector:
@@ -161,6 +145,9 @@ class em_seg_predict():
         seg_connector = Simple_MaxCoverage_3DSegConnector()
         seg3d = seg_connector(data, pred_Seg2D)
         return seg3d
+
+    #def __make_3D_watershed__(self,data,pred_Bnd2D):
+
 
 
 class Simple_MaxCoverage_3DSegConnector(object):
@@ -185,7 +172,7 @@ class Simple_MaxCoverage_3DSegConnector(object):
 
     def update_sliceS_seg(self, seg2d, order='down'):
         seg3d = seg2d.copy()
-        max_IOU_cover_threshold = 0.2
+        max_IOU_cover_threshold = 0.15
         slice_idxs = range(len(seg2d)) if order == 'down' else range(len(seg2d))[::-1]
         for i in range(len(slice_idxs) - 1):
             ref_idx = slice_idxs[i]
@@ -258,20 +245,26 @@ class em_seg_eval(object):
         self.seg_predictor = em_seg_predict(self.exp_cfg)
     
     def predict(self):
-        seg_3d = {}
+        seg_conn_3d = {}
+        seg_ws_3d = {}
         print('subset data = {}'.format(self.exp_cfg.dataset.subset))
         for d_set in self.exp_cfg.dataset.subset:
             #d_set = 'Set_A'
             print('predicting {} ...'.format(d_set))
             self.exp_cfg.dataset.set_current_subDataset(d_set)
-            seg_3d[d_set]=extendSeg_to_1250(self.seg_predictor.predict())
-            print('subimssion seg {} shape {}'.format(d_set, seg_3d[d_set].shape))
+            seg_conn_p, seg_ws_p = self.seg_predictor.predict()
+            seg_conn_3d[d_set]=extendSeg_to_1250(seg_conn_p)
+            seg_ws_3d[d_set]=extendSeg_to_1250(seg_ws_p)
+            #print('subimssion conn_seg {} shape {}'.format(d_set, seg_conn_3d[d_set].shape))
+            #print('subimssion sw_seg {} shape {}'.format(d_set, seg_ws_3d[d_set].shape))
             #self.show_figure( seg_3d[d_set])
-        return seg_3d
+        return seg_conn_3d, seg_ws_3d
 
     def eval(self):
-        seg_3d = {}
-        arand_eval = {}
+        seg_conn_3d = {}
+        seg_ws_3d  = {}
+        arand_conn_eval = {}
+        arand_ws_eval = {}
         # voi_eval = {}
 
         print('subset data = {}'.format(self.exp_cfg.dataset.subset))
@@ -280,16 +273,20 @@ class em_seg_eval(object):
             print('predicting {} ...'.format(d_set))
             self.exp_cfg.dataset.set_current_subDataset(d_set)
             seg_lbs = self.exp_cfg.dataset.get_label()
-            seg_3d[d_set] = self.seg_predictor.predict()
-            x_size = seg_3d[d_set].shape[1]
-            y_size = seg_3d[d_set].shape[2]
+            seg_conn_3d[d_set], seg_ws_3d[d_set] = self.seg_predictor.predict()
+            x_size = seg_conn_3d[d_set].shape[1]
+            y_size = seg_conn_3d[d_set].shape[2]
             seg_lbs = seg_lbs[:, :x_size, :y_size]
-            arand_eval[d_set] = adapted_rand(seg_3d[d_set], seg_lbs)
-            print('arand for {} = {}'.format(d_set, arand_eval[d_set]))
+            arand_conn_eval[d_set] = adapted_rand(seg_conn_3d[d_set], seg_lbs)
+            arand_ws_eval[d_set] = adapted_rand(seg_ws_3d[d_set], seg_lbs)
+            print('arand conn for {} = {}'.format(d_set, arand_conn_eval[d_set]))
+            print('arand ws for {} = {}'.format(d_set, arand_ws_eval[d_set]))
+
+            show_figure2(seg_conn_3d[d_set][10,:,:],seg_ws_3d[d_set][10,:,:])
             #voi_eval[d_set] = voi(seg_3d[d_set],seg_lbs)
             #self.show_figure(seg_3d[d_set])
             void_eval = 0
-        return arand_eval, void_eval
+        return arand_conn_eval, void_eval
 
     def show_figure(self, seg3D):
         my_dpi = 96
@@ -302,3 +299,16 @@ class em_seg_eval(object):
         plt.imshow(label2d_seg[1], interpolation='nearest')
         a.set_title('lower_seg')
         plt.show()
+
+def show_figure2(seg_p,seg_g):
+    my_dpi = 96
+    fig = plt.figure(figsize=(1250/my_dpi, 1250/my_dpi), dpi=my_dpi)
+    label2d_seg_p = label2rgb(seg_p)    
+    a = fig.add_subplot(1, 2, 1)
+    plt.imshow(label2d_seg_p, interpolation='nearest')
+    a.set_title('p_seg')  
+    label2d_seg_g = label2rgb(seg_g)  
+    a = fig.add_subplot(1, 2, 2)
+    plt.imshow(label2d_seg_g, interpolation='nearest')
+    a.set_title('g_seg')
+    plt.show()

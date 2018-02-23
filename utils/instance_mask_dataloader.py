@@ -19,7 +19,7 @@ from skimage.color import label2rgb
 from matplotlib import pyplot as plt
 from torch_networks.networks import Unet, DUnet, MdecoderUnet, Mdecoder2Unet, \
     MdecoderUnet_withDilatConv, Mdecoder2Unet_withDilatConv
-from utils import watershed_seg2D
+from utils import watershed_seg
 
 
 class Proc_DataLoaderIter(DataLoaderIter):
@@ -28,7 +28,7 @@ class Proc_DataLoaderIter(DataLoaderIter):
         self.label_cat_in = loader.label_cat_in
 
     def __make_input_data__(self, data, preds):
-        '''we can concate preds into data as etra channels
+        '''concate preds into data as extra channels
            for noew, we just return data
 	 	'''
 
@@ -51,6 +51,7 @@ class NN_proc_DataLoaderIter(Proc_DataLoaderIter):
         self.nn_model.eval()
 
     def __next__(self):
+        # This will call the Dataset's __get_iterm__ method to compose a batch
         batch = super(NN_proc_DataLoaderIter, self).__next__()
 
         data, seg_label, targets = batch
@@ -83,7 +84,7 @@ class NN_proc_DataLoaderIter(Proc_DataLoaderIter):
     def __segment__(self, preds):
         distance = preds['distance']
         assert (distance.dim() == 4 and distance.shape[1] == 1)
-        seg2D_list = [watershed_seg2D(torch.squeeze(distance[i]))
+        seg2D_list = [watershed_seg(torch.squeeze(distance[i]))
                       for i in range(len(distance))]
         seg_batch = torch.stack(
             [torch.unsqueeze(torch.Tensor(seg2D), 0)

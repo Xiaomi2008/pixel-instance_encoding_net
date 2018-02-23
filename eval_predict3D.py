@@ -103,10 +103,10 @@ class em_seg_predict():
     def eval(self,dset_name ='Set_A'):
         pred_dict = self.predict(dset_name)
         seg_lbs = self.exp_cfg.dataset.get_label()
-        input_d =pred_dict['distance2D'][2]
+        #input_d =(pred_dict['distance2D'][1]+pred_dict['distance3D'][0])/2.0
 
         #pdb.set_trace()
-        evalute_pred_dist_with_threshold(seg_lbs[100:,:,:],input_d[100:,:,:])
+        #evalute_pred_dist_with_threshold(seg_lbs[100:,:,:],input_d[100:,:,:])
 
         return pred_dict, seg_lbs
 
