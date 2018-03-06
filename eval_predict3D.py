@@ -91,8 +91,8 @@ class em_seg_predict():
         self.model = self.exp_cfg.network
         self.dataset = self.exp_cfg.dataset
 
-    def predict(self,dset_name = 'Set_A'):
-        self.dataset.set_current_subDataset(dset_name)
+    def predict(self,set_name = 'Set_A'):
+        self.dataset.set_current_subDataset(set_name)
         pred_dict = self.__predict__()
        
         return pred_dict
@@ -100,8 +100,8 @@ class em_seg_predict():
 
         #return pred_seg_3dconn, pred_seg_3dWS
 
-    def eval(self,dset_name ='Set_A'):
-        pred_dict = self.predict(dset_name)
+    def eval(self,set_name ='Set_A'):
+        pred_dict = self.predict(set_name)
         seg_lbs = self.exp_cfg.dataset.get_label()
         #input_d =(pred_dict['distance2D'][1]+pred_dict['distance3D'][0])/2.0
 
@@ -116,7 +116,7 @@ class em_seg_predict():
           out={}
           for k,v in preds.iteritems():
             #if k =='affinityX' or k=='affinityY' or k=='affinityZ':
-            if k ==['affinityX','affinityY','affinityZ']:
+            if k in ['affinityX','affinityY','affinityZ']:
                 v = torch.sigmoid(v)
             out[k] = v.data.cpu().numpy()
           return out
@@ -133,11 +133,15 @@ class em_seg_predict():
         sliced_data_dict, slice_obj_list, overlap_count_array = \
           self.dataset.conv_slice_3DPatch()
 
+
+        #pdb.set_trace()
+
         
         # prdict each slice of data. Note that affinity has mutiple channels, each represent 
         # a different boundary distance
         predict_dict_slice_data_list = {l:[] for l in self.exp_cfg.label_conf['labels']}
         for idx, data in enumerate(sliced_data_dict['image']):
+          #print(data.shape)
           d1 = np.expand_dims(data,axis=0).copy()
           d1 = np.expand_dims(d1,axis=0)
           d1 = torch.from_numpy(d1).cuda().float()

@@ -3,23 +3,42 @@ import torch
 import numpy as np
 from scipy.ndimage.morphology import distance_transform_edt as dis_transform
 from skimage.morphology import medial_axis,binary_dilation
+from skimage.morphology import skeletonize, skeletonize_3d
 from scipy.ndimage.measurements import center_of_mass
 import scipy.ndimage as nd
 import pdb
 
 class label_transform(object):
-    def __init__(self, gradient     = True, 
+    def __init__(self, label_config = None,
+                       gradient     = True, 
                        distance     = True,
                        skeleton     = True,
                        objSizeMap   = False,
                        objCenterMap = False):
-        self.gradient = gradient
-        self.distance = distance
-        self.objSizeMap =objSizeMap
-        self.objCenterMap = objCenterMap
-        self.skeleton = skeleton
-        aff_x = affinity(axis = -1,distance =6)
-        aff_y = affinity(axis = -2,distance =6)
+        if label_config:
+            self.gradient     = False, 
+            self.distance     = False,
+            self.skeleton     = False,
+            self.objSizeMap   = False,
+            self.objCenterMap = False
+            if 'gradient' in label_config:
+                self.gradient = True
+            if 'distance' in label_config:
+                self.label_config =True
+            if 'skeleton' in label_config:
+                self.skeleton =True
+            if 'sizemap' in label_config:
+                self.objSizeMap =True
+            if 'centermap' in label_config:
+                self.objCenterMap =True
+        else:
+            self.gradient = gradient
+            self.distance = distance
+            self.objSizeMap =objSizeMap
+            self.objCenterMap = objCenterMap
+            self.skeleton = skeleton
+        aff_x = affinity(axis = -1,distance =4)
+        aff_y = affinity(axis = -2,distance =4)
         self.compute_boundary = lambda x: ((aff_x(x)[0]+aff_y(x)[0])==0).astype(np.int)
 
     def __call__(self,*input):
@@ -46,7 +65,10 @@ class label_transform(object):
             boundary = self.compute_boundary(_input)
             if self.skeleton and self.distance:
                 # Compute the medial axis (skeleton) and the distance transform
-                skel, dt = medial_axis(boundary, return_distance=True)
+                #skel, dt = medial_axis(boundary, return_distance=True)
+
+                dt = dis_transform(boundary)
+                skel=skeletonize_3d(boundary)
                 skel = binary_dilation(binary_dilation(skel))
                 dist_on_skel = dt * skel
                 sk = np.expand_dims(skel,0).astype(np.float)

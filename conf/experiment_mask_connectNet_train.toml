@@ -1,0 +1,45 @@
+[mask_loader]
+# options {'GT' , 'NN'}. 'GT' mask create based on ground truth, 'NN' based on segmentation created by 2D CNN
+mode = 'GT'
+
+# which network model to use to generate segmentation/ mask
+#nn_model = 'Mdecoder2Unet_withDilatConv'
+#nn_weight_file = 'model/Mdecoder2Unet_withDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_freeze_net1=True_iter_32499.model'
+use_gpu    = true
+
+[network]
+#model = 'Wide_ResNet'
+model ='resnet50'
+model_save_dir = 'model'
+#trained_file  = 'model/NN_MdecoderUnetDilatConv_in_11_chs_Dataset-CRIME-All_mask_VFlip-HFlip-Rot90_iter_2479.model'
+#trained_file ='model/NN_MdecoderUnetDilatConv_in_11_chs_Dataset-CRIME-All_mask_bce_loss_VFlip-HFlip-Rot90_iter_4399.model'
+#trained_file  ='model/NN_MdecoderUnetDilatConv_in_11_chs_Dataset-CRIME-All_mask_mask_bce_loss_VFlip-HFlip-Rot90_iter_4999.model'
+#trained_file  ='model/NN_MdecoderUnetDilatConv_in_11_chs_Dataset-CRIME-All_mask_mask_bce_loss_VFlip-HFlip-Rot90_iter_3399.model'
+#trained_file ='model/GT_Resnet50_Dataset-CRIME-All_mask_crossEntropy_loss_VFlip-HFlip-Rot90-NRot90_iter_799.model'
+#trained_file ='model/GT_Resnet50_b5_c16_Dataset-CRIME-All_mask_crossEntropy_loss_VFlip-HFlip-Rot90-NRot90_iter_3599.model'
+
+trained_file ='model/GT_Resnet50_b8_c5_Dataset-CRIME-All_mask_crossEntropy_loss_VFlip-HFlip-Rot90-NRot90_iter_181499.model'
+model_save_step = 300
+batch_size      = 128
+in_patch_size   = [480,480,2]
+out_pathc_size  = [224,224,2]
+use_gpu         = true
+valid_iters     = 5
+
+[train]
+learning_rate   = 0.01
+tensorboard_folder = 'runs_train2D/mask_layer_connectedNet'
+loss_fn = 'crossEntropy'
+#option {bce, dice, mse, bce_logit, mask_bce}
+optimizer = 'Adam'
+#option{'SGD','Adagrad','Adam'}
+
+[dataset]
+sub_dataset = 'All'
+# Options: {'Set_A','Set_B','Set_C','All'}
+
+[data_augmentation]
+ transform =['vflip',
+            'hflip',
+            'rot90',
+            'nrot90']

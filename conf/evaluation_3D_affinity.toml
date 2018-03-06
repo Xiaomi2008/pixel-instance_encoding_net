@@ -7,7 +7,7 @@ model = 'res_3D2D_hybrid_net_multi_output'
 #train_file = 'model/Mdecoder2Unet_in_3_chs__[affinity-sizemap-distance-gradient_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_freeze_net1=True_iter_24199.model'
 
 #trained_file ='model/Res_3D_2D_HybribUnet_multiHead_selfGated_act_Dataset-CRIME-All_affinityX-affinityY-affinityZ_VFlip-HFlip-Rot90-NRot90_patch =[256, 256, 22]_iter_103799.model'
-trained_file ='model/Res_3D_2D_HybribUnet_multiHead_selfGated_act_Dataset-CRIME-All_affinityX-affinityY-affinityZ-distance2D-distance3D_VFlip-HFlip-Rot90-NRot90_patch =[256, 256, 22]_iter_176199.model'
+trained_file ='model/Res_3D_2D_HybribUnet_multiHead_selfGated_act_Dataset-CRIME-All_affinityX-affinityY-affinityZ-distance2D-distance3D_VFlip-HFlip-Rot90-NRot90_patch =[256, 256, 22]_iter_425799.model'
 use_gpu = true
 
 [predict_setting]
@@ -28,7 +28,7 @@ predict_overlap    =[1246,1246, 8]
 [dataset]
 sub_dataset = 'All'
 output_3D = true
-dataset    = 'valid'
+dataset    = 'predict'
 
 [data_augmentation]
  transform =['vflip',

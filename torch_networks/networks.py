@@ -1130,7 +1130,8 @@ class MaskMdecoderUnet_withDilatConv(MdecoderUnet_withDilatConv):
 
 
 class Mdecoder2Unet_withDilatConv(nn.Module):
-    def __init__(self, mnet=None, freeze_net1=False, target_label={'unassigned': 1}, label_catin_net2=None, in_ch=3, out_ch=1, first_out_ch=16, \
+    def __init__(self, mnet=None, freeze_net1=False, target_label={'unassigned': 1}, net2_target_label=None,
+                 label_catin_net2=None, in_ch=3, out_ch=1, first_out_ch=16, \
                  number_bolck=4, num_conv_in_block=2, ch_change_rate=2, kernel_size=3):
         super(Mdecoder2Unet_withDilatConv, self).__init__()
         self.label_catin_net2 =label_catin_net2
@@ -1142,10 +1143,11 @@ class Mdecoder2Unet_withDilatConv(nn.Module):
         if not label_catin_net2:
             total_input_ch = sum(self.net1.target_label.values()) + in_ch
         else:
-            total_input_ch =sum([self.net1.target_label[lb] for lb in label_catin_net2]) +in_ch
+            total_input_ch = sum([self.net1.target_label[lb] for lb in label_catin_net2]) +in_ch
 
-        net2_target_label = {}
-        net2_target_label['final'] = out_ch
+        if not net2_target_label:
+            net2_target_label = {}
+            net2_target_label['final'] = out_ch
         self.net2 = MdecoderUnet_withDilatConv(target_label=net2_target_label, in_ch=total_input_ch,
                                                BatchNorm_final=False)
         self.out_ch = out_ch
@@ -1182,27 +1184,11 @@ class Mdecoder2Unet_withDilatConv(nn.Module):
             out_chs = [outputs[lb] for lb in self.label_catin_net2]
 
         out_chs.append(x)
-        #ch_shape =out_chs[0].shape
-        # out_chs =[functional.normalize(
-        #                                ch.view(-1,ch.shape[2]*ch.shape[3]), 
-        #                                dim =1
-        #                                ).view(ch.shape) 
-        #              for ch in out_chs]
         x_net2_in = torch.cat(out_chs, 1)
-
-        # x_net2_in=functional.normalize(
-        #                                 x_net2_in.view(-1,x_net2_in.shape[2]*x_net2_in.shape[3]),
-        #                                 dim =1
-        #                                ).view(x_net2_in.shape)
-
         final_dict = self.net2(x_net2_in)
-        outputs['final'] = final_dict[final_dict.keys()[0]]
-        #outputs['final'] = torch.sigmoid(final_dict[final_dict.keys()[0]])
+        #outputs['final'] = final_dict[final_dict.keys()[0]]
+        outputs.update(final_dict)
         return outputs
-        # return gradient_out,distance_out
-        # 
-        # 
-        # 
 
 
 

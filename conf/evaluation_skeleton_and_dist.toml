@@ -14,35 +14,38 @@ z_slices = 3
 #use_gpu = true
 
 
-model = 'M2DUnet_withDilatConv'
+#model = 'M2DUnet_withDilatConv'
+model = 'MDUnet_FullDilat'
 slices = 3
 #trained_file ='model/Mdecoder2Unet_in_3_chs__[affinity-sizemap-distance-gradient_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_patch =[320, 320, 3]_freeze_net1=True_iter_206249.model'
-trained_file='model/Mdecoder2Unet_in_3_chs__[affinity-sizemap-distance-gradient_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_patch =[320, 320, 3]_freeze_net1=True_iter_318499.model'
+#trained_file='model/Mdecoder2Unet_in_3_chs__[affinity-sizemap-distance-gradient_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_patch =[320, 320, 3]_freeze_net1=True_iter_318499.model'
+
+trained_file='model/MdecoderUnetFullDilatConv_in_3_chs_Dataset-CRIME-All_affinity-centermap-distance-skeleton-gradient_VFlip-HFlip-Rot90-NRot90_patch =[480, 480, 3]_iter_13199.model'
 use_gpu = true
 [target_labels]
-labels = ['gradient', 'sizemap', 'affinity', 'centermap', 'distance']
-label_catin_net2 =['affinity',
-                   'sizemap',
-                   'distance',
-                   'gradient']
-final_label = 'distance'
+  labels = ['affinity',
+            'centermap',
+            'distance',
+            'skeleton',
+            'gradient']
+  final_label = 'distance'
   # labels = ['affinity',
   #           'centermap',
   #           'distance',
   #           'skeleton',
   #           'gradient']
-  # label_catin_net2 = ['affinity',
-  #           'centermap',
-  #           'distance',
-  #           'skeleton',
-  #           'gradient']
+  label_catin_net2 = ['affinity',
+            'centermap',
+            'distance',
+            'skeleton',
+            'gradient']
   # label_catin_net2 =['affinity',
 		#              'sizemap',
   #                    'distance',
   #                    'gradient']
   #final_label = 'distance'
 [dataset]
-dataset     = 'predict'
+dataset     = 'valid'
 sub_dataset = 'All'
 output_3D = true
 

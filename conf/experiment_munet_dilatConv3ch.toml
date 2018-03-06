@@ -5,7 +5,8 @@ load_train_iter = 0
 #trained_file  = 'model/MdecoderUnetDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_iter_155049.model'
 #trained_file = 'model/MdecoderUnetDilatConv_in_3_chs_Dataset-CRIME-All_affinity-centermap-distance-gradient_VFlip-HFlip-Rot90_patch =[320, 320, 3]_iter_83699.model'
 #trained_file ='model/MdecoderUnetDilatConv_in_3_chs_Dataset-CRIME-All_affinity-centermap-distance-skeleton-gradient_VFlip-HFlip-Rot90_patch =[320, 320, 3]_iter_11099.model'
-trained_file  ='model/MdecoderUnetDilatConv_in_3_chs_Dataset-CRIME-All_affinity-centermap-distance-skeleton-gradient_VFlip-HFlip-Rot90_patch =[320, 320, 3]_iter_56399.model'
+#trained_file  ='model/MdecoderUnetDilatConv_in_3_chs_Dataset-CRIME-All_affinity-centermap-distance-skeleton-gradient_VFlip-HFlip-Rot90_patch =[320, 320, 3]_iter_56399.model'
+trained_file='model/MdecoderUnetFullDilatConv_in_3_chs_Dataset-CRIME-All_affinity-centermap-distance-skeleton-gradient_VFlip-HFlip-Rot90_patch =[320, 320, 3]_iter_599.model'
 model_save_step = 300
 batch_size      = 5
 patch_size      = [320,320,3]
@@ -39,4 +40,5 @@ sub_dataset = 'All'
 [data_augmentation]
  transform =['vflip',
             'hflip',
-            'rot90']
+            'rot90',
+            'nrot90']

@@ -18,6 +18,7 @@ from label_transform.volumes import SubvolumeGenerator
 from transform import RandomContrast
 from scipy.interpolate import RegularGridInterpolator
 from math import ceil
+from utils import replace_bad_slice_in_test
 
 
 class exp_Dataset(Dataset):
@@ -67,7 +68,7 @@ class exp_Dataset(Dataset):
         # self.label_generator  = label_transform(objSizeMap =True)
         #self.label_generator = label_gen if label_gen else labelGenerator()
         self.label_config = label_config
-        self.label_generator = labelGenerator()
+        self.label_generator = labelGenerator(self.label_config)
 
     def output_labels(self):
         return self.label_generator.output_labels()
@@ -351,14 +352,17 @@ class CRIME_Dataset(exp_Dataset):
 
         #data_config = 'conf/cremi_datasets.toml'
         volumes = HDF5Volume.from_toml(self.data_config)
-        data_name = {'Set_A': 'Sample A with extra transformed labels',
-                     'Set_B': 'Sample B with extra transformed labels',
-                     'Set_C': 'Sample C with extra transformed labels'
-                     }
-        # data_name = {'Set_A':'Sample A',
-        #              'Set_B':'Sample B',
-        #              'Set_C':'Sample C'
-        #             }
+        if 'tflabels' in self.data_config:
+            data_name = {'Set_A': 'Sample A with extra transformed labels',
+                         'Set_B': 'Sample B with extra transformed labels',
+                         'Set_C': 'Sample C with extra transformed labels'
+                         }
+        else:
+            data_name = {'Set_A':'Sample A', 
+                         'Set_B':'Sample B',
+                         'Set_C':'Sample C'
+                         }
+
         im_lb_pair = {}
         if self.sub_dataset == 'All':
             for k, v in data_name.iteritems():
@@ -498,6 +502,12 @@ class CRIME_Dataset3D(exp_Dataset):
         out = {}
         im_data=np.array(cur_set['image'])
 
+        if 'test' in self.data_config:
+            print('replace bad slice in test set {}'.format(self.current_subDataset))
+            im_data=replace_bad_slice_in_test(im_data,self.current_subDataset)
+
+
+
         #pdb.set_trace()
         out['image']=list(map(lambda x: im_data[x]-127.0, slice_list))
         if 'label' in cur_set:
@@ -552,14 +562,25 @@ class CRIME_Dataset3D(exp_Dataset):
 
         #self.data_config = 'conf/cremi_datasets.toml'
         volumes = HDF5Volume.from_toml(self.data_config)
-        data_name = {'Set_A': 'Sample A with extra transformed labels',
-                     'Set_B': 'Sample B with extra transformed labels',
-                     'Set_C': 'Sample C with extra transformed labels'
-                     }
-        # data_name = {'Set_A':'Sample A',
-        #              'Set_B':'Sample B',
-        #              'Set_C':'Sample C'
-        #             }
+        # data_name = {'Set_A': 'Sample A with extra transformed labels',
+        #              'Set_B': 'Sample B with extra transformed labels',
+        #              'Set_C': 'Sample C with extra transformed labels'
+        #              }
+        # # data_name = {'Set_A':'Sample A',
+        # #              'Set_B':'Sample B',
+        # #              'Set_C':'Sample C'
+        # #             }
+
+        if 'tflabels' in self.data_config:
+            data_name = {'Set_A': 'Sample A with extra transformed labels',
+                         'Set_B': 'Sample B with extra transformed labels',
+                         'Set_C': 'Sample C with extra transformed labels'
+                         }
+        else:
+            data_name = {'Set_A':'Sample A', 
+                         'Set_B':'Sample B',
+                         'Set_C':'Sample C'
+                         }
 
         volume_names = data_name if self.sub_dataset == 'All' \
                        else {self.dataset:data_name[self.dataset]}
@@ -666,6 +687,9 @@ class slice_dataset(Dataset):
         self.x_size = self.data_shape[1]
         self.z_size = self.data_shape[0]
 
+        if sub_dataset != 'All':
+            self.set_current_subDataset(sub_dataset)
+
     def transpose_source_data(self, val_3d):
         if self.slice_axis == 0:
             return val_3d
@@ -767,14 +791,14 @@ class slice_dataset(Dataset):
                 d_slice = input_array[start_idx:end_idx,:,:]
                 for i in range(self.slices - (end_idx-start_idx)):
                   d_slice  =  np.concatenate([r_slice,d_slice],0)
-                print('after d shape = {}'.format(d_slice.shape))
+                #print('after d shape = {}'.format(d_slice.shape))
             elif end_idx > self.z_size:
                 end_idx = self.z_size
                 r_slice = input_array[-1:, :,:]
                 d_slice = input_array[start_idx:,:,:]
-                print('d shape = {}'.format(d_slice.shape))
-                print('r shape = {}'.format(r_slice.shape))
-                print('start idx = {}, end_idx ={} z_size= {}'.format(start_idx,end_idx,self.z_size))
+                #print('d shape = {}'.format(d_slice.shape))
+                #print('r shape = {}'.format(r_slice.shape))
+                #print('start idx = {}, end_idx ={} z_size= {}'.format(start_idx,end_idx,self.z_size))
                 for i in range(self.slices - (self.z_size-start_idx)):
                   d_slice  =  np.concatenate([d_slice,r_slice],0)
             else:
@@ -790,7 +814,7 @@ class slice_dataset(Dataset):
         cur_set = self.im_lb_pair[self.current_subDataset]
         im_slice=self.__get_front_slices__(index, data_scr = 'image')
         im_data = cur_set['image']
-        im_slice = self.__get_front_slices__(index)
+        #im_slice = self.__get_front_slices__(index)
         im_slice = im_slice.astype(np.float)
         if self.subtract_mean:
             im_slice -= 127.0
@@ -847,19 +871,22 @@ class slice_dataset(Dataset):
 
         # data_config = 'conf/cremi_datasets.toml'
         volumes = HDF5Volume.from_toml(self.data_config)
-        # data_name = {'Set_A': 'Sample A with extra transformed labels',
-        #              'Set_B': 'Sample B with extra transformed labels',
-        #              'Set_C': 'Sample C with extra transformed labels'
-        #              }
-        data_name = {'Set_A':'Sample A',
-                     'Set_B':'Sample B',
-                     'Set_C':'Sample C'
-                     }
+        if 'tflabels' in self.data_config:
+            data_name = {'Set_A': 'Sample A with extra transformed labels',
+                         'Set_B': 'Sample B with extra transformed labels',
+                         'Set_C': 'Sample C with extra transformed labels'
+                         }
+        else:
+            data_name = {'Set_A':'Sample A',
+                         'Set_B':'Sample B',
+                         'Set_C':'Sample C'
+                         }
+
         im_lb_pair = {}
         print('volume = {}'.format(volumes.keys()))
         
         volume_names = data_name if self.sub_dataset == 'All' \
-                       else {self.dataset:data_name[self.dataset]}
+                       else {self.sub_dataset:data_name[self.sub_dataset]}
 
         for key,vname in volume_names.iteritems():
             V = volumes[vname]
@@ -893,8 +920,8 @@ class slice_dataset(Dataset):
 
         
 class labelGenerator(object):
-    def __init__(self):
-        self.label_generator = label_transform(objSizeMap=True)
+    def __init__(self,label_config):
+        self.label_generator = label_transform(label_config=label_config)
 
     def __call__(self, *input):
         ''' set distance large enough to conver the boundary

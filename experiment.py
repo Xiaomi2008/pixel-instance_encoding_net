@@ -22,7 +22,7 @@ import matplotlib
 from matplotlib import pyplot as plt
 import pytoml as toml
 import time
-#import pdb
+import pdb
 import os
 
 class experiment_config():
@@ -45,14 +45,22 @@ class experiment_config():
              'MDUnet3D_sectionConv_mhead': hybrid_2d3d_unet_mutlihead_with_3section_conv}
 
         self.data_transform = self.data_Transform(self.data_aug_conf['transform'])
-        self.label_generator = self.label_Generator()
+       
 
 
         self.data_channel_axis = np.argmin(self.net_conf['patch_size'])
 
 
-        label_in_use = self.label_conf['labels']
+        if self.train_conf['final_loss_only'] and 'final_labels' in self.label_conf:
+            label_in_use = self.label_conf['final_labels']
+        elif 'final_labels' in self.label_conf:
+            label_in_use = list(set(self.label_conf['labels'] + self.label_conf['final_labels']))
+        elif 'final_label' in self.label_conf:
+            label_in_use = [self.label_conf['final_label']]
+        else:
+            label_in_use = self.label_conf['labels']
 
+        self.label_generator = self.label_Generator(label_in_use)
         self.train_dataset, self.valid_dataset \
             = self.dataset(self.net_conf['patch_size'], 
                            self.data_transform,
@@ -62,13 +70,15 @@ class experiment_config():
 
         # labels_in_use = ['gradient','sizemap','affinity','centermap','distance']
 
+
+        label_ch_pair_info ={'gradient':2,'sizemap':1,'affinity':1,'centermap':2,'distance':1,'skeleton':1}
+
         label_ch_pair = {}
         # data_out_labels is a dict that stores "label name" as key and # of channel for that label" as value
+        
         data_out_labels = self.train_dataset.output_labels()
-        #pdb.set_trace()
         for lb in label_in_use:
             label_ch_pair[lb] = data_out_labels[lb]
-
 
         print ('label and ch = {}'.format(label_ch_pair))
 
@@ -80,11 +90,27 @@ class experiment_config():
         self.sub_network = None
         freeze_net1 = True
         if 'sub_net' in self.conf:
+            net_1_ch_pair = {}
+            for lb in self.label_conf['labels']:
+                net_1_ch_pair[lb] = label_ch_pair_info[lb]
             subnet_model = networks[self.conf['sub_net']['model']]
-            self.sub_network = subnet_model(target_label=label_ch_pair, in_ch=in_ch)
+            self.sub_network = subnet_model(target_label=net_1_ch_pair, in_ch=in_ch)
 
             #net_model = networks[self.net_conf['model']]
             #self.network = net_model(self.sub_network, freeze_net1=self.conf['sub_net']['freeze_weight'])
+
+        #pdb.set_trace()
+
+
+        if 'final_labels' in self.label_conf:
+            net2_out_put_label=self.label_conf['final_labels']
+            net2_target_label_ch_dict= {}
+            for lb,ch in data_out_labels.iteritems():
+                if lb in net2_out_put_label:
+                    net2_target_label_ch_dict[lb] =ch
+        elif 'final_label' in self.label_conf:
+            net2_target_label_ch_dict= {}
+            net2_target_label_ch_dict['final']=data_out_labels[self.label_conf['final_label']]
 
         net_model = networks[self.net_conf['model']]
         #print(net_model)
@@ -94,11 +120,13 @@ class experiment_config():
             out_ch =24
         print('out_ch = {}'.format(out_ch))
         print('==================================================')
+        #pdb.set_trace()
         if self.net_conf['model'] in ['M2DUnet_withDilatConv','M2DUnet_withDilatConv_CLSTM_ObjOut']:
             input_lbCHs_cat_for_net2 = self.label_conf['label_catin_net2']
             self.network = net_model(self.sub_network, 
                                      freeze_net1=freeze_net1,
-                                     target_label=label_ch_pair, 
+                                     target_label=net_1_ch_pair,
+                                     net2_target_label= net2_target_label_ch_dict,
                                      label_catin_net2=input_lbCHs_cat_for_net2,
                                      in_ch=in_ch,
                                      out_ch=out_ch,
@@ -129,7 +157,10 @@ class experiment_config():
 
             label_conf['labels'] = label_conf.get('labels',
                                                   ['gradient', 'sizemap', 'affinity', 'centermap', 'distance'])
+            
             label_conf['final_label'] = label_conf.get('final_label', 'distance')
+            
+
             data_aug_conf = conf['data_augmentation']
 
             # print data_aug_conf
@@ -179,8 +210,8 @@ class experiment_config():
         print ('op_list  = {}'.format(cur_list))
         return random_transform(cur_list)
 
-    def label_Generator(self):
-        lb_gen = labelGenerator3D() if self.dataset_conf['output_3D'] else labelGenerator()
+    def label_Generator(self, label_config):
+        lb_gen = labelGenerator3D() if self.dataset_conf['output_3D'] else labelGenerator(label_config)
         return lb_gen
 
     def optimizer(self, model):
@@ -215,6 +246,8 @@ class experiment():
     def __init__(self, experiment_config):
         self.exp_cfg = experiment_config
 
+        #pdb.set_trace()
+
         self.model_saved_dir = self.exp_cfg.net_conf['model_save_dir']
         self.model_save_steps = self.exp_cfg.net_conf['model_save_step']
         self.model = self.exp_cfg.network.float()
@@ -225,9 +258,6 @@ class experiment():
             self.model = self.model.cuda()
         self.use_parallel = False
 
-        # pre_trained_iter =  self.exp_cfg.net_conf['load_train_iter']
-        # if pre_trained_iter > 0:
-        #   self.net_load_weights(pre_trained_iter)
 
         if 'sub_net' in self.exp_cfg.conf and 'trained_file' in self.exp_cfg.conf['sub_net']:
             pre_trained_file = self.exp_cfg.conf['sub_net']['trained_file']
@@ -238,6 +268,7 @@ class experiment():
         if 'trained_file' in self.exp_cfg.net_conf:
             pre_trained_file = self.exp_cfg.net_conf['trained_file']
             print('load weights from {}'.format(pre_trained_file))
+
             #if hasattr(self.model, 'set_multi_gpus'):
             #    self.model.set_multi_gpus([0,1])
             self.model.load_state_dict(torch.load(pre_trained_file))
@@ -524,9 +555,21 @@ class experiment():
             m_preds = {}
             final_lb = self.exp_cfg.label_conf['final_label']
             m_preds[final_lb] = preds['final']
-            # print preds['final'].data.shape
             fin_loss,t_masks = compute_loss_foreach_label(m_preds, targets)
             outputs['final_loss'] = fin_loss[fin_loss.keys()[0]]
+
+
+        if 'final_labels' in self.exp_cfg.label_conf and self.exp_cfg.train_conf['final_loss_only']:
+            m_preds = {}
+            final_lbs = self.exp_cfg.label_conf['final_labels']
+            for lb in final_lbs:
+                m_preds[lb]=preds[lb]
+            
+            fin_loss,_ = compute_loss_foreach_label(m_preds, targets)
+            outputs.update(fin_loss)
+
+
+
 
         loss = sum(outputs.values())
         outputs['merged_loss'] = loss

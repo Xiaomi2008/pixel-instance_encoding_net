@@ -5,13 +5,15 @@ from experiment import experiment_config, experiment
 from MaskNet_experiment import masknet_experiment, masknet_experiment_config
 from sliceConnNet_experiment import slice_connect_experiment_config,\
                              slice_connect_experiment
-#from eval_predict import predict_config, em_seg_eval
+#from eval_predict import predict_config, em_seg_eval #, em_seg_predict
 #from eval_predict_3d_slice import predict_config, em_seg_eval
 from eval_predict3D import predict_config, em_seg_predict
 from cremi.io import CremiFile
 from cremi import Annotations, Volume
 from utils.evaluation import adapted_rand, voi
 import h5py
+
+em_seg_eval =em_seg_predict
 
 def make_seg_submission(seg_valume_dict):
     submission_folder = 'submission'
@@ -45,10 +47,12 @@ def main():
         # save_eval_dist(d1,d2,t1)
 
         # return d1,d2,t1
+        #preds ={}
+        #all_dsets = ['Set_A','Set_B','Set_C']
         print('predicting ...')
         exp_cfg = predict_config(args.exp_cfg)
-        #exp_obj = em_seg_eval(exp_cfg)
-        exp_obj = em_seg_predict(exp_cfg)
+        exp_obj = em_seg_eval(exp_cfg)
+        #exp_obj = em_seg_predict(exp_cfg)
         d1,seg_t = exp_obj.eval('Set_C')
         return d1, seg_t
 
@@ -57,13 +61,26 @@ def main():
     elif args.action == 'predict':
         print('predicting ...')
         exp_cfg = predict_config(args.exp_cfg)
-        #exp_obj = em_seg_eval(exp_cfg)
-        exp_obj = em_seg_predict(exp_cfg)
-        #d1,seg_t = exp_obj.eval('Set_B')
-        d1  =exp_obj.predict('Set_B')
-        return d1, None
-        #d1,d2 =exp_obj.predict()
-        #save_prict_dist(d1,d2)
+        exp_obj = em_seg_eval(exp_cfg)
+        all_dsets = ['Set_A','Set_B','Set_C']
+        #all_dsets = ['Set_C']
+        #d1,d2,im={},{},{}
+        all_set_preds={}
+        for dset in all_dsets:
+            #pred_conn, pred_ws, img=exp_obj.predict(set_name=dset,required_outputs=['distance','final'])
+            #pdb.set_trace()
+            
+
+            #set_preds=exp_obj.predict(set_name=[dset],required_outputs=['distance','final'])
+            #set_preds=exp_obj.predict(set_name=[dset])
+            #all_set_preds[dset]=set_preds[dset]
+            
+            set_preds=exp_obj.predict(set_name=dset)
+            all_set_preds[dset]=set_preds
+        prefix =exp_cfg.dataset_conf['dataset']
+        hdf_file_name = 'tempdata/resNet3D_{}_Set.h5'.format(prefix)
+        save_predict(hdf_file_name, all_set_preds)
+        #save_prict_dist(hdf_file_name, d1,d2,im)
 
 
 
@@ -83,12 +100,19 @@ def main():
         exp_obj.train()
 
 
+def save_predict(hdf_file_name, preds):
+    h5f=h5py.File(hdf_file_name, 'w')
+    for set_name, preds in preds.iteritems():
+        for k,v in preds.iteritems():
+            h5f.create_dataset(set_name + '_'+ k, data = v)
+    h5f.close()
 
-def save_prict_dist(d1,d2):
-    h5f=h5py.File('tempdata/predict_seg_final_plus_distance.h5', 'w')
+def save_prict_dist(hdf_file_name, d1,d2, img):
+    h5f=h5py.File(hdf_file_name, 'w')
     for set_name in d1.keys():
         h5f.create_dataset(set_name + '_d1', data = d1[set_name])
         h5f.create_dataset(set_name + '_d2', data = d2[set_name])
+        h5f.create_dataset(set_name + '_img', data = d2[set_name])
     h5f.close()
 
 def save_eval_dist(d1,d2,t1):
@@ -123,7 +147,8 @@ def save_view(pred_dict,seg_t=None):
 if __name__ == '__main__':
     # configure which gpu or cpu to use
     # os.environ['CUDA_VISIBLE_DEVICES'] = '8'
-    main()
+    d1,seg_t =main()
+    pdb.set_trace()
     # pred_dict,seg_t=main()
     # from utils.utils import watershed_seg,evalute_pred_dist_with_threshold
     # input_d =pred_dict['distance3D'][0]

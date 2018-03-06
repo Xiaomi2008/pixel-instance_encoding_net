@@ -1,21 +1,23 @@
 [network]
 model = 'MDUnet_FullDilat'
 model_save_dir = 'model'
-load_train_iter = 0
+#load_train_iter = 0
 #trained_file  = 'model/MdecoderUnetDilatConv_in_3_chs_Dataset-CRIME-All_affinity-sizemap-centermap-distance-gradient_VFlip-HFlip-Rot90_iter_155049.model'
 #trained_file = 'model/MdecoderUnetDilatConv_in_3_chs_Dataset-CRIME-All_affinity-centermap-distance-gradient_VFlip-HFlip-Rot90_patch =[320, 320, 3]_iter_83699.model'
 #trained_file ='model/MdecoderUnetDilatConv_in_3_chs_Dataset-CRIME-All_affinity-centermap-distance-skeleton-gradient_VFlip-HFlip-Rot90_patch =[320, 320, 3]_iter_11099.model'
 #trained_file  ='model/MdecoderUnetDilatConv_in_3_chs_Dataset-CRIME-All_affinity-centermap-distance-skeleton-gradient_VFlip-HFlip-Rot90_patch =[320, 320, 3]_iter_56399.model'
+#trained_file='model/MdecoderUnetFullDilatConv_in_3_chs_Dataset-CRIME-All_affinity-centermap-distance-skeleton-gradient_VFlip-HFlip-Rot90_patch =[320, 320, 3]_iter_599.model'
+trained_file='model/MdecoderUnetFullDilatConv_in_3_chs_Dataset-CRIME-All_affinity-centermap-distance-skeleton-gradient_VFlip-HFlip-Rot90-NRot90_patch =[480, 480, 3]_iter_19199.model'
 model_save_step = 300
-batch_size      = 5
-patch_size      = [320,320,3]
+batch_size      = 4
+patch_size      = [480,480,3]
 use_gpu         = true
 
 
 [train]
 final_loss_only = false
 learning_rate   = 0.01
-tensorboard_folder = 'runs_train2D/Fulldialet_mnet_3ch_320_320_grad_and_weighted_tchick_skeleton'
+tensorboard_folder = 'runs_train2D/Fulldialet_mnet_3ch_480_480_grad_and_weighted_tchick_skeleton'
 optimizer = 'Adagrad'
 #option{'SGD','Adagrad','Adam'}
 
@@ -39,4 +41,5 @@ sub_dataset = 'All'
 [data_augmentation]
  transform =['vflip',
             'hflip',
-            'rot90']
+            'rot90',
+            'nrot90']
